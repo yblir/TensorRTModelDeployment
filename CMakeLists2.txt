@@ -1,0 +1,17 @@
+cmake_minimum_required(VERSION 3.22)
+project(FaceFeatureDetector_rebuild)
+
+set(CMAKE_CXX_STANDARD 17)
+
+include_directories(
+        .
+        product/face_recognition/interface
+        product/face_recognition/c_interface
+        common/base64
+        common/file_base
+        /usr/local/cuda/include/
+        /usr/local/include/opencv4/
+)
+
+add_executable(FaceFeatureDetector_rebuild main.cpp interface/face_interface.cpp interface/face_interface.h ai_product_result.cpp ai_product_result.h interface/struct_data_type.h)
+target_link_libraries(${PROJECT_NAME} /opt/rh/devtoolset-8/root/usr/lib/gcc/x86_64-redhat-linux/8/libstdc++fs.a)
