@@ -11,26 +11,20 @@
 #include <opencv2/opencv.hpp>
 //#include <dirent.h>
 
-#include "interface/face_interface.h"
-//#include "file_base.h"
-#include "algorithm_product/YoloFace.h"
-#include "algorithm _factory/struct_data_type.h"
-#include "algorithm_product/product.h"
-#include "utils/general.h"
+# include "interface/face_interface.h"
+#include "file_base.h"
 
 #define HAVE_FACE_RETINA
 #define HAVE_FACE_FEATURE
 
-//遍历文件夹,返回图片名
 void getImgFromDir(const std::filesystem::path &inputDir, std::vector<std::string> &out) {
     std::filesystem::directory_iterator dirList(inputDir);
     for (auto &it: dirList) {
         std::string suffix = std::filesystem::path(it).extension();
-        if (suffix == ".jpg" || suffix == ".jpeg" || suffix == ".png")
+        if (suffix == ".jpg" || suffix == ".jpeg" || suffix == ".png" || suffix == ".jfif")
             out.push_back(it.path().string());
     }
 }
-
 
 int main(int argc, char *argv[]) {
     /*
@@ -38,40 +32,35 @@ int main(int argc, char *argv[]) {
     *argv: 字符数组,记录输入的参数.可执行文件总在0号位,作为一个参数
     */
     // 判断参数个数, 若不为3,终止程序
-    auto timer=new Timer();
-
     if (argc != 3) {
         std::cout << " the number of param is incorrect, must be 3, but now is " << argc << std::endl;
         std::cout << "param format is ./AiSdkDemo [gpu_id] [img_dir_path]" << std::endl;
         return -1;
     }
-    // =====================================================================
-    struct productConfig product;
-//    YoloFace yoloFace;
-    product.yoloFace->conf2.batchSize = 2;
-    Handle engine;
-    int ret = initEngine(engine, product);
-    std::cout << "init ok !" << std::endl;
-    // =====================================================================
+    FaceTotalConfig conf;
 
+    //初始化引擎
+    Handle engine;
+    int ret = initEngine(engine, &conf);
     if (ret != 0)
         return ret;
 
-    product.yoloFace->conf2.onnxPath = "./models/face_yolo_trt/face_detect_v0.5.0_6dca99de68468ca8908e3353dda2b546.onnx";
-//    strcpy(conf.featureConf.modelFile, "./models/face_feature_trt/face_extract_4.0_ca4e02bff65214a019328c75a3240976.onnx");
-//    strcpy(conf.poseConf.modelFile, "./models/face_pose_trt/face_pose_v1.4_a77b7d431cf0c22cf60c19267ca187e2.onnx");
-//    strcpy(conf.qualityConf.model_file, "./models/face_quality_trt/face_extreme_v0.4_e89bcd21685c6b49e90845aba84ba3ae.onnx");
-//    strcpy(conf.sharpnessConf.modelFile, "./models/face_sharpness_trt/face_sharpness_v0.1_5c32810f754c81d1ce3ea0b403032d54.onnx");
-    product.yoloFace->conf2.gpuId = int(strtol(argv[1], nullptr, 10));
+    strcpy(conf.retinaConf.modelFile, "./models/face_yolo_trt/face_detect_v0.5.0_6dca99de68468ca8908e3353dda2b546.onnx");
+    strcpy(conf.featureConf.modelFile, "./models/face_feature_trt/face_extract_4.0_ca4e02bff65214a019328c75a3240976.onnx");
+    strcpy(conf.poseConf.modelFile, "./models/face_pose_trt/face_pose_v1.4_a77b7d431cf0c22cf60c19267ca187e2.onnx");
+    strcpy(conf.qualityConf.model_file, "./models/face_quality_trt/face_extreme_v0.4_e89bcd21685c6b49e90845aba84ba3ae.onnx");
+    strcpy(conf.sharpnessConf.modelFile, "./models/face_sharpness_trt/face_sharpness_v0.1_5c32810f754c81d1ce3ea0b403032d54.onnx");
 
-//    conf.score_sface_thresh = 0.9f;
+    conf.bitQualityType = 0x3f;     // 这是在干嘛 ?
+    conf.deviceId = int(strtol(argv[1], nullptr, 10));
+    conf.score_sface_thresh = 0.9f;
 
     //创建输出文件夹
     std::string path1 = std::string(argv[2]) + "/";
-//    std::string path2 = path1 + "output/";
+    std::string path2 = path1 + "output/";
 
     std::filesystem::path imgInputDir(path1);
-    std::filesystem::path imgOutputDir(path1 + "output/");
+    std::filesystem::path imgOutputDir(path2);
     //检查文件夹路径是否合法, 检查输出文件夹路径是否存在,不存在则创建
     // 输入不是文件夹,或文件不存在抛出异常
     if (!std::filesystem::exists(imgInputDir) || !std::filesystem::is_directory(imgInputDir))
@@ -79,11 +68,14 @@ int main(int argc, char *argv[]) {
     //创建输出文件夹
     if (!std::filesystem::exists(imgOutputDir)) std::filesystem::create_directories(imgOutputDir);
 
+
+    std::cout << "init ok !" << std::endl;
+
     std::vector<std::string> out;
     getImgFromDir(imgInputDir, out);
 
     double interTime = 0.0f;
-    auto t1 = Timer::curTimePoint();
+    std::chrono::system_clock::time_point t1;
 
     for (auto &it: out) {
         cv::Mat img = cv::imread(it);

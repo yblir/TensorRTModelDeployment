@@ -20,6 +20,7 @@ public:
 
     //不加参数时,统计timeStart()开始后的耗时
     double timeCount();
+
     //加时间点参数, 统计与curTimePoint()对应的时间点
     double timeCount(const std::chrono::system_clock::time_point &t1);
 

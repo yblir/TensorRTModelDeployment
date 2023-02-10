@@ -5,7 +5,7 @@
 #include "AlgorithmFactory.h"
 
 bool AlgorithmFactory::buildEngine(const std::string &onnxFilePath,const std::string &saveEnginePath) {
-    if (fileExist("yolov5s.trt")) {
+    if (fileExist(onnxFilePath)) {
         printf("yolov5s.trt has exist.\n");
         return true;
     }
@@ -59,4 +59,13 @@ bool AlgorithmFactory::buildEngine(const std::string &onnxFilePath,const std::st
 
     printf("build done \n");
     return true;
+}
+
+
+bool AlgorithmFactory::loadEngine(const std::string &engineFilePath) {
+    return false;
+}
+
+bool AlgorithmFactory::loadAlgorithmSo(const std::string &soPath) {
+    return 0;
 }

@@ -3,6 +3,8 @@
 cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 # 工程名tensorRT_Pro, 支持语言是cuda和c++
 project(tensorRT_Pro)
+
+set(CMAKE_CXX_STANDARD 17)
 # -O0:编译时不优化代码 -fPIC:产生的代码中，没有绝对地址，全部使用相对地址
 # std=c++11 -Wall: 编译后显示所有警告 -g: 使用gcc生成调试信息 -pthrad: 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -O0 -fPIC -pthread -g -std=c++11")
@@ -43,7 +45,7 @@ set(i2 /usr/local/TensorRT-8.5.1.7/targets/x86_64-linux-gnu/lib/libnvinfer.so)
 link_directories()
 
 # 定义了这个工程会生成一个文件名为run 的可执行文件，相关的源文件是mian.cpp
-add_executable(run main_test.cpp)
+add_executable(run main_test.cpp utils/general.h utils/general.cpp algorithm_product/YoloFace.cpp algorithm_product/YoloFace.h algorithm_product/product.h)
 
 # 为库或二进制可执行文件添加库链接，要用在add_executable之后,target是指通
 # 过add_executable()和add_library()指令生成已经创建的目标文件run

@@ -15,22 +15,17 @@
 #include <NvInferRuntime.h>
 #include <cuda_runtime.h>
 
+
 class AlgorithmFactory {
 public:
     AlgorithmFactory() = default;
     virtual ~AlgorithmFactory() = default;
-    /*
-    *   @brief                  按照给定配置文件初始化Ai基础算法
-    *   @param cfg_file         ai基础算法所需要的配置文件
-    *   @return                 成功返回0；失败返回对应错误码
-    */
-    virtual int FAImgAlgInit(std::string& cfg_file) = 0;
 
     /*
     *   @brief                  利用算法提供的配置结构初始化Ai基础算法，配置结构由具体算法各自定义
     *   @return                 成功返回0；失败返回对应错误码
     */
-    virtual int FAImgAlgInit(void* param) = 0;
+    virtual int initParam(void* param) = 0;
 
     /*
     *   @brief                  图像算法推理（普通模式）
@@ -39,11 +34,12 @@ public:
     *   @param res_count        ai算法推理输出的结果数
     *   @return                 成功返回0；失败返回对应错误码
     */
-    virtual int FAImgAlgInfer(const FAImgAlgInputBase_t* frame, FAImgAlgOutputBase_t* result) = 0;
-    //构建引擎文件,并保存到硬盘
+    virtual int FAImgAlgInfer() = 0;
+    //构建引擎文件,并保存到硬盘, 所有模型构建引擎文件方法都一样,如果加自定义层,继承算法各自实现
     bool buildEngine(const std::string & onnxFilePath,const std::string &saveEnginePath);
     //加载引擎到gpu,准备推理.
     bool loadEngine(const std::string &engineFilePath);
-private:
-    void *m_pfactory;
+    //加载算法so文件
+    static bool loadAlgorithmSo(const std::string& soPath);
+
 };
