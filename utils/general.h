@@ -4,11 +4,16 @@
 //统计耗时的类
 #include <iostream>
 #include <chrono>
+#include <vector>
+#include <filesystem>
 
 #ifndef INFERCODES_TIMER_H
 #define INFERCODES_TIMER_H
 
 #endif //INFERCODES_TIMER_H
+
+//传入输入图片文件夹路径, 和空字符串vector,返回vector,存储文件夹中所有所有图片路径
+void getImageAbsPath(const std::filesystem::path &inputDir, std::vector<std::string> &out);
 
 //记录程序耗时
 class Timer {
@@ -27,4 +32,10 @@ public:
 private:
     std::chrono::system_clock::time_point startPoint;
     std::chrono::duration<double> useTime;
+};
+
+// 与tensorRT引擎有关的通用工具类
+class TensorRTEngine {
+public:
+
 };

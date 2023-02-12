@@ -26,5 +26,13 @@ double Timer::timeCount(const std::chrono::system_clock::time_point &t1) {
     return useTime.count() * 1000;
 }
 
-
+//遍历文件夹,返回图片名
+void getImageAbsPath(const std::filesystem::path &inputDir, std::vector<std::string> &out) {
+    std::filesystem::directory_iterator dirPath(inputDir);
+    for (auto &it: dirPath) {
+        std::string suffix = std::filesystem::path(it).extension();
+        if (suffix == ".jpg" || suffix == ".jpeg" || suffix == ".png")
+            out.push_back(it.path().string());
+    }
+}
 

@@ -10,6 +10,7 @@
 
 #endif //FACEFEATUREDETECTOR_REBUILD_STRUCT_FACE_FIELD_H
 //图片像素排列类型枚举类型
+#pragma once
 enum PixelFormat {
     // 暂时只支持B8G8R8像素排列的图片
     FAS_PF_RGB24_B8G8R8 = 0
@@ -35,6 +36,9 @@ struct YoloFaceConfig: public ConfigBase{
     bool useRefine = true;     //!> 是否需要图像旋转 true: 使用旋转优化检测 false: 不使用旋转正常检测
 };
 
+struct outputBase{
+
+};
 
 ////人脸姿态评估配置
 //struct FacePoseConfig {

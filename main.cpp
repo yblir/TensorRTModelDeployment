@@ -14,22 +14,12 @@
 #include "interface/face_interface.h"
 //#include "file_base.h"
 #include "algorithm_product/YoloFace.h"
-#include "algorithm _factory/struct_data_type.h"
+#include "algorithm_factory/struct_data_type.h"
 #include "algorithm_product/product.h"
 #include "utils/general.h"
 
 #define HAVE_FACE_RETINA
 #define HAVE_FACE_FEATURE
-
-//遍历文件夹,返回图片名
-void getImgFromDir(const std::filesystem::path &inputDir, std::vector<std::string> &out) {
-    std::filesystem::directory_iterator dirList(inputDir);
-    for (auto &it: dirList) {
-        std::string suffix = std::filesystem::path(it).extension();
-        if (suffix == ".jpg" || suffix == ".jpeg" || suffix == ".png")
-            out.push_back(it.path().string());
-    }
-}
 
 
 int main(int argc, char *argv[]) {
@@ -42,21 +32,23 @@ int main(int argc, char *argv[]) {
 
     if (argc != 3) {
         std::cout << " the number of param is incorrect, must be 3, but now is " << argc << std::endl;
-        std::cout << "param format is ./AiSdkDemo [gpu_id] [img_dir_path]" << std::endl;
+        std::cout << "param format is ./AiSdkDemo gpu_id img_dir_path" << std::endl;
         return -1;
     }
+
     // =====================================================================
-    struct productConfig product;
+    struct productConfig product{};
 //    YoloFace yoloFace;
-    product.yoloFace->conf2.batchSize = 2;
+    product.yoloFace->conf2.batchSize = 1;
     Handle engine;
+
     int ret = initEngine(engine, product);
     std::cout << "init ok !" << std::endl;
     // =====================================================================
 
     if (ret != 0)
         return ret;
-
+/*
     product.yoloFace->conf2.onnxPath = "./models/face_yolo_trt/face_detect_v0.5.0_6dca99de68468ca8908e3353dda2b546.onnx";
 //    strcpy(conf.featureConf.modelFile, "./models/face_feature_trt/face_extract_4.0_ca4e02bff65214a019328c75a3240976.onnx");
 //    strcpy(conf.poseConf.modelFile, "./models/face_pose_trt/face_pose_v1.4_a77b7d431cf0c22cf60c19267ca187e2.onnx");
@@ -80,7 +72,7 @@ int main(int argc, char *argv[]) {
     if (!std::filesystem::exists(imgOutputDir)) std::filesystem::create_directories(imgOutputDir);
 
     std::vector<std::string> out;
-    getImgFromDir(imgInputDir, out);
+    getImageAbsPath(imgInputDir, out);
 
     double interTime = 0.0f;
     auto t1 = Timer::curTimePoint();
@@ -102,40 +94,41 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
-        if (faceNum > 0)  // ???
-            resPtr = new FaceResult[faceNum];
+//        if (faceNum > 0)  // ???
+//            resPtr = new FaceResult[faceNum];
         getResults(engine, faceNum, resPtr);
 
         //输出推理结果
-        for (int i = 0; i < faceNum; ++i) {
-            float x1 = resPtr[i].x1, y1 = resPtr[i].y1, x2 = resPtr[i].x2, y2 = resPtr[i].y2;
-            float confidence = resPtr[i].confidence;
-            float angleP = resPtr[i].angleP, angleR = resPtr[i].angleR, angleY = resPtr[i].angleY;
-            float landmark[10];
-            for (int j = 0; j < 10; ++j)
-                landmark[j] = resPtr[i].landmark[j];
-
-            int qualityType = resPtr[i].qualityType;
-            float qualityScore = resPtr[i].qualityScore;
-
-            std::cout << "=============face num " << i + 1 << "==============" << std::endl;
-            std::cout << "rect = (" << x1 << ", " << y1 << ", " << x2 << ", " << y2 << ")" << std::endl;
-            std::cout << "confidence = " << confidence << std::endl;
-            std::cout << "angle(p,r,y) = (" << angleP << ", " << angleR << ", " << angleY << ")" << std::endl;
-            std::cout << "quality_type = " << qualityType << std::endl;
-            std::cout << "quality_score = " << qualityScore << std::endl;
-
-            std::cout << "landmark = ";
-            for (float j: landmark) std::cout << j << ", ";
-
-            std::cout << "feature = ";
-            for (float j: resPtr[i].feature) std::cout << j << ", ";
-
-            std::cout << std::endl;
-
-            delete[] resPtr, resPtr = nullptr;
-        }
+//        for (int i = 0; i < faceNum; ++i) {
+//            float x1 = resPtr[i].x1, y1 = resPtr[i].y1, x2 = resPtr[i].x2, y2 = resPtr[i].y2;
+//            float confidence = resPtr[i].confidence;
+//            float angleP = resPtr[i].angleP, angleR = resPtr[i].angleR, angleY = resPtr[i].angleY;
+//            float landmark[10];
+//            for (int j = 0; j < 10; ++j)
+//                landmark[j] = resPtr[i].landmark[j];
+//
+//            int qualityType = resPtr[i].qualityType;
+//            float qualityScore = resPtr[i].qualityScore;
+//
+//            std::cout << "=============face num " << i + 1 << "==============" << std::endl;
+//            std::cout << "rect = (" << x1 << ", " << y1 << ", " << x2 << ", " << y2 << ")" << std::endl;
+//            std::cout << "confidence = " << confidence << std::endl;
+//            std::cout << "angle(p,r,y) = (" << angleP << ", " << angleR << ", " << angleY << ")" << std::endl;
+//            std::cout << "quality_type = " << qualityType << std::endl;
+//            std::cout << "quality_score = " << qualityScore << std::endl;
+//
+//            std::cout << "landmark = ";
+//            for (float j: landmark) std::cout << j << ", ";
+//
+//            std::cout << "feature = ";
+//            for (float j: resPtr[i].feature) std::cout << j << ", ";
+//
+//            std::cout << std::endl;
+//
+//            delete[] resPtr, resPtr = nullptr;
+//        }
         releaseEngine(engine);
     }
+    */
     return 0;
 }

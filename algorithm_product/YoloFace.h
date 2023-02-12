@@ -7,9 +7,9 @@
 
 #endif //TENSORRT_PRO_YOLOFACE_H
 
-#include "../algorithm _factory/AlgorithmFactory.h"
-#include "../algorithm _factory/struct_data_type.h"
-
+#include "../algorithm_factory/factory.h"
+#include "../algorithm_factory/struct_data_type.h"
+#pragma once
 class YoloFace : public AlgorithmFactory {
 public:
     ~YoloFace() override;

@@ -8,7 +8,7 @@
 #endif //TENSORRT_PRO_PRODUCT_H
 
 #include "../algorithm_product/YoloFace.h"
-
+#pragma once
 struct productConfig {
     YoloFace *yoloFace;
 };
