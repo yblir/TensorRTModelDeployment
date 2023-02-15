@@ -1,45 +1,69 @@
 //
 // Created by Administrator on 2023/1/12.
 //
-#include <opencv2/opencv.hpp>
-//#include "base_interface/ai_img_alg_base.h"
-//#include "../algorithm_product/YoloFace.h"
-
 #ifndef FACEFEATUREDETECTOR_REBUILD_STRUCT_FACE_FIELD_H
 #define FACEFEATUREDETECTOR_REBUILD_STRUCT_FACE_FIELD_H
 
-#endif //FACEFEATUREDETECTOR_REBUILD_STRUCT_FACE_FIELD_H
+//编译用的头文件
+//#include <NvInfer.h>
+//onnx解释器头文件
+//#include <NvOnnxParser.h>
+//推理用的运行时头文件
+#include <NvInferRuntime.h>
+//#include <cuda_runtime.h>
+
+#include <opencv2/opencv.hpp>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 //图片像素排列类型枚举类型
-#pragma once
 enum PixelFormat {
     // 暂时只支持B8G8R8像素排列的图片
     FAS_PF_RGB24_B8G8R8 = 0
 };
 // 单张方式输入图片信息接口基础结构，各算法可根据需要继承此结构扩展自己的输入结构
-struct InputDataBase {
-    cv::Mat image;
-};
+//struct InputDataBase {
+//    cv::Mat image;
+//};
 
 //配置文件基类,自定义配置文件
 struct ConfigBase {
     int gpuId = 0;
     std::string onnxPath;
     std::string enginePath;
-    int batchSize;
-    bool useFp16= false;
+    int batchSize = 1;
+    bool useFp16 = false;
+    std::shared_ptr<nvinfer1::ICudaEngine> engine;
+    // 推理时需要指定的输入输出节点名
+    std::string inputName;
+    std::string outputName;
 };
 
 //人脸检测配置
-struct YoloFaceConfig: public ConfigBase{
+struct YoloFaceConfig : public ConfigBase {
     float scoreThresh = 0.5;   //!> 人脸框检测置信度阈值
     float iouThresh = 0.3;     //!> 人脸框IOU阈值
     bool useRefine = true;     //!> 是否需要图像旋转 true: 使用旋转优化检测 false: 不使用旋转正常检测
 };
 
-struct outputBase{
+struct YoloDetectConfig : public ConfigBase {
+    float scoreThresh = 0.5;   //!> 得分阈值
+    float iouThresh = 0.3;     //!> iou框阈值
+};
+
+struct outputBase {
 
 };
 
+struct YoloFaceOutput : public outputBase {
+
+};
+
+struct TestSet {
+    YoloFaceConfig yoloFace;
+};
 ////人脸姿态评估配置
 //struct FacePoseConfig {
 //    //模型文件路径
@@ -149,5 +173,9 @@ struct YoloFaceInput {
     int minFaceSize = 20;        //!> 人脸最小过滤尺寸
     int mode = 1;                //!> 默认多人脸模式， 1： 多人脸 ， 0：单人脸
 };
+#ifdef __cplusplus
+}
+#endif
 
 
+#endif //FACEFEATUREDETECTOR_REBUILD_STRUCT_FACE_FIELD_H

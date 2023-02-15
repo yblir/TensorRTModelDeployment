@@ -1,11 +1,9 @@
 //
 // Created by 12134 on 2023/2/9.
 //
-#ifndef INFERCODES_ALGORITHMFACTORY_H
-#define INFERCODES_ALGORITHMFACTORY_H
-#pragma once
+#ifndef INFERCODES_AlgorithmBase_H
+#define INFERCODES_AlgorithmBase_H
 
-#endif //INFERCODES_ALGORITHMFACTORY_H
 // 所有待加速部署的模型,都继承工厂类,依据实际需求各自实现自己的代码
 #include <iostream>
 #include <istream>
@@ -71,10 +69,11 @@ public:
     }
 };
 
-class AlgorithmFactory {
+
+class AlgorithmBase {
 public:
-    AlgorithmFactory() = default;
-    virtual ~AlgorithmFactory() = default;
+    AlgorithmBase() = default;
+    virtual ~AlgorithmBase() = default;
 
     /*
     *   @brief                  利用算法提供的配置结构初始化Ai基础算法，配置结构由具体算法各自定义
@@ -82,25 +81,31 @@ public:
     */
     virtual int initParam(void *param) = 0;
 
-    // 图片预处理
-    virtual int preProcess(std::vector<cv::Mat &> inputImages) = 0;
+    // 图片预处理 todo 为何不能传引用
+    virtual int preProcess(std::vector<cv::Mat> inputImages) = 0;
     // 图片后处理
-    virtual int postProcess(std::vector<cv::Mat &> outputs) = 0;
+    virtual int postProcess(struct outputBase &result) = 0;
 
     // 推理内存中图片
-    virtual int inferImages(const std::vector<cv::Mat> &inputImages, FaYolofaceBatchOutput_t &result) = 0;
+    virtual int inferImages(const std::vector<cv::Mat> &inputImages, struct outputBase &result) = 0;
     // 推理gpu中图片
-    virtual int inferGpuImages(const std::vector<cv::cuda::GpuMat> &inputImages, FaYolofaceBatchOutput_t &result) = 0;
+    virtual int inferGpuImages(const std::vector<cv::cuda::GpuMat> &inputImages, struct outputBase &result) = 0;
 
     // ================================================================================
-    // 获得引擎名字
-    static std::string getEngineName(struct ConfigBase &conf);
+    // 获得引擎名字, conf: 对应具体实现算法的结构体引用
+    static std::string getEnginePath(const struct ConfigBase &conf);
     //构建引擎文件,并保存到硬盘, 所有模型构建引擎文件方法都一样,如果加自定义层,继承算法各自实现
     static bool buildEngine(const std::string &onnxFilePath, const std::string &saveEnginePath, int maxBatch);
     //加载引擎到gpu,准备推理.
     static std::vector<unsigned char> loadEngine(const std::string &engineFilePath);
-
+    // 创建推理engine
+    static std::shared_ptr<nvinfer1::ICudaEngine> createEngine(const std::vector<unsigned char> &engineFile);
     //加载算法so文件
-    static bool loadDynamicLibrary(const std::string &soPath);
+    static AlgorithmBase *loadDynamicLibrary(const std::string &soPath);
 
 };
+
+typedef AlgorithmBase *(*AlgorithmCreate)();
+
+
+#endif //INFERCODES_AlgorithmBase_H

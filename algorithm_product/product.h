@@ -1,14 +1,24 @@
 //
-// Created by Administrator on 2023/2/10.
+// Created by Administrator on 2023/2/15.
 //
 
 #ifndef TENSORRT_PRO_PRODUCT_H
 #define TENSORRT_PRO_PRODUCT_H
 
-#endif //TENSORRT_PRO_PRODUCT_H
+#include "../algorithm_factory/struct_data_type.h"
+#include "../algorithm_factory/factory.h"
 
-#include "../algorithm_product/YoloFace.h"
-#pragma once
+//接受从外部传入的配置参数,并传递给算法
 struct productConfig {
-    YoloFace *yoloFace;
+    YoloFaceConfig yoloConfig;
+    YoloDetectConfig detectConfig;
 };
+
+
+// 从so动态库接受实现的算法函数调用,所有算法实现都共同基类AlgorithmBase
+struct productFunc {
+    AlgorithmBase *yoloFace;
+    AlgorithmBase *yoloDetect;
+};
+
+#endif //TENSORRT_PRO_PRODUCT_H

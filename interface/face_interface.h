@@ -1,22 +1,20 @@
 //
 // Created by Administrator on 2023/1/9.
 //
+#ifndef FACEFEATUREDETECTOR_REBUILD_FACE_INTERFACE_H
+#define FACEFEATUREDETECTOR_REBUILD_FACE_INTERFACE_H
+#include <NvInferRuntime.h>
 #include <opencv2/opencv.hpp>
 //#include "struct_data_type.h"
 //#include "base_interface/ai_img_alg_base.h"
-#include "../algorithm_product/YoloFace.h"
+//#include "../algorithm_product/YoloFace.h"
 #include "../algorithm_product/product.h"
-
-#ifndef FACEFEATUREDETECTOR_REBUILD_FACE_INTERFACE_H
-#define FACEFEATUREDETECTOR_REBUILD_FACE_INTERFACE_H
-
-#endif //FACEFEATUREDETECTOR_REBUILD_FACE_INTERFACE_H
 
 
 using Handle = void *;
 
 
-int initEngine(Handle &engine, struct  productConfig &conf);
+int initEngine(struct productConfig &conf, struct productFunc &func);
 int releaseEngine(Handle engine);
 
 /*
@@ -33,7 +31,7 @@ int releaseEngine(Handle engine);
 *   @return                 成功返回0；失败返回对应错误码
 */
 int inferEngine(Handle engine, unsigned char *imgData, int imgWidth,
-                int imgHeight, int min_face_size, int mode, PixelFormat imgPixelFormat, int &res_num);
+                int imgHeight, int min_face_size, int mode, int imgPixelFormat, int &res_num);
 
 /*
 *   @brief                  获取人脸特征提取结果
@@ -42,3 +40,5 @@ int inferEngine(Handle engine, unsigned char *imgData, int imgWidth,
 *   @return                 成功返回0；失败返回对应错误码
 */
 int getResults(Handle engine, int res_num, struct FaceResult *res_ptr);
+
+#endif //FACEFEATUREDETECTOR_REBUILD_FACE_INTERFACE_H

@@ -36,3 +36,22 @@ void getImageAbsPath(const std::filesystem::path &inputDir, std::vector<std::str
     }
 }
 
+//bgr转rgb,并归一化
+void BGR2RGB(const cv::Mat &image, float *pinInput) {
+    int imageArea = image.cols * image.rows;
+    unsigned char *pImage = image.data;
+
+    float *channelB = pinInput + imageArea * 0;
+    float *channelG = pinInput + imageArea * 1;
+    float *channelR = pinInput + imageArea * 2;
+
+    for (int i = 0; i < imageArea; ++i, pImage += 3) {
+        // 注意这里的顺序rgb调换了
+        *channelR++ = pImage[0] / 255.0f;
+        *channelG++ = pImage[1] / 255.0f;
+        *channelB++ = pImage[2] / 255.0f;
+//        *channelR++ = pImage[0];
+//        *channelG++ = pImage[1];
+//        *channelB++ = pImage[2];
+    }
+}

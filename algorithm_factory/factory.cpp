@@ -4,9 +4,8 @@
 
 #include "factory.h"
 
-
 //构建引擎
-bool AlgorithmFactory::buildEngine(const std::string &onnxFilePath, const std::string &saveEnginePath, int maxBatch) {
+bool AlgorithmBase::buildEngine(const std::string &onnxFilePath, const std::string &saveEnginePath, int maxBatch) {
     //检查待转换的onnx文件是否存在
     if (!std::filesystem::exists(onnxFilePath)) {
         std::cout << "path not exist: " << onnxFilePath << std::endl;
@@ -14,11 +13,12 @@ bool AlgorithmFactory::buildEngine(const std::string &onnxFilePath, const std::s
     }
 
     TRTLogger logger;
+    uint32_t flag = 1U << static_cast<uint32_t> (nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
 
-    //1 基本组件
+    //1 基本组件, 不想麻烦就就全部写成auto类型~
     auto builder = prtFree(nvinfer1::createInferBuilder(logger));
     auto config = prtFree(builder->createBuilderConfig());
-    auto network = prtFree(builder->createNetworkV2(1));
+    std::shared_ptr<nvinfer1::INetworkDefinition> network = prtFree(builder->createNetworkV2(flag));
 
     //2 通过onnxparser解析器的结果,填充到network中,类似addconv的方式添加进去
     auto parser = prtFree(nvonnxparser::createParser(*network, logger));
@@ -29,7 +29,8 @@ bool AlgorithmFactory::buildEngine(const std::string &onnxFilePath, const std::s
 
     //3 设置最大工作缓存
     printf("Workspace Size = %.2f MB\n", (1 << 28) / 1024.0f / 1024.0f);
-    config->setMaxWorkspaceSize(1 << 28);
+    config->setMemoryPoolLimit(nvinfer1::MemoryPoolType::kWORKSPACE, 1U << 28);
+
 
     //4 若模型有多个输入,必须使用多个profile,好在一般情况想下都是1
     auto profile = builder->createOptimizationProfile();
@@ -46,48 +47,50 @@ bool AlgorithmFactory::buildEngine(const std::string &onnxFilePath, const std::s
     config->addOptimizationProfile(profile);
 
     //5 直接序列化推理引擎
-    auto engine = prtFree(builder->buildSerializedNetwork(*network, *config));
-    if (nullptr == engine) {
+    std::shared_ptr<nvinfer1::IHostMemory> serializedModel = prtFree(builder->buildSerializedNetwork(*network, *config));
+    if (nullptr == serializedModel) {
         printf("build engine failed\n");
         return false;
     }
 
     //6 将推理引擎序列化,存储为文件
     auto *f = fopen(saveEnginePath.c_str(), "wb");
-    fwrite(engine->data(), 1, engine->size(), f);
+    fwrite(serializedModel->data(), 1, serializedModel->size(), f);
     fclose(f);
 
     printf("build and save engine success \n");
+
     return true;
 }
 
 
-bool AlgorithmFactory::loadDynamicLibrary(const std::string &soPath) {
+AlgorithmBase *AlgorithmBase::loadDynamicLibrary(const std::string &soPath) {
     // todo 这里,要判断soPath是不是合法. 并且是文件名时搜索路径
     printf("load dynamic lib: %s\n", soPath.c_str());
-    auto m_pDllHandle = dlopen(soPath.c_str(), RTLD_NOW);
-    if (!m_pDllHandle) {
-        printf("open dll error: %s \n",dlerror());
-        return -1;
+    auto soHandle = dlopen(soPath.c_str(), RTLD_NOW);
+    if (!soHandle) {
+        printf("open dll error: %s \n", dlerror());
+        return nullptr;
     }
     //找到符号Make_Collector的地址
-    void *void_ptr = dlsym(m_pDllHandle, "Make_Algorithm");
+    void *void_ptr = dlsym(soHandle, "MakeAlgorithm");
     char *error = dlerror();
     if (nullptr != error) {
         printf("dlsym error:%s\n", error);
-        return -1;
+        return nullptr;
     }
-    ptrdiff_t tmp = reinterpret_cast<ptrdiff_t> (void_ptr);
-    FAAlg_Creator clct = reinterpret_cast< FAAlg_Creator >(tmp);
-    if (0 == clct) {
-        return null;
+    auto tmp = reinterpret_cast<ptrdiff_t> (void_ptr);
+    auto clct = reinterpret_cast< AlgorithmCreate >(tmp);
+
+    if (nullptr == clct) {
+        return nullptr;
     }
 
     return clct();
 }
 
 //从硬盘加载引擎文件到内存
-std::vector<unsigned char> AlgorithmFactory::loadEngine(const std::string &engineFilePath) {
+std::vector<unsigned char> AlgorithmBase::loadEngine(const std::string &engineFilePath) {
     //检查engine文件是否存在
     if (!std::filesystem::exists(engineFilePath)) {
         std::cout << "path not exist: " << engineFilePath << std::endl;
@@ -112,7 +115,7 @@ std::vector<unsigned char> AlgorithmFactory::loadEngine(const std::string &engin
     return data;
 }
 
-std::string AlgorithmFactory::getEngineName(struct ConfigBase &conf) {
+std::string AlgorithmBase::getEnginePath(const struct ConfigBase &conf) {
     int num;
     // 检查指定编号的显卡是否正常
     cudaError_t cudaStatus = cudaGetDeviceCount(&num);
@@ -121,8 +124,8 @@ std::string AlgorithmFactory::getEngineName(struct ConfigBase &conf) {
         return "";
     }
 
-    cudaDeviceProp prop;
-    std::string gpuName, engineName;
+    cudaDeviceProp prop{};
+    std::string gpuName, enginePath;
     // 获取显卡信息
     cudaStatus = cudaGetDeviceProperties(&prop, conf.gpuId);
 
@@ -137,8 +140,28 @@ std::string AlgorithmFactory::getEngineName(struct ConfigBase &conf) {
 
     std::string strFp16 = conf.useFp16 ? "Fp16" : "Fp32";
 
-    // 拼接待构建或加载的引擎名
-    engineName = conf.onnxPath.substr(0, conf.onnxPath.find_last_of('.')) + "_" + gpuName + "_" + strFp16 + ".engine";
+    // 拼接待构建或加载的引擎路径
+    enginePath = conf.onnxPath.substr(0, conf.onnxPath.find_last_of('.')) + "_" + gpuName + "_" + strFp16 + ".engine";
 
-    return engineName;
+    return enginePath;
+}
+
+std::shared_ptr<nvinfer1::ICudaEngine> AlgorithmBase::createEngine(const std::vector<unsigned char> &engineFile) {
+    TRTLogger logger;
+
+    auto runtime = prtFree(nvinfer1::createInferRuntime(logger));
+    auto engine = prtFree(runtime->deserializeCudaEngine(engineFile.data(), engineFile.size()));
+
+    if (nullptr == engine) {
+        printf("deserialize cuda engine failed.\n");
+        return nullptr;
+    }
+
+//     engine->getNbIOTensors()-1,是因为有1个是输入.剩下的才是输出
+    if (2 != engine->getNbIOTensors()) {
+        printf("create engine failed: onnx导出有问题,必须是1个输入和1个输出,当前有%d个输出\n", engine->getNbIOTensors() - 1);
+        return nullptr;
+    }
+
+    return engine;
 }

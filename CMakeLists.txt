@@ -41,15 +41,24 @@ set(CUDA_LIBRARIES /usr/lib/wsl/lib/libcuda.so)
 set(CUDART_LIBRARIES /usr/local/cuda-11.6/targets/x86_64-linux/lib/libcudart.so)
 set(i1 /usr/TensorRT-8.5.1.7/targets/x86_64-linux-gnu/lib/libnvonnxparser.so)
 set(i2 /usr/TensorRT-8.5.1.7/targets/x86_64-linux-gnu/lib/libnvinfer.so)
+set(i3 /usr/TensorRT-8.5.1.7/targets/x86_64-linux-gnu/lib/libnvinfer_plugin.so.8)
 # 去哪里找库文件 .so/.lib/.ddl
 link_directories()
 
+add_subdirectory(algorithm_product)
+
 # 定义了这个工程会生成一个文件名为run 的可执行文件，相关的源文件是mian.cpp
 add_executable(run main.cpp
-        utils/general.h utils/general.cpp algorithm_product/YoloFace.cpp algorithm_product/YoloFace.h algorithm_product/product.h
+        utils/general.h utils/general.cpp
+        algorithm_product/YoloFace.h algorithm_product/YoloFace.cpp
         interface/face_interface.h interface/face_interface.cpp algorithm_factory/factory.h algorithm_factory/factory.cpp
         )
 
 # 为库或二进制可执行文件添加库链接，要用在add_executable之后,target是指通
 # 过add_executable()和add_library()指令生成已经创建的目标文件run
-target_link_libraries(run ${DEP_LIBS} ${CUDA_LIBRARIES} ${CUDART_LIBRARIES} ${OpenCV_LIBRARIES} ${i1} ${i2})
+target_link_libraries(run ${DEP_LIBS} ${CUDA_LIBRARIES}
+        ${CUDART_LIBRARIES} ${OpenCV_LIBRARIES} ${i1} ${i2} ${i3} ${CMAKE_DL_LIBS})
+
+set(CMAKE_INSTALL_PREFIX ${PROJECT_BINARY_DIR}/dist)
+
+INSTALL(TARGETS run RUNTIME DESTINATION .)

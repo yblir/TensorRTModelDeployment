@@ -1,3 +1,6 @@
+#define HAVE_FACE_RETINA
+#define HAVE_FACE_FEATURE
+
 #include <iostream>
 #include <iostream>
 #include <chrono>
@@ -13,13 +16,9 @@
 
 #include "interface/face_interface.h"
 //#include "file_base.h"
-#include "algorithm_product/YoloFace.h"
 #include "algorithm_factory/struct_data_type.h"
-#include "algorithm_product/product.h"
+//#include "algorithm_product/product.h"
 #include "utils/general.h"
-
-#define HAVE_FACE_RETINA
-#define HAVE_FACE_FEATURE
 
 
 int main(int argc, char *argv[]) {
@@ -28,7 +27,7 @@ int main(int argc, char *argv[]) {
     *argv: 字符数组,记录输入的参数.可执行文件总在0号位,作为一个参数
     */
     // 判断参数个数, 若不为3,终止程序
-    auto timer=new Timer();
+    auto timer = new Timer();
 
     if (argc != 3) {
         std::cout << " the number of param is incorrect, must be 3, but now is " << argc << std::endl;
@@ -37,24 +36,30 @@ int main(int argc, char *argv[]) {
     }
 
     // =====================================================================
-    struct productConfig product{};
-//    YoloFace yoloFace;
-    product.yoloFace->conf2.batchSize = 1;
+    struct productConfig conf;
+    // 加{},说明创建的对象为nullptr
+    struct productFunc func{};
     Handle engine;
 
-    int ret = initEngine(engine, product);
+    conf.yoloConfig.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/face_detect_v0.5_b17e5c7577192da3d3eb6b4bb850f8e_1out.onnx";
+    conf.yoloConfig.gpuId = int(strtol(argv[1], nullptr, 10));
+
+    conf.detectConfig.onnxPath ="/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
+    conf.detectConfig.gpuId=int(strtol(argv[1], nullptr, 10));
+
+    int ret = initEngine(conf, func);
     std::cout << "init ok !" << std::endl;
     // =====================================================================
 
-    if (ret != 0)
-        return ret;
+//    if (ret != 0)
+//        return ret;
 /*
-    product.yoloFace->conf2.onnxPath = "./models/face_yolo_trt/face_detect_v0.5.0_6dca99de68468ca8908e3353dda2b546.onnx";
+    product.yoloFace->conf2->onnxPath = "./models/face_yolo_trt/face_detect_v0.5.0_6dca99de68468ca8908e3353dda2b546.onnx";
 //    strcpy(conf.featureConf.modelFile, "./models/face_feature_trt/face_extract_4.0_ca4e02bff65214a019328c75a3240976.onnx");
 //    strcpy(conf.poseConf.modelFile, "./models/face_pose_trt/face_pose_v1.4_a77b7d431cf0c22cf60c19267ca187e2.onnx");
 //    strcpy(conf.qualityConf.model_file, "./models/face_quality_trt/face_extreme_v0.4_e89bcd21685c6b49e90845aba84ba3ae.onnx");
 //    strcpy(conf.sharpnessConf.modelFile, "./models/face_sharpness_trt/face_sharpness_v0.1_5c32810f754c81d1ce3ea0b403032d54.onnx");
-    product.yoloFace->conf2.gpuId = int(strtol(argv[1], nullptr, 10));
+    product.yoloFace->conf2->gpuId = int(strtol(argv[1], nullptr, 10));
 
 //    conf.score_sface_thresh = 0.9f;
 
