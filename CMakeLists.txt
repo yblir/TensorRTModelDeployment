@@ -2,7 +2,7 @@
 # 设置cmake需求的最小版本, 版本不符合抛出致命异常
 cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 # 工程名tensorRT_Pro, 支持语言是cuda和c++
-project(tensorRT_Pro)
+project(TensorRTModelDeployment)
 
 set(CMAKE_CXX_STANDARD 17)
 # -O0:编译时不优化代码 -fPIC:产生的代码中，没有绝对地址，全部使用相对地址

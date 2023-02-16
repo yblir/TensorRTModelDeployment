@@ -25,7 +25,7 @@ public:
     //开始计时
     void timeStart();
 
-    static std::chrono::system_clock::time_point curTimePoint();
+    std::chrono::system_clock::time_point curTimePoint();
 
     //不加参数时,统计timeStart()开始后的耗时
     double timeCount();

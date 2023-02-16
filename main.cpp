@@ -44,28 +44,20 @@ int main(int argc, char *argv[]) {
     conf.yoloConfig.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/face_detect_v0.5_b17e5c7577192da3d3eb6b4bb850f8e_1out.onnx";
     conf.yoloConfig.gpuId = int(strtol(argv[1], nullptr, 10));
 
-    conf.detectConfig.onnxPath ="/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
-    conf.detectConfig.gpuId=int(strtol(argv[1], nullptr, 10));
+    conf.detectConfig.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
+    conf.detectConfig.gpuId = int(strtol(argv[1], nullptr, 10));
 
     int ret = initEngine(conf, func);
     std::cout << "init ok !" << std::endl;
     // =====================================================================
 
-//    if (ret != 0)
-//        return ret;
-/*
-    product.yoloFace->conf2->onnxPath = "./models/face_yolo_trt/face_detect_v0.5.0_6dca99de68468ca8908e3353dda2b546.onnx";
-//    strcpy(conf.featureConf.modelFile, "./models/face_feature_trt/face_extract_4.0_ca4e02bff65214a019328c75a3240976.onnx");
-//    strcpy(conf.poseConf.modelFile, "./models/face_pose_trt/face_pose_v1.4_a77b7d431cf0c22cf60c19267ca187e2.onnx");
-//    strcpy(conf.qualityConf.model_file, "./models/face_quality_trt/face_extreme_v0.4_e89bcd21685c6b49e90845aba84ba3ae.onnx");
-//    strcpy(conf.sharpnessConf.modelFile, "./models/face_sharpness_trt/face_sharpness_v0.1_5c32810f754c81d1ce3ea0b403032d54.onnx");
-    product.yoloFace->conf2->gpuId = int(strtol(argv[1], nullptr, 10));
+    if (ret != 0)
+        return ret;
 
 //    conf.score_sface_thresh = 0.9f;
 
     //创建输出文件夹
     std::string path1 = std::string(argv[2]) + "/";
-//    std::string path2 = path1 + "output/";
 
     std::filesystem::path imgInputDir(path1);
     std::filesystem::path imgOutputDir(path1 + "output/");
@@ -76,31 +68,30 @@ int main(int argc, char *argv[]) {
     //创建输出文件夹
     if (!std::filesystem::exists(imgOutputDir)) std::filesystem::create_directories(imgOutputDir);
 
-    std::vector<std::string> out;
-    getImageAbsPath(imgInputDir, out);
+    std::vector<std::string> imgPaths;
+    // 获取该文件夹下所有图片绝对路径,存储在vector向量中
+    getImageAbsPath(imgInputDir, imgPaths);
 
-    double interTime = 0.0f;
-    auto t1 = Timer::curTimePoint();
-
-    for (auto &it: out) {
-        cv::Mat img = cv::imread(it);
+    double inferTime = 0.0f;
+    for (auto &imgPath: imgPaths) {
+        cv::Mat img = cv::imread(imgPath);
         //记录当前时间
-        t1 = std::chrono::system_clock::now();
+        auto t1 = timer->curTimePoint();
         //记录人脸推理结果
         struct FaceResult *resPtr = nullptr;
 
         int faceNum = 0, minFaceSize = 20, mode = 1;
-        ret = inferEngine(engine, img.data, img.cols, img.rows, minFaceSize, mode, FAS_PF_RGB24_B8G8R8, faceNum);
-        std::chrono::duration<double> useTime = std::chrono::system_clock::now() - t1;
+        // ??????
+        ret= inferEngine(conf, func, std::vector<cv::Mat> &images, int &res_num);
 
-        interTime += useTime.count();
-        if (ret != 0) {
-            std::cout << "======== infer failed. use time = " << useTime.count() * 1000 << "ms =========" << std::endl;
+//        ret = inferEngine(engine, img.data, img.cols, img.rows, minFaceSize, mode, FAS_PF_RGB24_B8G8R8, faceNum);
+        //把每张图片推理时间加到inferTime中 ms
+        inferTime += timer->timeCount(t1);
+        if (0 != ret) {
+            std::cout << "======== infer failed. use time = " << inferTime << "ms =========" << std::endl;
             continue;
         }
 
-//        if (faceNum > 0)  // ???
-//            resPtr = new FaceResult[faceNum];
         getResults(engine, faceNum, resPtr);
 
         //输出推理结果
@@ -134,6 +125,6 @@ int main(int argc, char *argv[]) {
 //        }
         releaseEngine(engine);
     }
-    */
+
     return 0;
 }

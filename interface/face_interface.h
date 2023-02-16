@@ -13,7 +13,11 @@
 
 using Handle = void *;
 
+// 初始化过程中,各个模型都会用到的通用步骤
+int initCommon(struct ConfigBase &confSpecific, class AlgorithmBase *funcSpecific);
 
+// 测试重构一下?
+int inferEngine(struct productConfig &conf, struct productFunc &func, std::vector<cv::Mat> &images, int &res_num);
 int initEngine(struct productConfig &conf, struct productFunc &func);
 int releaseEngine(Handle engine);
 
