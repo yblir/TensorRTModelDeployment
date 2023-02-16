@@ -88,7 +88,7 @@ int inferEngine(struct productConfig &conf, struct productFunc &func, std::vecto
 
     // 指定onnx中输入输出tensor名, 将tensor直接传输给对应输入输出名
     context->setTensorAddress(conf.detectConfig.inputName.c_str(), gpuInput);
-    context->setTensorAddress(conf.detectConfig.inputName.c_str(), gpuOutput);
+    context->setTensorAddress(conf.detectConfig.outputName.c_str(), gpuOutput);
 
     // 执行异步推理
     context->enqueueV3(stream);
