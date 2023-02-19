@@ -1,8 +1,19 @@
 //
 // Created by Administrator on 2023/1/9.
 //
-
+#include "../utils/general.h"
 #include "face_interface.h"
+
+
+bool check_cuda_runtime(cudaError_t code, const char *op, const char *file, int line) {
+    if (cudaSuccess != code) {
+        const char *errName = cudaGetErrorName(code);
+        const char *errMsg = cudaGetErrorString(code);
+        printf("runtime error %s:%d  %s failed. \n  code = %s, message = %s\n", file, line, op, errName, errMsg);
+        return false;
+    }
+    return true;
+}
 
 //使用所有加速算法的初始化部分: 初始化参数,构建engine, 反序列化制作engine
 int initCommon(struct ConfigBase &confSpecific, class AlgorithmBase *funcSpecific) {
@@ -70,11 +81,97 @@ int initEngine(struct productConfig &conf, struct productFunc &func) {
     return 0;
 }
 
+//设置推理过程中,输入输出tensor在内存,显存上使用空间
+std::vector<int> setMemorySize(struct ConfigBase &confSpecific, float *pinInput, float *pinOutput, float *gpuInput, float *gpuOutput) {
+    //计算输入tensor所占存储空间大小
+    auto inputShape = confSpecific.engine->getTensorShape(confSpecific.inputName.c_str());
+    int inputSize = confSpecific.batchSize * inputShape.d[1] * inputShape.d[2] * inputShape.d[3];
+
+    // 在锁页内存和gpu上开辟输入tensor数据所在存储空间
+    checkRuntime(cudaMallocHost(&pinInput, inputSize * sizeof(float)));
+    checkRuntime(cudaMalloc(&gpuInput, inputSize * sizeof(float)));
+
+    // 获得输出tensor形状,计算输出所占存储空间
+    auto outputShape = confSpecific.engine->getTensorShape(confSpecific.outputName.c_str());
+    int outputSize = confSpecific.batchSize * outputShape.d[1] * outputShape.d[2];
+
+    // 分别在锁页内存和gpu上开辟空间,用于存储推理结果
+    checkRuntime(cudaMallocHost(&pinOutput, outputSize * sizeof(float)));
+    checkRuntime(cudaMalloc(&gpuOutput, outputSize * sizeof(float)));
+//    std::tuple<int,nvinfer1::Dims32> aa;
+    std::vector<int> res(inputSize,outputSize);
+
+    return res;
+}
+
 //使用引擎推理图片
 //int inferEngine(Handle engine, unsigned char *imgData, int imgWidth, int imgHeight, int min_face_size, int mode,
 //                int imgPixelFormat, int &res_num) {
-int inferEngine(struct productConfig &conf, struct productFunc &func, cv::Mat &image, struct productOutput out) {
-    func.yoloFace->preProcess(image);
+//int inferEngine(struct productConfig &conf, struct productFunc &func, cv::Mat &image, struct productOutput out) {
+int inferEngine_back(struct productConfig &conf, struct productFunc &func, std::vector<cv::Mat> &matVector,
+                struct productOutput out) {
+
+//    func.yoloFace->preProcess(image);
+
+    //创建cuda任务流
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
+
+    // 创建上下文管理器
+    nvinfer1::IExecutionContext *context = conf.detectConfig.engine->createExecutionContext();
+    //
+    float *pinInput = nullptr, *pinOutput = nullptr, *gpuInput = nullptr, *gpuOutput = nullptr;
+//    //计算输入tensor所占存储空间大小
+//    int inputSize = conf.detectConfig.batchSize * inputChannel * inputHeight * inputWidth;
+//
+//    // 在锁页内存和gpu上开辟输入tensor数据所在存储空间
+//    checkRuntime(cudaMallocHost(&pinInput, inputSize * sizeof(float)));
+//    checkRuntime(cudaMalloc(&gpuInput, inputSize * sizeof(float)));
+
+    // 填充灰边, 缩放图片到模型输入指定的尺寸
+    cv::Mat scaleImage = letterBox(image, inputWidth, inputHeight, d2i1);
+
+//    BGR2RGB(scaleImage, pinInput);
+
+    //模型输入数据从锁页内存转到gpu上
+    checkRuntime(cudaMemcpyAsync(gpuInput, pinInput, inputSize * sizeof(float), cudaMemcpyHostToDevice, stream));
+
+    //获得输入tensor形状,设置指定的动态batch的大小,之后再重新指定输入tensor形状
+    auto inputShape = conf.detectConfig.engine->getTensorShape(conf.detectConfig.inputName.c_str());
+    inputShape.d[0] = conf.detectConfig.batchSize;
+    context->setInputShape(conf.detectConfig.inputName.c_str(), inputShape);
+
+//    // 获得输出tensor形状,计算输出所占存储空间
+//    auto outputShape = conf.detectConfig.engine->getTensorShape(conf.detectConfig.outputName.c_str());
+////    int boxNum = outputShape.d[1];
+////    int predictNum = outputShape.d[2];
+////    int classNum = predictNum - 5;
+//    int outputSize = conf.detectConfig.batchSize * outputShape.d[1] * outputShape.d[2];
+//
+//    // 分别在锁页内存和gpu上开辟空间,用于存储推理结果
+//    checkRuntime(cudaMallocHost(&pinOutput, outputSize * sizeof(float)));
+//    checkRuntime(cudaMalloc(&gpuOutput, outputSize * sizeof(float)));
+
+
+    // 指定onnx中输入输出tensor名
+    context->setTensorAddress(conf.detectConfig.inputName.c_str(), gpuInput);
+    context->setTensorAddress(conf.detectConfig.outputName.c_str(), gpuOutput);
+
+    // 执行异步推理
+    context->enqueueV3(stream);
+
+    // 将推理结果从gpu拷贝到cpu上
+    cudaMemcpyAsync(pinOutput, gpuOutput, outputSize * sizeof(float), cudaMemcpyDeviceToHost, stream);
+    // 流同步
+    cudaStreamSynchronize(stream);
+
+    return 0;
+}
+
+int inferEngine(struct productConfig &conf, struct productFunc &func, std::vector<cv::Mat> &matVector,
+                     struct productOutput out) {
+
+//    func.yoloFace->preProcess(image);
 
     //创建cuda任务流
     cudaStream_t stream;
@@ -83,10 +180,24 @@ int inferEngine(struct productConfig &conf, struct productFunc &func, cv::Mat &i
     // 创建上下文管理器
     nvinfer1::IExecutionContext *context = conf.detectConfig.engine->createExecutionContext();
 
-    float *pinInput = nullptr, *gpuInput = nullptr;
-    float *pinOutput = nullptr, *gpuOutput = nullptr;
+    float *pinInput = nullptr, *pinOutput = nullptr, *gpuInput = nullptr, *gpuOutput = nullptr;
+    std::vector<int> res =setMemorySize(conf.detectConfig, pinInput, pinOutput, gpuInput, gpuOutput);
 
-    // 指定onnx中输入输出tensor名, 将tensor直接传输给对应输入输出名
+
+    // 填充灰边, 缩放图片到模型输入指定的尺寸
+    cv::Mat scaleImage = letterBox(image, inputWidth, inputHeight, d2i1);
+
+//    BGR2RGB(scaleImage, pinInput);
+
+    //模型输入数据从锁页内存转到gpu上
+    checkRuntime(cudaMemcpyAsync(gpuInput, pinInput, res[0] * sizeof(float), cudaMemcpyHostToDevice, stream));
+
+    //获得输入tensor形状,设置指定的动态batch的大小,之后再重新指定输入tensor形状
+    auto inputShape = conf.detectConfig.engine->getTensorShape(conf.detectConfig.inputName.c_str());
+    inputShape.d[0] = conf.detectConfig.batchSize;
+    context->setInputShape(conf.detectConfig.inputName.c_str(), inputShape);
+
+    // 指定onnx中输入输出tensor名
     context->setTensorAddress(conf.detectConfig.inputName.c_str(), gpuInput);
     context->setTensorAddress(conf.detectConfig.outputName.c_str(), gpuOutput);
 
@@ -94,7 +205,7 @@ int inferEngine(struct productConfig &conf, struct productFunc &func, cv::Mat &i
     context->enqueueV3(stream);
 
     // 将推理结果从gpu拷贝到cpu上
-    cudaMemcpyAsync(pinOutput, gpuOutput, outputNumel * sizeof(float), cudaMemcpyDeviceToHost, stream);
+    cudaMemcpyAsync(pinOutput, gpuOutput, res[1] * sizeof(float), cudaMemcpyDeviceToHost, stream);
     // 流同步
     cudaStreamSynchronize(stream);
 

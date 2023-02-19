@@ -3,6 +3,8 @@
 //
 #ifndef FACEFEATUREDETECTOR_REBUILD_FACE_INTERFACE_H
 #define FACEFEATUREDETECTOR_REBUILD_FACE_INTERFACE_H
+#include <tuple>
+
 #include <NvInferRuntime.h>
 #include <opencv2/opencv.hpp>
 //#include "struct_data_type.h"
@@ -10,8 +12,11 @@
 //#include "../algorithm_product/YoloFace.h"
 #include "../algorithm_product/product.h"
 
+#define checkRuntime(op) check_cuda_runtime((op),#op,__FILE__,__LINE__)
 
 using Handle = void *;
+
+bool check_cuda_runtime(cudaError_t code, const char *op, const char *file, int line);
 
 // 初始化过程中,各个模型都会用到的通用步骤
 int initCommon(struct ConfigBase &confSpecific, class AlgorithmBase *funcSpecific);
@@ -19,6 +24,9 @@ int initCommon(struct ConfigBase &confSpecific, class AlgorithmBase *funcSpecifi
 // 测试重构一下?
 int inferEngine(struct productConfig &conf, struct productFunc &func, std::vector<cv::Mat> &images, int &res_num);
 int initEngine(struct productConfig &conf, struct productFunc &func);
+int inferEngine(struct productConfig &conf, struct productFunc &func, std::vector<cv::Mat> &matVector, struct productOutput out);
+int inferEngine(struct productConfig &conf, struct productFunc &func, std::vector<cv::cuda::GpuMat> &matVector, struct productOutput out);
+
 int releaseEngine(Handle engine);
 
 /*

@@ -15,7 +15,7 @@
 #endif //INFERCODES_TIMER_H
 
 //传入输入图片文件夹路径, 和空字符串vector,返回vector,存储文件夹中所有所有图片路径
-void getImageAbsPath(const std::filesystem::path &inputDir, std::vector<std::string> &out);
+void getImageMatFromPath(const std::filesystem::path &imageDirPath, std::vector<cv::Mat> &matVector);
 //BGR->RGB, 有更简单的opencv函数可供使用,手动的转换有必要吗?
 void BGR2RGB(const cv::Mat &image, float *pinInput);
 

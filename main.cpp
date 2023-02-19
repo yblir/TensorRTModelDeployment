@@ -68,36 +68,38 @@ int main(int argc, char *argv[]) {
     if (!std::filesystem::exists(imgInputDir) || !std::filesystem::is_directory(imgInputDir))
         return -1;
     //创建输出文件夹
-    if (!std::filesystem::exists(imgOutputDir)) std::filesystem::create_directories(imgOutputDir);
+    if (!std::filesystem::exists(imgOutputDir))
+        std::filesystem::create_directories(imgOutputDir);
 
-    std::vector<std::string> imgPaths;
+    std::vector<cv::Mat> matVector;
     // 获取该文件夹下所有图片绝对路径,存储在vector向量中
-    getImageAbsPath(imgInputDir, imgPaths);
+    getImageMatFromPath(imgInputDir, matVector);
 
     double inferTime = 0.0f;
-    for (auto &imgPath: imgPaths) {
-        cv::Mat img = cv::imread(imgPath);
-        //记录当前时间
-        auto t1 = timer->curTimePoint();
-        //记录人脸推理结果
-        struct FaceResult *resPtr = nullptr;
+    inferEngine(conf, func, matVector, out);
+//    for (auto &imgPath: imgPaths) {
+//        cv::Mat img = cv::imread(imgPath);
+//        //记录当前时间
+//        auto t1 = timer->curTimePoint();
+//        //记录人脸推理结果
+//        struct FaceResult *resPtr = nullptr;
+//
+//        int faceNum = 0, minFaceSize = 20, mode = 1;
+//        cv::Mat image = cv::imread(imgPath);
+//        // ??????
+//        ret = inferEngine(conf, func, image, out);
+//
+////        ret = inferEngine(engine, img.data, img.cols, img.rows, minFaceSize, mode, FAS_PF_RGB24_B8G8R8, faceNum);
+//        //把每张图片推理时间加到inferTime中 ms
+//        inferTime += timer->timeCount(t1);
+//        if (0 != ret) {
+//            std::cout << "======== infer failed. use time = " << inferTime << "ms =========" << std::endl;
+//            continue;
+//        }
+//
+//        getResults(engine, faceNum, resPtr);
 
-        int faceNum = 0, minFaceSize = 20, mode = 1;
-        cv::Mat image = cv::imread(imgPath);
-        // ??????
-        ret = inferEngine(conf, func, image, out);
-
-//        ret = inferEngine(engine, img.data, img.cols, img.rows, minFaceSize, mode, FAS_PF_RGB24_B8G8R8, faceNum);
-        //把每张图片推理时间加到inferTime中 ms
-        inferTime += timer->timeCount(t1);
-        if (0 != ret) {
-            std::cout << "======== infer failed. use time = " << inferTime << "ms =========" << std::endl;
-            continue;
-        }
-
-        getResults(engine, faceNum, resPtr);
-
-        //输出推理结果
+    //输出推理结果
 //        for (int i = 0; i < faceNum; ++i) {
 //            float x1 = resPtr[i].x1, y1 = resPtr[i].y1, x2 = resPtr[i].x2, y2 = resPtr[i].y2;
 //            float confidence = resPtr[i].confidence;
@@ -126,8 +128,8 @@ int main(int argc, char *argv[]) {
 //
 //            delete[] resPtr, resPtr = nullptr;
 //        }
-        releaseEngine(engine);
-    }
+    releaseEngine(engine);
+}
 
-    return 0;
+return 0;
 }
