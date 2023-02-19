@@ -21,4 +21,7 @@ struct productFunc {
     AlgorithmBase *yoloDetect;
 };
 
+struct productOutput{
+    outputBase yoloOutput;
+};
 #endif //TENSORRT_PRO_PRODUCT_H

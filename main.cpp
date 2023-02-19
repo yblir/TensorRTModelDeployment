@@ -36,9 +36,11 @@ int main(int argc, char *argv[]) {
     }
 
     // =====================================================================
+    // 外接传入的配置文件,和使用过程中生成的各种路径等
     struct productConfig conf;
-    // 加{},说明创建的对象为nullptr
+    // 加{},说明创建的对象为nullptr, 存储从动态库解析出来的算法函数和类
     struct productFunc func{};
+    struct productOutput out;
     Handle engine;
 
     conf.yoloConfig.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/face_detect_v0.5_b17e5c7577192da3d3eb6b4bb850f8e_1out.onnx";
@@ -81,8 +83,9 @@ int main(int argc, char *argv[]) {
         struct FaceResult *resPtr = nullptr;
 
         int faceNum = 0, minFaceSize = 20, mode = 1;
+        cv::Mat image = cv::imread(imgPath);
         // ??????
-        ret= inferEngine(conf, func, std::vector<cv::Mat> &images, int &res_num);
+        ret = inferEngine(conf, func, image, out);
 
 //        ret = inferEngine(engine, img.data, img.cols, img.rows, minFaceSize, mode, FAS_PF_RGB24_B8G8R8, faceNum);
         //把每张图片推理时间加到inferTime中 ms

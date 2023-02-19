@@ -73,8 +73,8 @@ int initEngine(struct productConfig &conf, struct productFunc &func) {
 //使用引擎推理图片
 //int inferEngine(Handle engine, unsigned char *imgData, int imgWidth, int imgHeight, int min_face_size, int mode,
 //                int imgPixelFormat, int &res_num) {
-int inferEngine(struct productConfig &conf, struct productFunc &func, std::vector<cv::Mat> &images, int &res_num) {
-    func.yoloFace->preProcess(images);
+int inferEngine(struct productConfig &conf, struct productFunc &func, cv::Mat &image, struct productOutput out) {
+    func.yoloFace->preProcess(image);
 
     //创建cuda任务流
     cudaStream_t stream;
