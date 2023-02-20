@@ -43,8 +43,8 @@ int main(int argc, char *argv[]) {
     struct productOutput out;
     Handle engine;
 
-    conf.yoloConfig.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/face_detect_v0.5_b17e5c7577192da3d3eb6b4bb850f8e_1out.onnx";
-    conf.yoloConfig.gpuId = int(strtol(argv[1], nullptr, 10));
+//    conf.yoloConfig.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/face_detect_v0.5_b17e5c7577192da3d3eb6b4bb850f8e_1out.onnx";
+//    conf.yoloConfig.gpuId = int(strtol(argv[1], nullptr, 10));
 
     conf.detectConfig.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
     conf.detectConfig.gpuId = int(strtol(argv[1], nullptr, 10));
@@ -128,8 +128,9 @@ int main(int argc, char *argv[]) {
 //
 //            delete[] resPtr, resPtr = nullptr;
 //        }
-    releaseEngine(engine);
+//    releaseEngine(engine);
+    return 0;
 }
 
-return 0;
-}
+//return 0;
+//}

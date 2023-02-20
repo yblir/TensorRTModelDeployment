@@ -30,14 +30,22 @@ find_package(CUDA REQUIRED)
 
 
 aux_source_directory(. DIR_LIB_SRCS)
-ADD_LIBRARY(TrtFaceYolo SHARED ${DIR_LIB_SRCS} product.h)
-
-TARGET_LINK_LIBRARIES(TrtFaceYolo
+#ADD_LIBRARY(TrtFaceYolo SHARED ${DIR_LIB_SRCS} product.h YoloDetect.cpp YoloDetect.h)
+ADD_LIBRARY(TrtYoloDetect SHARED ${DIR_LIB_SRCS} product.h YoloDetect.cpp YoloDetect.h YoloFace.h YoloFace.cpp
+        ../utils/general.h ../utils/general.cpp ../utils/box_utils.h ../utils/box_utils.cpp
+        ../interface/face_interface.h ../interface/face_interface.cpp
+        ../algorithm_factory/factory.h ../algorithm_factory/factory.cpp ../algorithm_factory/struct_data_type.h)
+#TARGET_LINK_LIBRARIES(TrtFaceYolo
+#        -lcudart -lopencv_core -lopencv_imgproc -lopencv_imgcodecs -lopencv_cudaarithm
+#        -lopencv_cudawarping -lopencv_cudaimgproc
+#        )
+TARGET_LINK_LIBRARIES(TrtYoloDetect
         -lcudart -lopencv_core -lopencv_imgproc -lopencv_imgcodecs -lopencv_cudaarithm
         -lopencv_cudawarping -lopencv_cudaimgproc
         )
 # lnvinfer_plugin -lnvinfer  -lnvonnxparser
-INSTALL(TARGETS TrtFaceYolo LIBRARY DESTINATION lib)
+#INSTALL(TARGETS TrtFaceYolo LIBRARY DESTINATION lib)
+INSTALL(TARGETS TrtYoloDetect LIBRARY DESTINATION lib)
 #INSTALL(FILES ../../interface/ai_img_alg_base.h DESTINATION include)
 #INSTALL(FILES ai_alg_yoloface_if.h DESTINATION include)
 #INSTALL(FILES ai_alg_yoloface_c_if.h DESTINATION include)

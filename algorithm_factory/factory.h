@@ -82,10 +82,10 @@ public:
     virtual int initParam(void *param) = 0;
 
     // 图片预处理 todo 为何不能传引用
-    virtual int preProcess(std::vector<cv::Mat> inputImages) = 0;
+    virtual int preProcess(cv::Mat & image,float *pinMemoryCurrentIn) = 0;
     // 图片后处理
     virtual int postProcess(struct outputBase &result) = 0;
-
+    virtual int postProcess(std::vector<cv::Mat>,float *pinMemoryOut) = 0;
     // 推理内存中图片
     virtual int inferImages(const std::vector<cv::Mat> &inputImages, struct outputBase &result) = 0;
     // 推理gpu中图片

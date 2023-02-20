@@ -35,10 +35,14 @@ struct ConfigBase {
     std::string enginePath;
     int batchSize = 1;
     bool useFp16 = false;
-    std::shared_ptr<nvinfer1::ICudaEngine> engine;
+    std::shared_ptr<nvinfer1::ICudaEngine> engine = nullptr;
     // 推理时需要指定的输入输出节点名
     std::string inputName;
     std::string outputName;
+
+    // 指定推理/模型输入宽高
+    int inputHeight;
+    int inputWidth;
 };
 
 //人脸检测配置

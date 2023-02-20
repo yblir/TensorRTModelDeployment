@@ -75,3 +75,64 @@ cv::Mat letterBox(cv::Mat &image, const int &width, const int &height, float d2i
 
     return inputImage;
 }
+
+cv::Mat letterbox(const cv::Mat &img, int inputHeight, int inputWidth) {
+
+    // Get current image shape [height, width]
+
+    // Refer to https://github.com/ultralytics/yolov5/blob/master/utils/augmentations.py#L111
+
+    int img_h = img.rows;
+    int img_w = img.cols;
+
+    // Compute scale ratio(new / old) and target resized shape
+    float scale = std::min(inputHeight * 1.0 / img_h, inputWidth * 1.0 / img_w);
+    int resize_h = int(round(img_h * scale));
+    int resize_w = int(round(img_w * scale));
+
+    // Compute padding
+    int pad_h = inputHeight - resize_h;
+    int pad_w = inputWidth - resize_w;
+
+    // Resize and pad image while meeting stride-multiple constraints
+    cv::Mat resized_img;
+    cv::resize(img, resized_img, cv::Size(resize_w, resize_h));
+
+    // divide padding into 2 sides
+    float half_h = pad_h * 1.0 / 2;
+    float half_w = pad_w * 1.0 / 2;
+
+    // Compute padding boarder
+    int top = int(round(half_h - 0.1));
+    int bottom = int(round(half_h + 0.1));
+    int left = int(round(half_w - 0.1));
+    int right = int(round(half_w + 0.1));
+
+    // Add border
+    cv::copyMakeBorder(resized_img, resized_img, top, bottom, left, right, 0, cv::Scalar(114, 114, 114));
+
+    return resized_img;
+
+}
+
+// 传入原图,绘制坐标框和标签信息后返回
+cv::Mat drawImage(cv::Mat &image, const std::vector<float> &box) {
+    int x1 = int(box[0]), y1 = int(box[1]), x2 = int(box[2]), y2 = int(box[3]);
+    int cls = int(box[4]);
+    float confidence = box[5];
+
+    cv::Scalar color;
+    //tie 相当于python 对列表/元祖的解包操作
+    std::tie(color[0], color[1], color[2]) = random_color(cls);
+    cv::rectangle(image, cv::Point(x1, y1), cv::Point(x2, y2), color, 2);
+
+    //写标签
+    auto name = cocolabels[cls];
+    auto caption = cv::format("%s %.2f", name, confidence);
+    int textWidth = cv::getTextSize(caption, 0, 1, 2, nullptr).width + 10;
+    //画标签的小框
+    cv::rectangle(image, cv::Point(x1 - 3, y1 - 33), cv::Point(x1 + textWidth, y1), color, -1);
+    cv::putText(image, caption, cv::Point(x1, y1 - 5), 0, 1, cv::Scalar::all(0), 2, 16);
+
+    return image;
+}
