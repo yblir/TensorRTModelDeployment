@@ -115,7 +115,7 @@ std::vector<unsigned char> AlgorithmBase::loadEngine(const std::string &engineFi
     return data;
 }
 
-std::string AlgorithmBase::getEnginePath(const struct ConfigBase &conf) {
+std::string AlgorithmBase::getEnginePath(const struct parmBase &conf) {
     int num;
     // 检查指定编号的显卡是否正常
     cudaError_t cudaStatus = cudaGetDeviceCount(&num);
@@ -156,7 +156,6 @@ std::shared_ptr<nvinfer1::ICudaEngine> AlgorithmBase::createEngine(const std::ve
         printf("deserialize cuda engine failed.\n");
         return nullptr;
     }
-
 //     engine->getNbIOTensors()-1,是因为有1个是输入.剩下的才是输出
     if (2 != engine->getNbIOTensors()) {
         printf("create engine failed: onnx导出有问题,必须是1个输入和1个输出,当前有%d个输出\n", engine->getNbIOTensors() - 1);

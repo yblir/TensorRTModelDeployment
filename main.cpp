@@ -48,6 +48,12 @@ int main(int argc, char *argv[]) {
 
     conf.detectConfig.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
     conf.detectConfig.gpuId = int(strtol(argv[1], nullptr, 10));
+    conf.detectConfig.inputHeight = 640;
+    conf.detectConfig.inputWidth = 640;
+    conf.detectConfig.inputName = "images";
+    conf.detectConfig.outputName = "output";
+    conf.detectConfig.iouThresh = 0.5;
+    conf.detectConfig.scoreThresh = 0.5;
 
     int ret = initEngine(conf, func);
     std::cout << "init ok !" << std::endl;

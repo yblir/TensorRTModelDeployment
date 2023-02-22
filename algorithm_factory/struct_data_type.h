@@ -29,13 +29,16 @@ enum PixelFormat {
 //};
 
 //配置文件基类,自定义配置文件
-struct ConfigBase {
+struct parmBase {
+    float d2i[6];
+    std::vector<std::vector<float>> d3i;
     int gpuId = 0;
     std::string onnxPath;
     std::string enginePath;
     int batchSize = 1;
     bool useFp16 = false;
     std::shared_ptr<nvinfer1::ICudaEngine> engine = nullptr;
+    std::shared_ptr<nvinfer1::IExecutionContext> context = nullptr;
     // 推理时需要指定的输入输出节点名
     std::string inputName;
     std::string outputName;
@@ -46,13 +49,13 @@ struct ConfigBase {
 };
 
 //人脸检测配置
-struct YoloFaceConfig : public ConfigBase {
+struct YoloFaceConfig : public parmBase {
     float scoreThresh = 0.5;   //!> 人脸框检测置信度阈值
     float iouThresh = 0.3;     //!> 人脸框IOU阈值
     bool useRefine = true;     //!> 是否需要图像旋转 true: 使用旋转优化检测 false: 不使用旋转正常检测
 };
 
-struct YoloDetectConfig : public ConfigBase {
+struct YoloDetectConfig : public parmBase {
     float scoreThresh = 0.5;   //!> 得分阈值
     float iouThresh = 0.3;     //!> iou框阈值
 };

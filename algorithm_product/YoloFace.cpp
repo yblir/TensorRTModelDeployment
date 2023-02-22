@@ -21,7 +21,7 @@ int YoloFace::initParam(void *param) {
     return 0;
 }
 
-int YoloFace::preProcess(cv::Mat &image, float *pinMemoryIn) {
+int YoloFace::preProcess(cv::Mat &image, float *pinMemoryIn, parmBase base) {
     return 0;
 }
 
@@ -38,7 +38,7 @@ int YoloFace::inferGpuImages(const std::vector<cv::cuda::GpuMat> &inputImages, o
     return 0;
 }
 
-int YoloFace::postProcess(std::vector<cv::Mat>, float *pinMemoryOut) {
+int YoloFace::postProcess(std::vector<cv::Mat>, float *pinMemoryOut,parmBase conf) {
     return 0;
 }
 

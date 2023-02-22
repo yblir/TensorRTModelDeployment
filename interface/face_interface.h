@@ -10,12 +10,17 @@
 //#include "struct_data_type.h"
 //#include "base_interface/ai_img_alg_base.h"
 //#include "../algorithm_product/YoloFace.h"
+#include "../algorithm_factory/factory.h"
 #include "../algorithm_product/product.h"
 
 #define checkRuntime(op) check_cuda_runtime((op),#op,__FILE__,__LINE__)
 
 using Handle = void *;
-
+//通过智能指针管理nv, 内存自动释放,避免泄露.
+template<typename T>
+std::shared_ptr<T> prtFree2(T *ptr) {
+    return std::shared_ptr<T>(ptr, [](T *p) { delete p; });
+}
 bool check_cuda_runtime(cudaError_t code, const char *op, const char *file, int line);
 
 // 初始化过程中,各个模型都会用到的通用步骤

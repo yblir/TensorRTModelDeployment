@@ -49,34 +49,101 @@ std::vector<std::vector<float>> nms(std::vector<std::vector<float>> &boxes, cons
 
 // 在原始图片上添加灰度条并缩放输入尺寸(640,640),
 cv::Mat letterBox(cv::Mat &image, const int &width, const int &height, float d2i[]) {
+//    // 通过双线性插值对图像进行resize
+//    float scaleX = width / image.cols;
+//    float scaleY = height / image.rows;
+//
+//    float scale = std::min(scaleX, scaleY);
+//
+//    //仿射变换的相关参数
+//    float i2d[] = {
+//            scale, 0, static_cast<float>((-scale * image.cols + width + scale - 1) * 0.5),
+//            0, scale, static_cast<float>((-scale * image.rows + height + scale - 1) * 0.5)
+//    };
+//
+//    cv::Mat m2x3_i2d(2, 3, CV_32F, i2d);
+//    cv::Mat m2x3_d2i(2, 3, CV_32F, d2i);
+//
+//    // 计算一个反仿射变换
+//    cv::invertAffineTransform(m2x3_i2d, m2x3_d2i);
+//
+//    cv::Mat inputImage(height, width, CV_8UC3);
+//
+//    // 对图像做平移缩放旋转变换,可逆
+//    cv::warpAffine(image, inputImage, m2x3_i2d, inputImage.size(), cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar::all(114));
+//
+//    return inputImage;
     // 通过双线性插值对图像进行resize
     float scaleX = width / (float) image.cols;
     float scaleY = height / (float) image.rows;
 
     float scale = std::min(scaleX, scaleY);
-
-    //仿射变换的相关参数
-    float i2d[] = {
-            scale, 0, static_cast<float>((-scale * image.cols + width + scale - 1) * 0.5),
-            0, scale, static_cast<float>((-scale * image.rows + height + scale - 1) * 0.5)
-    };
+    //仿射变换的相关参数,不懂1
+    float i2d[6];
+    //resize图像
+    i2d[0] = scale;
+    i2d[1] = 0;
+    i2d[2] = (-scale * image.cols + width + scale - 1) * 0.5;
+    i2d[3] = 0;
+    i2d[4] = scale;
+    i2d[5] = (-scale * image.rows + height + scale - 1) * 0.5;
 
     cv::Mat m2x3_i2d(2, 3, CV_32F, i2d);
     cv::Mat m2x3_d2i(2, 3, CV_32F, d2i);
-
     // 计算一个反仿射变换
     cv::invertAffineTransform(m2x3_i2d, m2x3_d2i);
 
     cv::Mat inputImage(height, width, CV_8UC3);
-
+//    std::cout<<"inputImage.size() = "<<inputImage.size()<<std::endl;
+//    printf("=======================================================");
     // 对图像做平移缩放旋转变换,可逆
-    cv::warpAffine(image, inputImage, m2x3_i2d, inputImage.size(),
-                   cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar::all(114));
+    cv::warpAffine(image, inputImage, m2x3_i2d, inputImage.size(), cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar::all(114));
 
     return inputImage;
 }
 
-cv::Mat letterbox(const cv::Mat &img, int inputHeight, int inputWidth) {
+// 图片填充灰度像素到模型指定输入尺寸
+cv::Mat letterBox(const cv::Mat &img, int inputHeight, int inputWidth) {
+
+    // Get current image shape [height, width]
+
+    // Refer to https://github.com/ultralytics/yolov5/blob/master/utils/augmentations.py#L111
+
+    int img_h = img.rows;
+    int img_w = img.cols;
+
+    // Compute scale ratio(new / old) and target resized shape
+    float scale = std::min(inputHeight * 1.0 / img_h, inputWidth * 1.0 / img_w);
+    int resize_h = int(round(img_h * scale));
+    int resize_w = int(round(img_w * scale));
+
+    // Compute padding
+    int pad_h = inputHeight - resize_h;
+    int pad_w = inputWidth - resize_w;
+
+    // Resize and pad image while meeting stride-multiple constraints
+    cv::Mat resized_img;
+    cv::resize(img, resized_img, cv::Size(resize_w, resize_h));
+
+    // divide padding into 2 sides
+    float half_h = pad_h * 1.0 / 2;
+    float half_w = pad_w * 1.0 / 2;
+
+    // Compute padding boarder
+    int top = int(round(half_h - 0.1));
+    int bottom = int(round(half_h + 0.1));
+    int left = int(round(half_w - 0.1));
+    int right = int(round(half_w + 0.1));
+
+    // Add border
+    cv::copyMakeBorder(resized_img, resized_img, top, bottom, left, right, 0, cv::Scalar(114, 114, 114));
+
+    return resized_img;
+
+}
+
+//后处理时,
+cv::Mat scaleBox(const cv::Mat &img, int inputHeight, int inputWidth) {
 
     // Get current image shape [height, width]
 
