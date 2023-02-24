@@ -16,10 +16,10 @@ bool check_cuda_runtime(cudaError_t code, const char *op, const char *file, int 
 }
 
 //使用所有加速算法的初始化部分: 初始化参数,构建engine, 反序列化制作engine
-int initCommon(struct parmBase &curParm, class AlgorithmBase *curFunc) {
+int initCommon(ParmBase &curParm, class AlgorithmBase *curFunc) {
     TRTLogger logger;
     //使用从so文件解析出来的函数, 初始化模型参数
-    curFunc->initParam(&(curParm));
+    curFunc->initParam(&curParm);
 
     //获取engine绝对路径
     curParm.enginePath = AlgorithmBase::getEnginePath(curParm);
@@ -49,14 +49,12 @@ int initCommon(struct parmBase &curParm, class AlgorithmBase *curFunc) {
         printf("deserialize cuda engine failed.\n");
         return -1;
     }
-
-//     engine->getNbIOTensors()-1,是因为有1个是输入.剩下的才是输出
+//    是因为有1个是输入.剩下的才是输出
     if (2 != curParm.engine->getNbIOTensors()) {
-        printf("create engine failed: onnx导出有问题,必须是1个输入和1个输出,当前有%d个输出\n", curParm.engine->getNbIOTensors() - 1);
+        printf("create engine failed: onnx导出有问题,必须是1个输入和1个输出,当前有%d个输出\n",
+               curParm.engine->getNbIOTensors() - 1);
         return -1;
     }
-
-//    curParm.engine->createExecutionContext();
     if (nullptr == curParm.engine) {
         std::cout << "failed engine name: " << std::filesystem::path(curParm.enginePath).filename() << std::endl;
         return -1;
@@ -67,7 +65,7 @@ int initCommon(struct parmBase &curParm, class AlgorithmBase *curFunc) {
     return 0;
 }
 
-int initEngine(struct productConfig &conf, struct productFunc &func) {
+int initEngine(productConfig &conf, productFunc &func) {
     //人脸检测模型初始化
 //    if (nullptr == func.yoloFace) {
 //        AlgorithmBase *curAlg = AlgorithmBase::loadDynamicLibrary(
@@ -86,6 +84,7 @@ int initEngine(struct productConfig &conf, struct productFunc &func) {
 
     // 其他检测模型初始化
     if (nullptr == func.yoloDetect) {
+        // 调用成功会返回对应模型指针对象. 失败返回nullptr
         AlgorithmBase *curAlg = AlgorithmBase::loadDynamicLibrary(
                 "/mnt/e/GitHub/TensorRTModelDeployment/cmake-build-debug-wsl/dist/lib/libTrtYoloDetect.so");
         if (!curAlg) printf("error");
@@ -101,29 +100,18 @@ int initEngine(struct productConfig &conf, struct productFunc &func) {
     return 0;
 }
 
-// setBatchAndInferMemory
 //设置推理过程中,输入输出tensor在内存,显存上使用存储空间大小.并返回输入tensor shape和输入输出空间大小值
-std::vector<int> setBatchAndInferMemory(struct parmBase &curParm,
-                                        const std::shared_ptr<nvinfer1::IExecutionContext> &context,
-                                        float *pinMemoryIn, float *pinMemoryOut, float *gpuMemoryIn, float *gpuMemoryOut) {
+std::vector<int> setBatchAndInferMemory(ParmBase &curParm) {
     //计算输入tensor所占存储空间大小,设置指定的动态batch的大小,之后再重新指定输入tensor形状
     auto inputShape = curParm.engine->getTensorShape(curParm.inputName.c_str());
     inputShape.d[0] = curParm.batchSize;
-    context->setInputShape(curParm.inputName.c_str(), inputShape);
+    curParm.context->setInputShape(curParm.inputName.c_str(), inputShape);
     //batchSize * c * h * w
     int inputSize = curParm.batchSize * inputShape.d[1] * inputShape.d[2] * inputShape.d[3];
-
-//    // 在锁页内存和gpu上开辟输入tensor数据所在存储空间
-//    checkRuntime(cudaMallocHost(&pinMemoryIn, inputSize * sizeof(float)));
-//    checkRuntime(cudaMalloc(&gpuMemoryIn, inputSize * sizeof(float)));
 
     // 获得输出tensor形状,计算输出所占存储空间
     auto outputShape = curParm.engine->getTensorShape(curParm.outputName.c_str());
     int outputSize = curParm.batchSize * outputShape.d[1] * outputShape.d[2];
-
-//    // 分别在锁页内存和gpu上开辟空间,用于存储推理结果
-//    checkRuntime(cudaMallocHost(&pinMemoryOut, outputSize * sizeof(float)));
-//    checkRuntime(cudaMalloc(&gpuMemoryOut, outputSize * sizeof(float)));
 
     // 使用元组返回多个多个不同的类型值, 供函数外调用,有以下两种方式可使用
 //    return std::make_tuple(inputShape, inputSize, outputSize);
@@ -135,7 +123,7 @@ std::vector<int> setBatchAndInferMemory(struct parmBase &curParm,
 }
 
 // 适用于模型推理的通用trt流程
-int trtEnqueueV3(struct parmBase &curParm, std::vector<int> memory,
+int trtEnqueueV3(ParmBase &curParm, std::vector<int> memory,
                  float *pinMemoryIn, float *pinMemoryOut, float *gpuMemoryIn, float *gpuMemoryOut) {
     //创建cuda任务流
     cudaStream_t stream;
@@ -157,11 +145,11 @@ int trtEnqueueV3(struct parmBase &curParm, std::vector<int> memory,
 }
 
 // 通用推理接口
-int trtInferProcess(struct parmBase &curParm, class AlgorithmBase *curFunc, std::vector<cv::Mat> matVector) {
+int trtInferProcess(ParmBase &curParm, AlgorithmBase *curFunc, std::vector<cv::Mat> &mats, ResultBase &result) {
     //配置锁页内存,gpu显存指针
     float *pinMemoryIn = nullptr, *pinMemoryOut = nullptr, *gpuMemoryIn = nullptr, *gpuMemoryOut = nullptr;
     //0:当前推理模型输入tensor存储空间大小,1:当前推理输出结果存储空间大小
-    std::vector<int> memory = setBatchAndInferMemory(curParm, curParm.context, pinMemoryIn, pinMemoryOut, gpuMemoryIn, gpuMemoryOut);
+    std::vector<int> memory = setBatchAndInferMemory(curParm);
 
     // 以下,开辟内存操作不能在单独函数中完成,因为是二级指针,在当前函数中开辟内存,离开函数内存空间会消失
     // 在锁页内存和gpu上开辟输入tensor数据所在存储空间
@@ -173,38 +161,46 @@ int trtInferProcess(struct parmBase &curParm, class AlgorithmBase *curFunc, std:
 
     // 预处理,一次处理batchSize张图片, 包括尺寸缩放,归一化,色彩转换,图片数据从内存提取到gpu
     int count = 0;
-    // 计算单张图片占用空间
-    int singleSize = memory[0] / curParm.batchSize;
+    // 计算模型推理时,单个输入输出tensor占用空间
+    int singleInputSize = memory[0] / curParm.batchSize;
+    int singleOutputSize = memory[1] / curParm.batchSize;
+
     //存储要推理的一个batchSize的图片,用于后处理操作
     std::vector<cv::Mat> images;
+    // 取得最后一个元素的地址
+    auto lastAddress = &mats.back();
 
-    for (auto &mat: matVector) {
+    for (auto &mat: mats) {
         count += 1;
         images.emplace_back(mat);
 
         // 遍历所有图片,若图片数量不够一个batch,加入的处理队列中
         if (count <= curParm.batchSize)
             // 处理单张图片,每次预处理图片,指针要跳过前面处理过的图片
-            curFunc->preProcess(mat, pinMemoryIn + count * singleSize, curParm);
+            curFunc->preProcess(curParm, mat, pinMemoryIn + (count - 1) * singleInputSize);
 
         //够一个batchSize,执行推理. 或者当循环vector取到最后一个元素时(当前元素地址与最后一个元素地址相同),不论是否够一个batchSize, 都要执行推理
-        if (count == curParm.batchSize || &mat == &matVector.back()) {
+        if (count == curParm.batchSize || &mat == lastAddress) {
+            //通用推理过程,推理成功后将结果从gpu复制到锁页内存pinMemoryOut
             trtEnqueueV3(curParm, memory, pinMemoryIn, pinMemoryOut, gpuMemoryIn, gpuMemoryOut);
-            //后处理,处理一个batchSize的所有图片
-            curFunc->postProcess(images, pinMemoryOut, curParm);
-            // 清空标记,重新开始下一个bachSize.
+            //后处理,函数内循环处理一个batchSize的所有图片
+            curFunc->postProcess(curParm, images, pinMemoryOut, singleOutputSize, result);
+
+            // 清0标记,清空用于后处理的images,清空用于图像尺寸缩放的d2is,重新开始下一个bachSize.
             count = 0;
-            images.clear();
+            std::vector<cv::Mat>().swap(images);
+            std::vector<std::vector<float>>().swap(curParm.d2is);
         }
     }
 }
 
-int inferEngine(struct productConfig &conf, struct productFunc &func,
-                std::vector<cv::Mat> &matVector, struct productOutput out) {
+int inferEngine(productConfig &conf, productFunc &func, std::vector<cv::Mat> &mats, productResult &out) {
     // 以engine是否存在为判定,存在则执行推理
-    if (nullptr != conf.detectConfig.engine) trtInferProcess(conf.detectConfig, func.yoloDetect, matVector);
+    if (nullptr != conf.detectConfig.engine)
+        trtInferProcess(conf.detectConfig, func.yoloDetect, mats, out.detectResult);
 
-//    if (nullptr != conf.yoloConfig.engine) trtInferProcess(conf.yoloConfig, func.yoloFace, matVector);
+//    if (nullptr != conf.yoloConfig.engine)
+//       trtInferProcess(conf.yoloConfig, func.yoloFace, matVector);
 
     return 0;
 }

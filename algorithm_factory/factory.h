@@ -82,18 +82,18 @@ public:
     virtual int initParam(void *param) = 0;
 
     // 图片预处理 todo 为何不能传引用
-    virtual int preProcess(cv::Mat &image, float *pinMemoryCurrentIn, parmBase base) = 0;
+    virtual int preProcess(ParmBase &parm, cv::Mat &image, float *pinMemoryCurrentIn) = 0;
     // 图片后处理
-    virtual int postProcess(struct outputBase &result) = 0;
-    virtual int postProcess(std::vector<cv::Mat>,float *pinMemoryOut,parmBase conf) = 0;
+    virtual int postProcess(ParmBase &parm, std::vector<cv::Mat> &images,
+                            float *pinMemoryOut, int singleOutputSize, ResultBase &result) = 0;
     // 推理内存中图片
-    virtual int inferImages(const std::vector<cv::Mat> &inputImages, struct outputBase &result) = 0;
+//    virtual int inferImages(const std::vector<cv::Mat> &inputImages, outputBase &result) = 0;
     // 推理gpu中图片
-    virtual int inferGpuImages(const std::vector<cv::cuda::GpuMat> &inputImages, struct outputBase &result) = 0;
+//    virtual int inferGpuImages(const std::vector<cv::cuda::GpuMat> &inputImages, outputBase &result) = 0;
 
     // ================================================================================
     // 获得引擎名字, conf: 对应具体实现算法的结构体引用
-    static std::string getEnginePath(const struct parmBase &conf);
+    static std::string getEnginePath(const ParmBase &conf);
     //构建引擎文件,并保存到硬盘, 所有模型构建引擎文件方法都一样,如果加自定义层,继承算法各自实现
     static bool buildEngine(const std::string &onnxFilePath, const std::string &saveEnginePath, int maxBatch);
     //加载引擎到gpu,准备推理.

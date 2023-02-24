@@ -115,7 +115,7 @@ std::vector<unsigned char> AlgorithmBase::loadEngine(const std::string &engineFi
     return data;
 }
 
-std::string AlgorithmBase::getEnginePath(const struct parmBase &conf) {
+std::string AlgorithmBase::getEnginePath(const ParmBase &conf) {
     int num;
     // 检查指定编号的显卡是否正常
     cudaError_t cudaStatus = cudaGetDeviceCount(&num);

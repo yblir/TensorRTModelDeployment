@@ -17,14 +17,15 @@ public:
 
     int initParam(void *param) override;
     // 图片预处理
-    int preProcess(cv::Mat &image, float *pinMemoryCurrentIn, parmBase base) override;
+    int preProcess(ParmBase &parm, cv::Mat &image, float *pinMemoryCurrentIn) override;
     // 图片后处理
-    int postProcess(struct outputBase &result) override;
-    int postProcess(std::vector<cv::Mat>,float *pinMemoryOut,parmBase conf) override;
-    // 推理内存中图片
-    int inferImages(const std::vector<cv::Mat> &inputImages, struct outputBase &result) override;
-    // 推理gpu中图片
-    int inferGpuImages(const std::vector<cv::cuda::GpuMat> &inputImages, struct outputBase &result) override;
+//    int postProcess(struct ResultBase &result) override;
+    int postProcess(ParmBase &parm, std::vector<cv::Mat> &images,
+                    float *pinMemoryOut, int singleOutputSize, ResultBase &result) override;
+//    // 推理内存中图片
+//    int inferImages(const std::vector<cv::Mat> &inputImages, struct ResultBase &result) override;
+//    // 推理gpu中图片
+//    int inferGpuImages(const std::vector<cv::cuda::GpuMat> &inputImages, struct ResultBase &result) override;
 
 //    YoloFaceConfig getArr() { return faceConfig; };
 //    YoloFaceConfig *conf2;
