@@ -17,10 +17,6 @@ bool check_cuda_runtime(cudaError_t code, const char *op, const char *file, int 
 
 //使用所有加速算法的初始化部分: 初始化参数,构建engine, 反序列化制作engine
 int initCommon(ParmBase &curParm, class AlgorithmBase *curFunc) {
-    TRTLogger logger;
-    //使用从so文件解析出来的函数, 初始化模型参数
-    curFunc->initParam(&curParm);
-
     //获取engine绝对路径
     curParm.enginePath = AlgorithmBase::getEnginePath(curParm);
 
@@ -39,9 +35,9 @@ int initCommon(ParmBase &curParm, class AlgorithmBase *curFunc) {
 
 //   也可以直接从字符串提取名字 curParm.enginePath.substr(curParm.enginePath.find_last_of("/"),-1)
     std::cout << "start create engine: " << std::filesystem::path(curParm.enginePath).filename() << std::endl;
-//    AlgorithmBase::createEngine(engineFile,curParm.engine);
 
-    // 创建引擎并获得执行上下文========================================================
+    // 创建engine并获得执行上下文context =======================================================================================
+    TRTLogger logger;
     auto runtime = prtFree(nvinfer1::createInferRuntime(logger));
     curParm.engine = prtFree(runtime->deserializeCudaEngine(engineFile.data(), engineFile.size()));
 
@@ -60,7 +56,7 @@ int initCommon(ParmBase &curParm, class AlgorithmBase *curFunc) {
         return -1;
     }
     curParm.context = prtFree(curParm.engine->createExecutionContext());
-    std::cout << "create engine success: " << std::filesystem::path(curParm.enginePath).filename() << std::endl;
+    std::cout << "create engine and context success: " << std::filesystem::path(curParm.enginePath).filename() << std::endl;
 
     return 0;
 }
@@ -111,6 +107,10 @@ std::vector<int> setBatchAndInferMemory(ParmBase &curParm) {
 
     // 获得输出tensor形状,计算输出所占存储空间
     auto outputShape = curParm.engine->getTensorShape(curParm.outputName.c_str());
+    // 记录这两个输出维度数量,在后处理时会用到
+    curParm.predictNums = outputShape.d[1];
+    curParm.predictLength = outputShape.d[2];
+    // 计算推理结果所占内存空间大小
     int outputSize = curParm.batchSize * outputShape.d[1] * outputShape.d[2];
 
     // 使用元组返回多个多个不同的类型值, 供函数外调用,有以下两种方式可使用
@@ -165,14 +165,12 @@ int trtInferProcess(ParmBase &curParm, AlgorithmBase *curFunc, std::vector<cv::M
     int singleInputSize = memory[0] / curParm.batchSize;
     int singleOutputSize = memory[1] / curParm.batchSize;
 
-    //存储要推理的一个batchSize的图片,用于后处理操作
-    std::vector<cv::Mat> images;
     // 取得最后一个元素的地址
     auto lastAddress = &mats.back();
 
     for (auto &mat: mats) {
+        // 记录已推理图片数量
         count += 1;
-        images.emplace_back(mat);
 
         // 遍历所有图片,若图片数量不够一个batch,加入的处理队列中
         if (count <= curParm.batchSize)
@@ -184,11 +182,10 @@ int trtInferProcess(ParmBase &curParm, AlgorithmBase *curFunc, std::vector<cv::M
             //通用推理过程,推理成功后将结果从gpu复制到锁页内存pinMemoryOut
             trtEnqueueV3(curParm, memory, pinMemoryIn, pinMemoryOut, gpuMemoryIn, gpuMemoryOut);
             //后处理,函数内循环处理一个batchSize的所有图片
-            curFunc->postProcess(curParm, images, pinMemoryOut, singleOutputSize, result);
+            curFunc->postProcess(curParm, pinMemoryOut, singleOutputSize, count, result);
 
             // 清0标记,清空用于后处理的images,清空用于图像尺寸缩放的d2is,重新开始下一个bachSize.
             count = 0;
-            std::vector<cv::Mat>().swap(images);
             std::vector<std::vector<float>>().swap(curParm.d2is);
         }
     }

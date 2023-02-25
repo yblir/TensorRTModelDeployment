@@ -73,6 +73,7 @@ cv::Mat letterBox(cv::Mat &image, const int &width, const int &height, float d2i
 //    cv::warpAffine(image, inputImage, m2x3_i2d, inputImage.size(), cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar::all(114));
 //
 //    return inputImage;
+
     // 通过双线性插值对图像进行resize
     float scaleX = width / (float) image.cols;
     float scaleY = height / (float) image.rows;

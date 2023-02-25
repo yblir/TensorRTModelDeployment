@@ -10,8 +10,8 @@ extern "C" AlgorithmBase *MakeAlgorithm(void) {
 }
 
 YoloDetect::YoloDetect() = default;
+YoloDetect::~YoloDetect() = default;
 
-//extern float d2i[6];
 int YoloDetect::preProcess(ParmBase &parm, cv::Mat &image, float *pinMemoryCurrentIn) {
     float d2i[6];
     cv::Mat scaleImage = letterBox(image, 640, 640, d2i);
@@ -23,42 +23,39 @@ int YoloDetect::preProcess(ParmBase &parm, cv::Mat &image, float *pinMemoryCurre
     return 0;
 }
 
-int YoloDetect::postProcess(ParmBase &parm, std::vector<cv::Mat> &images,
-                            float *pinMemoryOut, int singleOutputSize, ResultBase &result) {
-    auto yoloDetect = reinterpret_cast<YoloDetectResult& >(result);
-    int i = 0;
-    for (auto image: images) {
-//        // 将尺寸缩放参数从二维vector提取放到float数组中, 因为仿射变换
-//        std::copy(parm.d2is[i].begin(), parm.d2is[i].end(), d2i);
-        std::vector<std::vector<float>> boxes = decodeBox(25200, 85, pinMemoryOut + i * singleOutputSize, 80, parm.d2is[i]);
-        std::vector<std::vector<float>> predict = nms(boxes, 0.25);
-        yoloDetect.result.push_back(predict);
-        i += 1;
-//        //在原图上绘制检测框,并为每个框画标签
-//        for (auto &box: predictBoxes)
-//            image = drawImage(image, box);
-//        std::string imgName = "image-draw" + std::to_string(i) + ".jpg";
-//        cv::imwrite(imgName, image);
+int YoloDetect::postProcess(ParmBase &parm, float *pinMemoryOut, int singleOutputSize, int outputNums, ResultBase &result) {
+//std::vector<std::vector<std::vector<float>>> YoloDetect::postProcess(ParmBase &parm, float *pinMemoryOut, int singleOutputSize, int outputNums, ResultBase &result) {
+    //将父类对象转为子类对象,这样才能调用属于子类的成员变量
+    auto curParm = reinterpret_cast<YoloDetectConfig &>(parm);
+//    auto curResult = reinterpret_cast<YoloDetectResult &>(result);
+
+    // outPutNums是实际推理的图片数量. 正常运行时outPutNums等于batchSize, 但在最后推理阶段, outPutNums是小于batchSzie的
+    for (int i = 0; i < outputNums; ++i) {
+        // 处理图片时要跳过前面已经处理的图片
+        std::vector<std::vector<float>> boxes = decodeBox(curParm.predictNums, curParm.predictLength, pinMemoryOut + i * singleOutputSize,
+                                                          curParm.classNums, curParm.scoreThresh, parm.d2is[i]);
+        std::vector<std::vector<float>> predict = nms(boxes, curParm.iouThresh);
+        m_curResult.push_back(predict);
     }
+
     return 0;
 }
 
-
-//把不同尺度下的预测框还原到原输入图上(包括:预测框，类别概率，置信度）
-std::vector<std::vector<float>> YoloDetect::decodeBox(int boxNum, int predictNum, float *pinOutput, int classNum, std::vector<float> d2i) {
+//把不同尺度下的预测框还原到原输入图上(包括:预测框，类别概率，置信度),并提取得分高于阈值的预测框.
+std::vector<std::vector<float>> YoloDetect::decodeBox(int predictNums, int predictLength,
+                                                      float *pinOutput, int classNum, float scoreThresh, std::vector<float> d2i) {
     std::vector<std::vector<float>> boxes;
-    float parmThres = 0.25;
 
-    for (int i = 0; i < boxNum; ++i) {
-        float *ptr = pinOutput + i * predictNum;
+    for (int i = 0; i < predictNums; ++i) {
+        float *ptr = pinOutput + i * predictLength;
         float obj = ptr[4];
-        if (obj < parmThres) continue;
+        if (obj < scoreThresh) continue;
 
         float *cls = ptr + 5;
         int label = std::max_element(cls, cls + classNum) - cls;
         float predict = cls[label];
-        float parm = predict * obj;
-        if (parm < parmThres) continue;
+        float score = predict * obj;
+        if (score < scoreThresh) continue;
 
         //中心点,宽,高
         float cx = ptr[0], cy = ptr[1], width = ptr[2], height = ptr[3];
@@ -73,42 +70,20 @@ std::vector<std::vector<float>> YoloDetect::decodeBox(int boxNum, int predictNum
         float new_x2 = d2i[0] * x2 + d2i[2];
         float new_y2 = d2i[0] * y2 + d2i[5];
 
-        boxes.push_back({new_x1, new_y1, new_x2, new_y2, (float) label, parm});
+        boxes.push_back({new_x1, new_y1, new_x2, new_y2, (float) label, score});
     }
 //    printf("decoded boxes.size = %zu\n", boxes.size());
 
     return boxes;
 }
 
-YoloDetect::~YoloDetect() {
-
-}
-
 int YoloDetect::initParam(void *param) {
     return 0;
 }
 
-//int YoloDetect::postProcess(ResultBase &result) {
-//    return 0;
-//}
-//
-//int YoloDetect::inferImages(const std::vector<cv::Mat> &inputImages, ResultBase &result) {
-//    return 0;
-//}
-//
-//int YoloDetect::inferGpuImages(const std::vector<cv::cuda::GpuMat> &inputImages, ResultBase &result) {
-//    return 0;
-//}
+std::vector<std::vector<std::vector<float>>> YoloDetect::getCurResult() {
+    return m_curResult;
+}
 
-//int YoloDetect::preProcess(cv::Mat &image, float *pinMemoryCurrentIn, struct ParmBase parm) {
-////    printf("11111111111\n");
-//    for (int i = 0; i < 6; ++i) {
-//        std::cout << *(parm.d2i + i) << " " << std::endl;
-//    }
-//    cv::Mat scaleImage = letterBox(image, 640, 640, parm.d2i);
-//    BGR2RGB(scaleImage, pinMemoryCurrentIn);
-//    return 0;
-//    return 0;
-//}
 
 

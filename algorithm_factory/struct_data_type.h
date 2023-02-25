@@ -18,19 +18,9 @@
 extern "C" {
 #endif
 
-//图片像素排列类型枚举类型
-enum PixelFormat {
-    // 暂时只支持B8G8R8像素排列的图片
-    FAS_PF_RGB24_B8G8R8 = 0
-};
-// 单张方式输入图片信息接口基础结构，各算法可根据需要继承此结构扩展自己的输入结构
-//struct InputDataBase {
-//    cv::Mat image;
-//};
-
 //配置文件基类,自定义配置文件
 struct ParmBase {
-    // 1 从外部配置文件传入=========================================
+    // 1 从外部配置文件传入 =========================================
     int gpuId = 0;
     std::string onnxPath;
     int batchSize = 1;
@@ -42,7 +32,12 @@ struct ParmBase {
     int inputHeight;
     int inputWidth;
 
-    // 2 代码运行过程中生成=========================================
+    // 2 代码运行过程中生成 =========================================
+    // 推理输出结果结构:[batchSize,predictNums,predictLength]
+    // 把所有输出拍平到一条直线时的数量,在onnx构建模型时就决定了
+    int predictNums;
+    // 每个预测的特征长度,对于目标检测来说,里面前5个预测特征通常是预测坐标和类别
+    int predictLength;
     // 存储一个batchSize的放射变换参数, 用于还原letterbox前的图片
     std::vector<std::vector<float>> d2is;
     std::string enginePath;
@@ -60,6 +55,7 @@ struct YoloFaceConfig : public ParmBase {
 };
 
 struct YoloDetectConfig : public ParmBase {
+    int classNums = 80;        //!> 检测类别数量
     float scoreThresh = 0.5;   //!> 得分阈值
     float iouThresh = 0.3;     //!> iou框阈值
 };
@@ -67,15 +63,14 @@ struct YoloDetectConfig : public ParmBase {
 // =============================================================================================
 // 难以判断不同模型输出结果一定有什么,因此仅设一个空基类
 struct ResultBase {
-//    int a=1;
 };
 
 struct YoloFaceResult : public ResultBase {
-//    int b=1;
 };
 
 // 将yolo 检测全部放在一个vector中输出
 struct YoloDetectResult : public ResultBase {
+//    每个检测框std::vector<float>存储, 一张图片所有检测框std::vector<std::vector<float>>, 多张图片结果结构就是下面的样子
     std::vector<std::vector<std::vector<float>>> result;
 };
 

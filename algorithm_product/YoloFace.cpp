@@ -38,8 +38,7 @@ int YoloFace::preProcess(ParmBase &parm, cv::Mat &image, float *pinMemoryIn) {
 //    return 0;
 //}
 //
-int YoloFace::postProcess(ParmBase &parm, std::vector<cv::Mat> &images, float *pinMemoryOut, int singleOutputSize,
-                          ResultBase &result) {
+int YoloFace::postProcess(ParmBase &parm, float *pinMemoryOut, int singleOutputSize, int outputNums, ResultBase &result) {
     return 0;
 }
 

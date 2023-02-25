@@ -84,8 +84,9 @@ public:
     // 图片预处理 todo 为何不能传引用
     virtual int preProcess(ParmBase &parm, cv::Mat &image, float *pinMemoryCurrentIn) = 0;
     // 图片后处理
-    virtual int postProcess(ParmBase &parm, std::vector<cv::Mat> &images,
-                            float *pinMemoryOut, int singleOutputSize, ResultBase &result) = 0;
+    virtual int postProcess(ParmBase &parm, float *pinMemoryOut, int singleOutputSize, int outputNums, ResultBase &result) = 0;
+
+//    virtual std::vector<std::vector<std::vector<float>>> postProcess(ParmBase &parm, float *pinMemoryOut, int singleOutputSize, int outputNums, ResultBase &result) = 0;
     // 推理内存中图片
 //    virtual int inferImages(const std::vector<cv::Mat> &inputImages, outputBase &result) = 0;
     // 推理gpu中图片
