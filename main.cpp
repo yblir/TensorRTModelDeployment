@@ -19,8 +19,9 @@
 #include "algorithm_factory/struct_data_type.h"
 //#include "algorithm_product/product.h"
 #include "utils/general.h"
+#include "utils/box_utils.h"
 
-
+// 0 /mnt/i/GitHub/TensorRTModelDeployment/imgs
 int main(int argc, char *argv[]) {
     /*
     argc:参数个数
@@ -37,26 +38,26 @@ int main(int argc, char *argv[]) {
 
     // =====================================================================
     // 外接传入的配置文件,和使用过程中生成的各种路径等
-    struct productConfig conf;
+    struct productParm parm;
     // 加{},说明创建的对象为nullptr, 存储从动态库解析出来的算法函数和类
     struct productFunc func{};
-    struct productResult out;
-    Handle engine;
+    struct productResult outs;
+//    Handle engine;
 
 //    conf.yoloConfig.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/face_detect_v0.5_b17e5c7577192da3d3eb6b4bb850f8e_1out.onnx";
 //    conf.yoloConfig.gpuId = int(strtol(argv[1], nullptr, 10));
 
-    conf.detectConfig.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
-    conf.detectConfig.gpuId = int(strtol(argv[1], nullptr, 10));
-    conf.detectConfig.batchSize=2;
-    conf.detectConfig.inputHeight = 640;
-    conf.detectConfig.inputWidth = 640;
-    conf.detectConfig.inputName = "images";
-    conf.detectConfig.outputName = "output";
-    conf.detectConfig.iouThresh = 0.5;
-    conf.detectConfig.scoreThresh = 0.5;
+    parm.yoloDetectParm.onnxPath = "/mnt/i/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
+    parm.yoloDetectParm.gpuId = int(strtol(argv[1], nullptr, 10));
+    parm.yoloDetectParm.batchSize = 2;
+    parm.yoloDetectParm.inputHeight = 640;
+    parm.yoloDetectParm.inputWidth = 640;
+    parm.yoloDetectParm.inputName = "images";
+    parm.yoloDetectParm.outputName = "output";
+    parm.yoloDetectParm.iouThresh = 0.5;
+    parm.yoloDetectParm.scoreThresh = 0.5;
 
-    int ret = initEngine(conf, func);
+    int ret = initEngine(parm, func);
     std::cout << "init ok !" << std::endl;
     // =====================================================================
 
@@ -83,7 +84,24 @@ int main(int argc, char *argv[]) {
     getImageMatFromPath(imgInputDir, matVector);
 
     double inferTime = 0.0f;
-    inferEngine(conf, func, matVector, out);
+    inferEngine(parm, func, matVector, outs);
+
+    int i = 0;
+    // 画yolo目标检测框
+    if (!outs.detectResult.empty()) {
+        // 遍历每张图片
+        for (auto &out: outs.detectResult) {
+            // 遍历一张图片中每个预测框,并画到图片上
+            for (auto &box: out) {
+                drawImage(matVector[i], box);
+            }
+            // 把画好框的图片写入本地
+            std::string drawName = "draw" + std::to_string(i) + ".jpg";
+            cv::imwrite(drawName, matVector[i]);
+            i += 1;
+        }
+    }
+
 //    for (auto &imgPath: imgPaths) {
 //        cv::Mat img = cv::imread(imgPath);
 //        //记录当前时间

@@ -61,41 +61,6 @@ int initCommon(ParmBase &curParm, class AlgorithmBase *curFunc) {
     return 0;
 }
 
-int initEngine(productConfig &conf, productFunc &func) {
-    //人脸检测模型初始化
-//    if (nullptr == func.yoloFace) {
-//        AlgorithmBase *curAlg = AlgorithmBase::loadDynamicLibrary(
-//                "/mnt/e/GitHub/TensorRTModelDeployment/cmake-build-debug-wsl/dist/lib/libTrtFaceYolo.so");
-//        if (!curAlg) printf("error");
-//
-//        // 把函数指针从init函数中提出来,在infer推理阶段使用.
-//        func.yoloFace = curAlg;
-//
-//        int initFlag = initCommon(conf.yoloConfig, func.yoloFace);
-//        if (0 > initFlag) {
-//            printf("yolo face init failed\n");
-//            return -1;
-//        }
-//    }
-
-    // 其他检测模型初始化
-    if (nullptr == func.yoloDetect) {
-        // 调用成功会返回对应模型指针对象. 失败返回nullptr
-        AlgorithmBase *curAlg = AlgorithmBase::loadDynamicLibrary(
-                "/mnt/e/GitHub/TensorRTModelDeployment/cmake-build-debug-wsl/dist/lib/libTrtYoloDetect.so");
-        if (!curAlg) printf("error");
-
-        func.yoloDetect = curAlg;
-        int initFlag = initCommon(conf.detectConfig, func.yoloDetect);
-        if (0 > initFlag) {
-            printf("yolo detect init failed\n");
-            return -1;
-        }
-    }
-
-    return 0;
-}
-
 //设置推理过程中,输入输出tensor在内存,显存上使用存储空间大小.并返回输入tensor shape和输入输出空间大小值
 std::vector<int> setBatchAndInferMemory(ParmBase &curParm) {
     //计算输入tensor所占存储空间大小,设置指定的动态batch的大小,之后再重新指定输入tensor形状
@@ -145,7 +110,8 @@ int trtEnqueueV3(ParmBase &curParm, std::vector<int> memory,
 }
 
 // 通用推理接口
-int trtInferProcess(ParmBase &curParm, AlgorithmBase *curFunc, std::vector<cv::Mat> &mats, ResultBase &result) {
+int trtInferProcess(ParmBase &curParm, AlgorithmBase *curFunc,
+                    std::vector<cv::Mat> &mats, std::vector<std::vector<std::vector<float>>> &result) {
     //配置锁页内存,gpu显存指针
     float *pinMemoryIn = nullptr, *pinMemoryOut = nullptr, *gpuMemoryIn = nullptr, *gpuMemoryOut = nullptr;
     //0:当前推理模型输入tensor存储空间大小,1:当前推理输出结果存储空间大小
@@ -191,13 +157,54 @@ int trtInferProcess(ParmBase &curParm, AlgorithmBase *curFunc, std::vector<cv::M
     }
 }
 
-int inferEngine(productConfig &conf, productFunc &func, std::vector<cv::Mat> &mats, productResult &out) {
+int initEngine(productParm &parm, productFunc &func) {
+    //人脸检测模型初始化
+//    if (nullptr == func.yoloFace) {
+//        AlgorithmBase *curAlg = AlgorithmBase::loadDynamicLibrary(
+//                "/mnt/e/GitHub/TensorRTModelDeployment/cmake-build-debug-wsl/dist/lib/libTrtFaceYolo.so");
+//        if (!curAlg) printf("error");
+//
+//        // 把函数指针从init函数中提出来,在infer推理阶段使用.
+//        func.yoloFace = curAlg;
+//
+//        int initFlag = initCommon(conf.yoloConfig, func.yoloFace);
+//        if (0 > initFlag) {
+//            printf("yolo face init failed\n");
+//            return -1;
+//        }
+//    }
+
+    // 其他检测模型初始化
+    if (nullptr == func.yoloDetect) {
+        // 调用成功会返回对应模型指针对象. 失败返回nullptr
+        AlgorithmBase *curAlg = AlgorithmBase::loadDynamicLibrary("/mnt/i/GitHub/TensorRTModelDeployment/cmake-build-debug-wsl/dist/lib/libTrtYoloDetect.so");
+        if (!curAlg) printf("error");
+
+        func.yoloDetect = curAlg;
+        int initFlag = initCommon(parm.yoloDetectParm, func.yoloDetect);
+        if (0 > initFlag) {
+            printf("yolo detect init failed\n");
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
+int inferEngine(productParm &parm, productFunc &func, std::vector<cv::Mat> &mats, productResult &out) {
     // 以engine是否存在为判定,存在则执行推理
-    if (nullptr != conf.detectConfig.engine)
-        trtInferProcess(conf.detectConfig, func.yoloDetect, mats, out.detectResult);
+    if (nullptr != parm.yoloDetectParm.engine)
+        trtInferProcess(parm.yoloDetectParm, func.yoloDetect, mats, out.detectResult);
 
 //    if (nullptr != conf.yoloConfig.engine)
 //       trtInferProcess(conf.yoloConfig, func.yoloFace, matVector);
 
+    return 0;
+}
+
+int getResult(productParm &parm, productResult &out) {
+    // 以engine是否存在为判定,存在则输出结果
+//    if (nullptr != parm.yoloDetectParm.engine)
+//        trtInferProcess(parm.yoloDetectParm, func.yoloDetect, mats, out.detectResult);
     return 0;
 }

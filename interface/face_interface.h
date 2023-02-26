@@ -23,13 +23,14 @@ bool check_cuda_runtime(cudaError_t code, const char *op, const char *file, int 
 int initCommon(ParmBase &confSpecific, class AlgorithmBase *funcSpecific);
 
 // 测试重构一下?
-int inferEngine(productConfig &conf, productFunc &func, std::vector<cv::Mat> &images, int &res_num);
-int initEngine(productConfig &conf, productFunc &func);
-int inferEngine(productConfig &conf, productFunc &func, std::vector<cv::Mat> &mats, productResult &out);
-int inferEngine(productConfig &conf, productFunc &func, std::vector<cv::cuda::GpuMat> &matVector, productResult out);
+int inferEngine(productParm &parm, productFunc &func, std::vector<cv::Mat> &images, int &res_num);
+int initEngine(productParm &parm, productFunc &func);
+int inferEngine(productParm &parm, productFunc &func, std::vector<cv::Mat> &mats, productResult &out);
+int inferEngine(productParm &parm, productFunc &func, std::vector<cv::cuda::GpuMat> &matVector, productResult out);
 
 int releaseEngine(Handle engine);
 
+int getResult(productParm &parm, productResult &out);
 
 /*
 *   @brief                  获取人脸特征提取结果

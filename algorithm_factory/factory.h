@@ -18,8 +18,47 @@
 #include <fstream>
 #include <memory>
 #include <dlfcn.h>
+#include <opencv2/opencv.hpp>
 
-#include "struct_data_type.h"
+//配置文件基类,自定义配置文件
+struct ParmBase {
+    // 1 从外部配置文件传入 ========================================================
+    int gpuId = 0;
+    std::string onnxPath;
+    int batchSize = 1;
+    bool useFp16 = false;
+
+    // 推理时需要指定的输入输出节点名, 生成onnx文件时指定的输入输出名
+    std::string inputName;
+    std::string outputName;
+
+    // 指定推理/模型输入宽高
+    int inputHeight;
+    int inputWidth;
+
+    // 2 代码运行过程中生成 ========================================================
+    // 推理输出结果结构:[batchSize,predictNums,predictLength]
+    // 把所有输出拍平到一条直线时的数量,在onnx构建模型时就决定了
+    int predictNums;
+    // 每个预测的特征长度,对于目标检测来说,里面前5个预测特征通常是预测坐标和类别
+    int predictLength;
+
+    // 存储一个batchSize的放射变换参数, 用于还原letterbox前的图片
+    std::vector<std::vector<float>> d2is;
+    std::string enginePath;
+
+    // TensorRT 构建的引擎
+    std::shared_ptr<nvinfer1::ICudaEngine> engine = nullptr;
+    // 从engine生辰的上下文管理器
+    std::shared_ptr<nvinfer1::IExecutionContext> context = nullptr;
+};
+
+// 难以判断不同模型输出结果一定有什么,因此仅设一个空基类,唯一作用就是被product.h中productResult继承,实现多态效果
+struct ResultBase{
+
+};
+
+// *****************************************************************************************************************************************
 
 //通过智能指针管理nv, 内存自动释放,避免泄露.
 template<typename T>
@@ -27,48 +66,12 @@ std::shared_ptr<T> prtFree(T *ptr) {
     return std::shared_ptr<T>(ptr, [](T *p) { delete p; });
 }
 
-inline const char *severity_string(nvinfer1::ILogger::Severity t) {
-    switch (t) {
-        case nvinfer1::ILogger::Severity::kINTERNAL_ERROR:
-            return "internal_error";
-        case nvinfer1::ILogger::Severity::kERROR:
-            return "error";
-        case nvinfer1::ILogger::Severity::kWARNING:
-            return "warning";
-        case nvinfer1::ILogger::Severity::kINFO:
-            return "info";
-        case nvinfer1::ILogger::Severity::kVERBOSE:
-            return "verbose";
-        default:
-            return "unknow";
-    }
-}
+inline const char *severity_string(nvinfer1::ILogger::Severity t);
 
 class TRTLogger : public nvinfer1::ILogger {
 public:
-    void log(Severity severity, nvinfer1::AsciiChar const *msg) noexcept override {
-        if (severity <= Severity::kWARNING) {
-            // 打印带颜色的字符，格式如下：
-            // printf("\033[47;33m打印的文本\033[0m");
-            // 其中 \033[ 是起始标记
-            //      47    是背景颜色
-            //      ;     分隔符
-            //      33    文字颜色
-            //      m     开始标记结束
-            //      \033[0m 是终止标记
-            // 其中背景颜色或者文字颜色可不写
-            // 部分颜色代码 https://blog.csdn.net/ericbar/article/details/79652086
-            if (severity == Severity::kWARNING) {
-                printf("\033[33m%s: %s\033[0m\n", severity_string(severity), msg);
-            } else if (severity <= Severity::kERROR) {
-                printf("\033[31m%s: %s\033[0m\n", severity_string(severity), msg);
-            } else {
-                printf("%s: %s\n", severity_string(severity), msg);
-            }
-        }
-    }
+    void log(Severity severity, nvinfer1::AsciiChar const *msg) noexcept override;
 };
-
 
 class AlgorithmBase {
 public:
@@ -81,10 +84,11 @@ public:
     */
     virtual int initParam(void *param) = 0;
 
-    // 图片预处理 todo 为何不能传引用
+    // 图片预处理
     virtual int preProcess(ParmBase &parm, cv::Mat &image, float *pinMemoryCurrentIn) = 0;
     // 图片后处理
-    virtual int postProcess(ParmBase &parm, float *pinMemoryOut, int singleOutputSize, int outputNums, ResultBase &result) = 0;
+    virtual int postProcess(ParmBase &parm, float *pinMemoryOut, int singleOutputSize,
+                            int outputNums, std::vector<std::vector<std::vector<float>>> &result) = 0;
 
 //    virtual std::vector<std::vector<std::vector<float>>> postProcess(ParmBase &parm, float *pinMemoryOut, int singleOutputSize, int outputNums, ResultBase &result) = 0;
     // 推理内存中图片

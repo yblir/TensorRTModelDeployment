@@ -6,9 +6,10 @@
 #define TENSORRTMODELDEPLOYMENT_YOLODETECT_H
 
 #include "../algorithm_factory/factory.h"
-#include "../algorithm_factory/struct_data_type.h"
+//#include "../algorithm_factory/struct_data_type.h"
 #include "../utils/box_utils.h"
 #include "../utils/general.h"
+#include "product.h"
 
 class YoloDetect : public AlgorithmBase {
 public:
@@ -19,7 +20,8 @@ public:
     // 图片预处理
     int preProcess(ParmBase &parm, cv::Mat &image, float *pinMemoryCurrentIn) override;
     // 图片后处理
-    int postProcess(ParmBase &parm, float *pinMemoryOut, int singleOutputSize, int outputNums, ResultBase &result) override;
+    int postProcess(ParmBase &parm, float *pinMemoryOut, int singleOutputSize,
+                    int outputNums, std::vector<std::vector<std::vector<float>>> &result) override;
 
 
     std::vector<std::vector<float>> decodeBox(int predictNums, int predictLength,
