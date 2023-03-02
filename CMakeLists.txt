@@ -54,7 +54,7 @@ add_executable(run main.cpp
         algorithm_product/YoloDetect.h algorithm_product/YoloDetect.cpp
         algorithm_product/product.h
         interface/face_interface.h interface/face_interface.cpp algorithm_factory/factory.h algorithm_factory/factory.cpp
-        interface/beifen.cpp)
+        interface/beifen.cpp algorithm_factory/Infer.cpp algorithm_factory/Infer.h)
 
 # 为库或二进制可执行文件添加库链接，要用在add_executable之后,target是指通
 # 过add_executable()和add_library()指令生成已经创建的目标文件run

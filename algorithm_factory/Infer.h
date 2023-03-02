@@ -1,24 +1,15 @@
 //
-// Created by 12134 on 2023/2/9.
+// Created by Administrator on 2023/3/2.
 //
-#ifndef INFERCODES_AlgorithmBase_H
-#define INFERCODES_AlgorithmBase_H
 
-// 所有待加速部署的模型,都继承工厂类,依据实际需求各自实现自己的代码
+#ifndef TENSORRTMODELDEPLOYMENT_INFER_H
+#define TENSORRTMODELDEPLOYMENT_INFER_H
+
 #include <iostream>
-#include <istream>
-//编译用的头文件
-#include <NvInfer.h>
+#include <opencv2/opencv.hpp>
+
 //onnx解释器头文件
 #include <NvOnnxParser.h>
-//推理用的运行时头文件
-#include <NvInferRuntime.h>
-#include <cuda_runtime.h>
-#include <filesystem>
-#include <fstream>
-#include <memory>
-#include <dlfcn.h>
-#include <opencv2/opencv.hpp>
 
 //配置文件基类,自定义配置文件
 struct ParmBase {
@@ -58,30 +49,7 @@ struct ResultBase{
 
 };
 
-// *****************************************************************************************************************************************
-
-//通过智能指针管理nv, 内存自动释放,避免泄露.
-template<typename T>
-std::shared_ptr<T> prtFree(T *ptr) {
-    return std::shared_ptr<T>(ptr, [](T *p) { delete p; });
-}
-
-inline const char *severity_string(nvinfer1::ILogger::Severity t);
-
-class TRTLogger : public nvinfer1::ILogger {
-public:
-    void log(Severity severity, nvinfer1::AsciiChar const *msg) noexcept override;
-};
-
-class AlgorithmBase {
-public:
-    AlgorithmBase() = default;
-    virtual ~AlgorithmBase() = default;
-
-    /*
-    *   @brief                  利用算法提供的配置结构初始化Ai基础算法，配置结构由具体算法各自定义
-    *   @return                 成功返回0；失败返回对应错误码
-    */
+class Infer {
     virtual int initParam(void *param) = 0;
 
     // 图片预处理
@@ -89,12 +57,6 @@ public:
     // 图片后处理
     virtual int postProcess(ParmBase &parm, float *pinMemoryOut, int singleOutputSize,
                             int outputNums, std::vector<std::vector<std::vector<float>>> &result) = 0;
-
-//    virtual std::vector<std::vector<std::vector<float>>> postProcess(ParmBase &parm, float *pinMemoryOut, int singleOutputSize, int outputNums, ResultBase &result) = 0;
-    // 推理内存中图片
-//    virtual int inferImages(const std::vector<cv::Mat> &inputImages, outputBase &result) = 0;
-    // 推理gpu中图片
-//    virtual int inferGpuImages(const std::vector<cv::cuda::GpuMat> &inputImages, outputBase &result) = 0;
 
     // ================================================================================
     // 获得引擎名字, conf: 对应具体实现算法的结构体引用
@@ -106,12 +68,10 @@ public:
     // 创建推理engine
     static std::shared_ptr<nvinfer1::ICudaEngine> createEngine(const std::vector<unsigned char> &engineFile);
     //加载算法so文件
-    static AlgorithmBase *loadDynamicLibrary(const std::string &soPath);
-
+    static Infer *loadDynamicLibrary(const std::string &soPath);
 };
 
 // 链接到动态库
-typedef AlgorithmBase *(*AlgorithmCreate)();
+typedef Infer *(*AlgorithmCreate)();
 
-
-#endif //INFERCODES_AlgorithmBase_H
+#endif //TENSORRTMODELDEPLOYMENT_INFER_H
