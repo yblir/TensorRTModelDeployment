@@ -21,7 +21,7 @@
 #include <opencv2/opencv.hpp>
 
 //配置文件基类,自定义配置文件
-struct ParmBase {
+struct ParamBase {
     // 1 从外部配置文件传入 ========================================================
     int gpuId = 0;
     std::string onnxPath;
@@ -85,12 +85,12 @@ public:
     virtual int initParam(void *param) = 0;
 
     // 图片预处理
-    virtual int preProcess(ParmBase &parm, cv::Mat &image, float *pinMemoryCurrentIn) = 0;
+    virtual int preProcess(ParamBase &parm, cv::Mat &image, float *pinMemoryCurrentIn) = 0;
     // 图片后处理
-    virtual int postProcess(ParmBase &parm, float *pinMemoryOut, int singleOutputSize,
+    virtual int postProcess(ParamBase &parm, float *pinMemoryOut, int singleOutputSize,
                             int outputNums, std::vector<std::vector<std::vector<float>>> &result) = 0;
 
-//    virtual std::vector<std::vector<std::vector<float>>> postProcess(ParmBase &parm, float *pinMemoryOut, int singleOutputSize, int outputNums, ResultBase &result) = 0;
+//    virtual std::vector<std::vector<std::vector<float>>> postProcess(ParamBase &parm, float *pinMemoryOut, int singleOutputSize, int outputNums, ResultBase &result) = 0;
     // 推理内存中图片
 //    virtual int inferImages(const std::vector<cv::Mat> &inputImages, outputBase &result) = 0;
     // 推理gpu中图片
@@ -98,7 +98,7 @@ public:
 
     // ================================================================================
     // 获得引擎名字, conf: 对应具体实现算法的结构体引用
-    static std::string getEnginePath(const ParmBase &conf);
+    static std::string getEnginePath(const ParamBase &conf);
     //构建引擎文件,并保存到硬盘, 所有模型构建引擎文件方法都一样,如果加自定义层,继承算法各自实现
     static bool buildEngine(const std::string &onnxFilePath, const std::string &saveEnginePath, int maxBatch);
     //加载引擎到gpu,准备推理.

@@ -10,14 +10,14 @@
 
 // 以下是每个模型具体的参数配置, 每新加一个推理模型,都要在这里新增这个模型独特的参数,并继承通用参数配置
 //人脸检测配置
-struct YoloFaceParm : public ParmBase {
+struct YoloFaceParam : public ParamBase {
     float scoreThresh = 0.5;   //!> 人脸框检测置信度阈值
     float iouThresh = 0.3;     //!> 人脸框IOU阈值
     bool useRefine = true;     //!> 是否需要图像旋转 true: 使用旋转优化检测 false: 不使用旋转正常检测
 };
 
 // 检测相关
-struct YoloDetectParm : public ParmBase {
+struct YoloDetectParam : public ParamBase {
     int classNums = 80;        //!> 检测类别数量
     float scoreThresh = 0.5;   //!> 得分阈值
     float iouThresh = 0.3;     //!> iou框阈值
@@ -33,9 +33,9 @@ struct YoloDetectParm : public ParmBase {
 // ----------------------------------------------------------
 
 // 接受从外部传入的配置参数,并传递给算法
-struct productParm {
-    YoloFaceParm yoloFaceParm;
-    YoloDetectParm yoloDetectParm;
+struct productParam {
+    YoloFaceParam yoloFaceParam;
+    YoloDetectParam yoloDetectParam;
 };
 
 // todo 现在还不能把so解析处理的方法放到上面parm中. 如果放在子对象YoloDetectParm中,父类方法无法调用,需要强转类型,这样就不能

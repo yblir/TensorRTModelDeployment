@@ -14,7 +14,7 @@
 #include <opencv2/opencv.hpp>
 //#include <dirent.h>
 
-#include "interface/face_interface.h"
+#include "interface/face_interface_new.h"
 //#include "file_base.h"
 #include "algorithm_factory/struct_data_type.h"
 //#include "algorithm_product/product.h"
@@ -58,13 +58,10 @@ int main(int argc, char *argv[]) {
     param.yoloDetectParam.scoreThresh = 0.5;
 
     int ret = initEngine(param, func);
-    std::cout << "init ok !" << std::endl;
-    // =====================================================================
-
     if (ret != 0)
         return ret;
-
-//    conf.score_sface_thresh = 0.9f;
+    std::cout << "init ok !" << std::endl;
+    // =====================================================================
 
     //创建输出文件夹
     std::string path1 = std::string(argv[2]) + "/";
@@ -79,12 +76,11 @@ int main(int argc, char *argv[]) {
     if (!std::filesystem::exists(imgOutputDir))
         std::filesystem::create_directories(imgOutputDir);
 
-    std::vector<cv::Mat> matVector;
+    std::vector<std::string> imagePaths;
     // 获取该文件夹下所有图片绝对路径,存储在vector向量中
-    getImageMatFromPath(imgInputDir, matVector);
+    getImagePath(imgInputDir, imagePaths);
 
-    double inferTime = 0.0f;
-    inferEngine(param, func, matVector, outs);
+    inferEngine(param, func, imagePaths, outs);
 
     int i = 0;
     // 画yolo目标检测框
@@ -102,60 +98,6 @@ int main(int argc, char *argv[]) {
         }
     }
 
-//    for (auto &imgPath: imgPaths) {
-//        cv::Mat img = cv::imread(imgPath);
-//        //记录当前时间
-//        auto t1 = timer->curTimePoint();
-//        //记录人脸推理结果
-//        struct FaceResult *resPtr = nullptr;
-//
-//        int faceNum = 0, minFaceSize = 20, mode = 1;
-//        cv::Mat image = cv::imread(imgPath);
-//        // ??????
-//        ret = inferEngine(conf, func, image, out);
-//
-////        ret = inferEngine(engine, img.data, img.cols, img.rows, minFaceSize, mode, FAS_PF_RGB24_B8G8R8, faceNum);
-//        //把每张图片推理时间加到inferTime中 ms
-//        inferTime += timer->timeCount(t1);
-//        if (0 != ret) {
-//            std::cout << "======== infer failed. use time = " << inferTime << "ms =========" << std::endl;
-//            continue;
-//        }
-//
-//        getResults(engine, faceNum, resPtr);
-
-    //输出推理结果
-//        for (int i = 0; i < faceNum; ++i) {
-//            float x1 = resPtr[i].x1, y1 = resPtr[i].y1, x2 = resPtr[i].x2, y2 = resPtr[i].y2;
-//            float confidence = resPtr[i].confidence;
-//            float angleP = resPtr[i].angleP, angleR = resPtr[i].angleR, angleY = resPtr[i].angleY;
-//            float landmark[10];
-//            for (int j = 0; j < 10; ++j)
-//                landmark[j] = resPtr[i].landmark[j];
-//
-//            int qualityType = resPtr[i].qualityType;
-//            float qualityScore = resPtr[i].qualityScore;
-//
-//            std::cout << "=============face num " << i + 1 << "==============" << std::endl;
-//            std::cout << "rect = (" << x1 << ", " << y1 << ", " << x2 << ", " << y2 << ")" << std::endl;
-//            std::cout << "confidence = " << confidence << std::endl;
-//            std::cout << "angle(p,r,y) = (" << angleP << ", " << angleR << ", " << angleY << ")" << std::endl;
-//            std::cout << "quality_type = " << qualityType << std::endl;
-//            std::cout << "quality_score = " << qualityScore << std::endl;
-//
-//            std::cout << "landmark = ";
-//            for (float j: landmark) std::cout << j << ", ";
-//
-//            std::cout << "feature = ";
-//            for (float j: resPtr[i].feature) std::cout << j << ", ";
-//
-//            std::cout << std::endl;
-//
-//            delete[] resPtr, resPtr = nullptr;
-//        }
-//    releaseEngine(engine);
     return 0;
 }
 
-//return 0;
-//}

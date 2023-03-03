@@ -13,6 +13,7 @@
 
 //传入输入图片文件夹路径, 和空字符串vector,返回vector,存储文件夹中所有所有图片路径
 void getImageMatFromPath(const std::filesystem::path &imageDirPath, std::vector<cv::Mat> &matVector);
+void getImagePath(const std::filesystem::path &imageDirPath, std::vector<std::string> &imagePaths);
 //BGR->RGB, 有更简单的opencv函数可供使用,手动的转换有必要吗?
 void BGR2RGB(const cv::Mat &image, float *pinInput);
 

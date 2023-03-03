@@ -37,6 +37,17 @@ void getImageMatFromPath(const std::filesystem::path &imageDirPath, std::vector<
     }
 }
 
+//遍历文件夹,返回图片矩阵vector
+void getImagePath(const std::filesystem::path &imageDirPath, std::vector<std::string> &imagePaths) {
+    // 只遍历当前文件夹下的第一层结构
+    std::filesystem::directory_iterator dirPath(imageDirPath);
+    for (auto &it: dirPath) {
+        std::string suffix = std::filesystem::path(it).extension();
+        if (suffix == ".jpg" || suffix == ".jpeg" || suffix == ".png")
+            imagePaths.emplace_back(it.path().string());
+    }
+}
+
 //bgr转rgb,并归一化
 void BGR2RGB(const cv::Mat &image, float *pinInput) {
     int imageArea = image.cols * image.rows;

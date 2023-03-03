@@ -2,7 +2,7 @@
 // Created by Administrator on 2023/1/9.
 //
 #include "../utils/general.h"
-#include "face_interface.h"
+#include "face_interface_new.h"
 
 
 bool check_cuda_runtime(cudaError_t code, const char *op, const char *file, int line) {
@@ -157,7 +157,7 @@ int trtInferProcess(ParamBase &curParm, AlgorithmBase *curFunc,
     }
 }
 
-int initEngine(productParm &parm, productFunc &func) {
+int initEngine(productParam &param, productFunc &func) {
     //人脸检测模型初始化
 //    if (nullptr == func.yoloFace) {
 //        AlgorithmBase *curAlg = AlgorithmBase::loadDynamicLibrary(
@@ -181,7 +181,7 @@ int initEngine(productParm &parm, productFunc &func) {
         if (!curAlg) printf("error");
 
         func.yoloDetect = curAlg;
-        int initFlag = initCommon(parm.yoloDetectParm, func.yoloDetect);
+        int initFlag = initCommon(param.yoloDetectParam, func.yoloDetect);
         if (0 > initFlag) {
             printf("yolo detect init failed\n");
             return -1;
@@ -191,10 +191,10 @@ int initEngine(productParm &parm, productFunc &func) {
     return 0;
 }
 
-int inferEngine(productParm &parm, productFunc &func, std::vector<cv::Mat> &mats, productResult &out) {
+int inferEngine(productParam &param, productFunc &func, std::vector<cv::Mat> &mats, productResult &out) {
     // 以engine是否存在为判定,存在则执行推理
-    if (nullptr != parm.yoloDetectParm.engine)
-        trtInferProcess(parm.yoloDetectParm, func.yoloDetect, mats, out.detectResult);
+    if (nullptr != param.yoloDetectParam.engine)
+        trtInferProcess(param.yoloDetectParam, func.yoloDetect, mats, out.detectResult);
 
 //    if (nullptr != conf.yoloConfig.engine)
 //       trtInferProcess(conf.yoloConfig, func.yoloFace, matVector);
@@ -202,9 +202,9 @@ int inferEngine(productParm &parm, productFunc &func, std::vector<cv::Mat> &mats
     return 0;
 }
 
-int getResult(productParm &parm, productResult &out) {
+int getResult(productParam &param, productResult &out) {
     // 以engine是否存在为判定,存在则输出结果
-//    if (nullptr != parm.yoloDetectParm.engine)
-//        trtInferProcess(parm.yoloDetectParm, func.yoloDetect, mats, out.detectResult);
+//    if (nullptr != param.yoloDetectParm.engine)
+//        trtInferProcess(param.yoloDetectParm, func.yoloDetect, mats, out.detectResult);
     return 0;
 }

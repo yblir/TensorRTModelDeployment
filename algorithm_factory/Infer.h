@@ -51,7 +51,8 @@ struct ResultBase{
 
 class Infer {
     virtual int initParam(void *param) = 0;
-
+    // 多线程,传入图片路径,读取图片并写入队列
+    virtual std::shared_ptr<std::string> commit(const std::string& input)=0;
     // 图片预处理
     virtual int preProcess(ParmBase &parm, cv::Mat &image, float *pinMemoryCurrentIn) = 0;
     // 图片后处理
