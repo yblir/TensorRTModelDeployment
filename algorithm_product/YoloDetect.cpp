@@ -12,30 +12,30 @@ extern "C" AlgorithmBase *MakeAlgorithm(void) {
 YoloDetect::YoloDetect() = default;
 YoloDetect::~YoloDetect() = default;
 
-int YoloDetect::preProcess(ParmBase &parm, cv::Mat &image, float *pinMemoryCurrentIn) {
+int YoloDetect::preProcess(ParamBase &param, cv::Mat &image, float *pinMemoryCurrentIn) {
     float d2i[6];
     cv::Mat scaleImage = letterBox(image, 640, 640, d2i);
     // 依次存储一个batchSize中图片放射变换参数
-    parm.d2is.push_back({d2i[0], d2i[1], d2i[2], d2i[3], d2i[4], d2i[5]});
+    param.d2is.push_back({d2i[0], d2i[1], d2i[2], d2i[3], d2i[4], d2i[5]});
 
     BGR2RGB(scaleImage, pinMemoryCurrentIn);
 
     return 0;
 }
 
-int YoloDetect::postProcess(ParmBase &parm, float *pinMemoryOut, int singleOutputSize,
+int YoloDetect::postProcess(ParamBase &param, float *pinMemoryOut, int singleOutputSize,
                             int outputNums, std::vector<std::vector<std::vector<float>>> &result) {
-//std::vector<std::vector<std::vector<float>>> YoloDetect::postProcess(ParmBase &parm, float *pinMemoryOut, int singleOutputSize, int outputNums, ResultBase &result) {
+//std::vector<std::vector<std::vector<float>>> YoloDetect::postProcess(ParamBase &param, float *pinMemoryOut, int singleOutputSize, int outputNums, ResultBase &result) {
     //将父类对象转为子类对象,这样才能调用属于子类的成员变量
-    auto curParm = reinterpret_cast<YoloDetectParm &>(parm);
+    auto curParam = reinterpret_cast<YoloDetectParam &>(param);
 //    auto curResult = reinterpret_cast<YoloDetectResult &>(result);
 
     // outPutNums是实际推理的图片数量. 正常运行时outPutNums等于batchSize, 但在最后推理阶段, outPutNums是小于batchSzie的
     for (int i = 0; i < outputNums; ++i) {
         // 处理图片时要跳过前面已经处理的图片
-        std::vector<std::vector<float>> boxes = decodeBox(curParm.predictNums, curParm.predictLength, pinMemoryOut + i * singleOutputSize,
-                                                          curParm.classNums, curParm.scoreThresh, parm.d2is[i]);
-        std::vector<std::vector<float>> predict = nms(boxes, curParm.iouThresh);
+        std::vector<std::vector<float>> boxes = decodeBox(curParam.predictNums, curParam.predictLength, pinMemoryOut + i * singleOutputSize,
+                                                          curParam.classNums, curParam.scoreThresh, param.d2is[i]);
+        std::vector<std::vector<float>> predict = nms(boxes, curParam.iouThresh);
         result.push_back(predict);
     }
 

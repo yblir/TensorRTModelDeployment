@@ -21,7 +21,7 @@ int YoloFace::initParam(void *param) {
     return 0;
 }
 
-int YoloFace::preProcess(ParmBase &parm, cv::Mat &image, float *pinMemoryIn) {
+int YoloFace::preProcess(ParamBase &parm, cv::Mat &image, float *pinMemoryIn) {
     return 0;
 }
 
@@ -38,7 +38,7 @@ int YoloFace::preProcess(ParmBase &parm, cv::Mat &image, float *pinMemoryIn) {
 //    return 0;
 //}
 //
-int YoloFace::postProcess(ParmBase &parm, float *pinMemoryOut, int singleOutputSize,
+int YoloFace::postProcess(ParamBase &parm, float *pinMemoryOut, int singleOutputSize,
                           int outputNums, std::vector<std::vector<std::vector<float>>> &result) {
     return 0;
 }

@@ -18,9 +18,9 @@ public:
 
     int initParam(void *param) override;
     // 图片预处理
-    int preProcess(ParmBase &parm, cv::Mat &image, float *pinMemoryCurrentIn) override;
+    int preProcess(ParamBase &parm, cv::Mat &image, float *pinMemoryCurrentIn) override;
     // 图片后处理
-    int postProcess(ParmBase &parm, float *pinMemoryOut, int singleOutputSize,
+    int postProcess(ParamBase &parm, float *pinMemoryOut, int singleOutputSize,
                     int outputNums, std::vector<std::vector<std::vector<float>>> &result) override;
 
 
