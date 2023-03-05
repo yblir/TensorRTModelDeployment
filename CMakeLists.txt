@@ -61,7 +61,10 @@ add_executable(run main.cpp main_new.cpp
 # 为库或二进制可执行文件添加库链接，要用在add_executable之后,target是指通
 # 过add_executable()和add_library()指令生成已经创建的目标文件run
 target_link_libraries(run ${DEP_LIBS} ${CUDA_LIBRARIES}
-        ${CUDART_LIBRARIES} ${OpenCV_LIBRARIES} ${i1} ${i2} ${i3} ${CMAKE_DL_LIBS})
+        ${CUDART_LIBRARIES} ${OpenCV_LIBRARIES} ${i1} ${i2} ${i3} ${CMAKE_DL_LIBS}
+        opencv_core opencv_imgcodecs opencv_imgproc opencv_videoio
+        opencv_cudaarithm opencv_cudawarping opencv_cudaimgproc opencv_highgui
+        )
 
 set(CMAKE_INSTALL_PREFIX ${PROJECT_BINARY_DIR}/dist)
 

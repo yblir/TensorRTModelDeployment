@@ -23,6 +23,17 @@ int YoloDetect::preProcess(ParamBase &param, cv::Mat &image, float *pinMemoryCur
     return 0;
 }
 
+cv::Mat YoloDetect::preProcess(ParamBase &param, cv::Mat &image) {
+    float d2i[6];
+    cv::Mat scaleImage = letterBox(image, 640, 640, d2i);
+    // 依次存储一个batchSize中图片放射变换参数
+    param.d2is.push_back({d2i[0], d2i[1], d2i[2], d2i[3], d2i[4], d2i[5]});
+
+    BGR2RGB(scaleImage, pinMemoryCurrentIn);
+
+    return 0;
+}
+
 int YoloDetect::postProcess(ParamBase &param, float *pinMemoryOut, int singleOutputSize,
                             int outputNums, std::vector<std::vector<std::vector<float>>> &result) {
 //std::vector<std::vector<std::vector<float>>> YoloDetect::postProcess(ParamBase &param, float *pinMemoryOut, int singleOutputSize, int outputNums, ResultBase &result) {
