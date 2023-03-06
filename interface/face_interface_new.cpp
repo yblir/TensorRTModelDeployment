@@ -128,20 +128,19 @@ std::vector<int> setBatchAndInferMemory(ParamBase &curParam) {
 //}
 
 // 适用于模型推理的通用trt流程
-int trtEnqueueV3(ParamBase &curParam, std::vector<int> memory,
-                 float *pinMemoryIn, float *pinMemoryOut, float *gpuMemoryIn, float *gpuMemoryOut) {
-    //创建cuda任务流
-    cudaStream_t stream;
-    cudaStreamCreate(&stream);
-
-    //模型输入数据从锁页内存转到gpu上
-    checkRuntime(cudaMemcpyAsync(gpuMemoryIn, pinMemoryIn, memory[0] * sizeof(float), cudaMemcpyHostToDevice, stream));
-
-    // 指定onnx中输入输出tensor名
-    curParam.context->setTensorAddress(curParam.inputName.c_str(), gpuMemoryIn);
-    curParam.context->setTensorAddress(curParam.outputName.c_str(), gpuMemoryOut);
+int trtEnqueueV3(ParamBase &curParam, std::vector<int> memory, float *pinMemoryOut, float *gpuMemoryOut, int &count, cudaStream_t &stream) {
+    std::unique_lock<std::mutex> l(lock_);
+    condition.wait(l, [&]() {
+        // false, 表示继续等待.
+        // true, 表示不等待,跳出wait
+        // 当gpuMemoryIn填入预处理图片数据为batchSize时,执行推理. 或者最后图片数量不够一个batch也可以推理,此时q_mats一定是空的
+        return count >= curParam.batchSize || q_mats.empty();
+    });
     // 执行异步推理
     curParam.context->enqueueV3(stream);
+    count = 0;
+    // 消费掉一个,就可以通知队列跳出等待,继续生产
+    condition.notify_one();
 
     // 将推理结果从gpu拷贝到cpu上
     cudaMemcpyAsync(pinMemoryOut, gpuMemoryOut, memory[1] * sizeof(float), cudaMemcpyDeviceToHost, stream);
@@ -149,59 +148,59 @@ int trtEnqueueV3(ParamBase &curParam, std::vector<int> memory,
     cudaStreamSynchronize(stream);
 }
 
-// 通用推理接口
-int trtInferProcess(ParamBase &curParam, AlgorithmBase *curFunc,
-                    std::vector<cv::Mat> &mats, std::vector<std::vector<std::vector<float>>> &result) {
-    //配置锁页内存,gpu显存指针
-    float *pinMemoryIn = nullptr, *pinMemoryOut = nullptr, *gpuMemoryIn = nullptr, *gpuMemoryOut = nullptr;
-    //0:当前推理模型输入tensor存储空间大小,1:当前推理输出结果存储空间大小
-    std::vector<int> memory = setBatchAndInferMemory(curParam);
+//// 通用推理接口
+//int trtInferProcess(ParamBase &curParam, AlgorithmBase *curFunc,
+//                    std::vector<cv::Mat> &mats, std::vector<std::vector<std::vector<float>>> &result) {
+//    //配置锁页内存,gpu显存指针
+//    float *pinMemoryIn = nullptr, *pinMemoryOut = nullptr, *gpuMemoryIn = nullptr, *gpuMemoryOut = nullptr;
+//    //0:当前推理模型输入tensor存储空间大小,1:当前推理输出结果存储空间大小
+//    std::vector<int> memory = setBatchAndInferMemory(curParam);
+//
+//    // 以下,开辟内存操作不能在单独函数中完成,因为是二级指针,在当前函数中开辟内存,离开函数内存空间会消失
+//    // 在锁页内存和gpu上开辟输入tensor数据所在存储空间
+//    checkRuntime(cudaMallocHost(&pinMemoryIn, memory[0] * sizeof(float)));
+//    checkRuntime(cudaMalloc(&gpuMemoryIn, memory[0] * sizeof(float)));
+//    // 分别在锁页内存和gpu上开辟空间,用于存储推理结果
+//    checkRuntime(cudaMallocHost(&pinMemoryOut, memory[1] * sizeof(float)));
+//    checkRuntime(cudaMalloc(&gpuMemoryOut, memory[1] * sizeof(float)));
+//
+//    // 预处理,一次处理batchSize张图片, 包括尺寸缩放,归一化,色彩转换,图片数据从内存提取到gpu
+//    int count = 0;
+//    // 计算模型推理时,单个输入输出tensor占用空间
+//    int singleInputSize = memory[0] / curParam.batchSize;
+//    int singleOutputSize = memory[1] / curParam.batchSize;
+//
+//    // 取得最后一个元素的地址
+//    auto lastAddress = &mats.back();
+//
+//    for (auto &mat: mats) {
+//        // 记录已推理图片数量
+//        count += 1;
+//
+//        // 遍历所有图片,若图片数量不够一个batch,加入的处理队列中
+//        if (count <= curParam.batchSize)
+//            // todo 在gpu上开辟两块gpuMemoryIn内存,一个batch预处理数据存储一个memory中,队列长度为2,只有当其中一个memory被取走推理时,
+//            // todo 才继续预处理,写入空的memory,存入队列
+//            // todo 或者开辟一段有两个batch空间的gpuMemoryIn,持续写入,直到为满,当取走一个baith图片做推理时,再继续写入
+//            // 处理单张图片,每次预处理图片,指针要跳过前面处理过的图片
+//            curFunc->preProcess(curParam, mat, pinMemoryIn + (count - 1) * singleInputSize);
+//
+//        //够一个batchSize,执行推理. 或者当循环vector取到最后一个元素时(当前元素地址与最后一个元素地址相同),不论是否够一个batchSize, 都要执行推理
+//        if (count == curParam.batchSize || &mat == lastAddress) {
+//            //通用推理过程,推理成功后将结果从gpu复制到锁页内存pinMemoryOut
+//            trtEnqueueV3(curParam, memory, pinMemoryIn, pinMemoryOut, gpuMemoryIn, gpuMemoryOut);
+//            //后处理,函数内循环处理一个batchSize的所有图片
+//            curFunc->postProcess(curParam, pinMemoryOut, singleOutputSize, count, result);
+//
+//            // 清0标记,清空用于后处理的images,清空用于图像尺寸缩放的d2is,重新开始下一个bachSize.
+//            count = 0;
+//            std::vector<std::vector<float>>().swap(curParam.d2is);
+//        }
+//    }
+//}
 
-    // 以下,开辟内存操作不能在单独函数中完成,因为是二级指针,在当前函数中开辟内存,离开函数内存空间会消失
-    // 在锁页内存和gpu上开辟输入tensor数据所在存储空间
-    checkRuntime(cudaMallocHost(&pinMemoryIn, memory[0] * sizeof(float)));
-    checkRuntime(cudaMalloc(&gpuMemoryIn, memory[0] * sizeof(float)));
-    // 分别在锁页内存和gpu上开辟空间,用于存储推理结果
-    checkRuntime(cudaMallocHost(&pinMemoryOut, memory[1] * sizeof(float)));
-    checkRuntime(cudaMalloc(&gpuMemoryOut, memory[1] * sizeof(float)));
 
-    // 预处理,一次处理batchSize张图片, 包括尺寸缩放,归一化,色彩转换,图片数据从内存提取到gpu
-    int count = 0;
-    // 计算模型推理时,单个输入输出tensor占用空间
-    int singleInputSize = memory[0] / curParam.batchSize;
-    int singleOutputSize = memory[1] / curParam.batchSize;
-
-    // 取得最后一个元素的地址
-    auto lastAddress = &mats.back();
-
-    for (auto &mat: mats) {
-        // 记录已推理图片数量
-        count += 1;
-
-        // 遍历所有图片,若图片数量不够一个batch,加入的处理队列中
-        if (count <= curParam.batchSize)
-            // todo 在gpu上开辟两块gpuMemoryIn内存,一个batch预处理数据存储一个memory中,队列长度为2,只有当其中一个memory被取走推理时,
-            // todo 才继续预处理,写入空的memory,存入队列
-            // todo 或者开辟一段有两个batch空间的gpuMemoryIn,持续写入,直到为满,当取走一个baith图片做推理时,再继续写入
-            // 处理单张图片,每次预处理图片,指针要跳过前面处理过的图片
-            curFunc->preProcess(curParam, mat, pinMemoryIn + (count - 1) * singleInputSize);
-
-        //够一个batchSize,执行推理. 或者当循环vector取到最后一个元素时(当前元素地址与最后一个元素地址相同),不论是否够一个batchSize, 都要执行推理
-        if (count == curParam.batchSize || &mat == lastAddress) {
-            //通用推理过程,推理成功后将结果从gpu复制到锁页内存pinMemoryOut
-            trtEnqueueV3(curParam, memory, pinMemoryIn, pinMemoryOut, gpuMemoryIn, gpuMemoryOut);
-            //后处理,函数内循环处理一个batchSize的所有图片
-            curFunc->postProcess(curParam, pinMemoryOut, singleOutputSize, count, result);
-
-            // 清0标记,清空用于后处理的images,清空用于图像尺寸缩放的d2is,重新开始下一个bachSize.
-            count = 0;
-            std::vector<std::vector<float>>().swap(curParam.d2is);
-        }
-    }
-}
-
-
-void imagePreProcess(std::vector<std::string> &imgPaths) {
+void preProcess(std::vector<std::string> &imgPaths) {
     for (auto &imgPath: imgPaths) {
         {
             std::unique_lock<std::mutex> l(lock_);
@@ -211,9 +210,7 @@ void imagePreProcess(std::vector<std::string> &imgPaths) {
             cv::Mat scaleImage = letterBox(mat, 640, 640, d2i);
             // 依次存储一个batchSize中图片放射变换参数
             param.d2is.push_back({d2i[0], d2i[1], d2i[2], d2i[3], d2i[4], d2i[5]});
-
             cv::cuda::GpuMat gpuMat(scaleImage);
-
             cv::cuda::cvtColor(mat, gpuMat, cv::COLOR_BGR2RGB);
             // 数值归一化
             gpuMat.convertTo(gpuMat, CV_32FC3, 1. / 255., 0);
@@ -224,11 +221,29 @@ void imagePreProcess(std::vector<std::string> &imgPaths) {
             condition.wait(l, [&]() {
                 // false, 表示继续等待.
                 // true, 表示不等待,跳出wait
-                return q_mats.size() < 10;
+                return q_mats.size() < 2 * 10;
             });
 
 //            q_d2is
             q_mats.push(gpuMat);
+        }
+    }
+    // 当图片遍历完时, 结束推理
+    bool running = false;
+}
+
+void uploadTensor(ParamBase &curParam, int &count, float &gpuMemoryIn, int inputSize, cudaStream_t &stream) {
+    if (!q_mats.empty() && count < curParam.batchSize) {
+        {// 消费时加锁
+            std::lock_guard<std::mutex> l(lock_);
+            auto mat = q_mats.front();
+            //从前面删除
+            q_mats.pop();
+            // 消费掉一个,就可以通知队列跳出等待,继续生产
+            condition.notify_one();
+            checkRuntime(cudaMemcpyAsync(&gpuMemoryIn + count * inputSize, &mat, inputSize, cudaMemcpyDeviceToDevice, stream));
+
+            count += 1;
         }
     }
 }
@@ -243,10 +258,9 @@ int trtInferProcess(ParamBase &curParam, AlgorithmBase *curFunc,
 
     // 以下,开辟内存操作不能在单独函数中完成,因为是二级指针,在当前函数中开辟内存,离开函数内存空间会消失
     // 在锁页内存和gpu上开辟输入tensor数据所在存储空间
-    checkRuntime(cudaMallocHost(&pinMemoryIn, memory[0] * sizeof(float)));
     checkRuntime(cudaMalloc(&gpuMemoryIn, memory[0] * sizeof(float)));
     // 分别在锁页内存和gpu上开辟空间,用于存储推理结果
-    checkRuntime(cudaMallocHost(&pinMemoryOut, memory[1] * sizeof(float)));
+//    checkRuntime(cudaMallocHost(&pinMemoryOut, memory[1] * sizeof(float)));
     checkRuntime(cudaMalloc(&gpuMemoryOut, memory[1] * sizeof(float)));
 
 
@@ -256,44 +270,30 @@ int trtInferProcess(ParamBase &curParam, AlgorithmBase *curFunc,
     int singleInputSize = memory[0] / curParam.batchSize;
     int singleOutputSize = memory[1] / curParam.batchSize;
 
+    // 指定onnx中输入输出tensor名
+    curParam.context->setTensorAddress(curParam.inputName.c_str(), gpuMemoryIn);
+    curParam.context->setTensorAddress(curParam.outputName.c_str(), gpuMemoryOut);
+
+    //创建cuda任务流
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
+
     // 取得最后一个元素的地址
 //    auto lastAddress = &mats.back();
-    std::thread t0(imagePreProcess, std::ref(imgPaths));
-
-    if (!q_mats.empty()) {
-        {// 消费时加锁
-            std::lock_guard<std::mutex> l(lock_);
-            auto mat = q_mats.front();
-            //从前面删除
-            q_mats.pop();
-            // 消费掉一个,就可以通知队列跳出等待,继续生产
-            condition.notify_one();
-        }
-    }
+    // 预处理
+    std::thread t0(preProcess, std::ref(imgPaths));
+    // 将预处理图片复制到推理空间
+    std::thread t1(uploadTensor, std::ref(curParam), std::ref(count), std::ref(*gpuMemoryIn), std::ref(singleInputSize), std::ref(stream));
+    // 执行推理
+    std::thread t2(trtEnqueueV3, std::ref(curParam), std::ref(memory), std::ref(pinMemoryOut), std::ref(gpuMemoryOut),std::ref(count),std::ref(stream));
+    // 结构后处理
+    std::thread t3(postProcess,std::ref());
 
 
-    // 记录已推理图片数量
-    count += 1;
-
-    // 遍历所有图片,若图片数量不够一个batch,加入的处理队列中
-    if (count <= curParam.batchSize)
-        // todo 在gpu上开辟两块gpuMemoryIn内存,一个batch预处理数据存储一个memory中,队列长度为2,只有当其中一个memory被取走推理时,
-        // todo 才继续预处理,写入空的memory,存入队列
-        // todo 或者开辟一段有两个batch空间的gpuMemoryIn,持续写入,直到为满,当取走一个baith图片做推理时,再继续写入
-        // 处理单张图片,每次预处理图片,指针要跳过前面处理过的图片
-        curFunc->preProcess(curParam, mat, pinMemoryIn + (count - 1) * singleInputSize);
-
-    //够一个batchSize,执行推理. 或者当循环vector取到最后一个元素时(当前元素地址与最后一个元素地址相同),不论是否够一个batchSize, 都要执行推理
-    if (count == curParam.batchSize || &mat == lastAddress) {
-        //通用推理过程,推理成功后将结果从gpu复制到锁页内存pinMemoryOut
-        trtEnqueueV3(curParam, memory, pinMemoryIn, pinMemoryOut, gpuMemoryIn, gpuMemoryOut);
-        //后处理,函数内循环处理一个batchSize的所有图片
-        curFunc->postProcess(curParam, pinMemoryOut, singleOutputSize, count, result);
-
-        // 清0标记,清空用于后处理的images,清空用于图像尺寸缩放的d2is,重新开始下一个bachSize.
-        count = 0;
-        std::vector<std::vector<float>>().swap(curParam.d2is);
-    }
+    if (t0.joinable()) t0.join();
+    if (t1.joinable()) t1.join();
+    if (t2.joinable()) t2.join();
+    if (t3.joinable()) t3.join();
 
 }
 
