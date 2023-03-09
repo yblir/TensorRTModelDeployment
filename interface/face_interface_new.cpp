@@ -232,19 +232,40 @@ void preProcess(std::vector<std::string> &imgPaths) {
     bool running = false;
 }
 
-void uploadTensor(ParamBase &curParam, int &count, float &gpuMemoryIn, int inputSize, cudaStream_t &stream) {
-    if (!q_mats.empty() && count < curParam.batchSize) {
-        {// 消费时加锁
-            std::lock_guard<std::mutex> l(lock_);
-            auto mat = q_mats.front();
-            //从前面删除
-            q_mats.pop();
-            // 消费掉一个,就可以通知队列跳出等待,继续生产
-            condition.notify_one();
-            checkRuntime(cudaMemcpyAsync(&gpuMemoryIn + count * inputSize, &mat, inputSize, cudaMemcpyDeviceToDevice, stream));
+void postProcess(){
 
-            count += 1;
+}
+
+void uploadTensor(ParamBase &curParam, int &count, float &gpuMemoryIn, int inputSize, cudaStream_t &stream) {
+    while (true) {
+        if (!q_mats.empty() && count < curParam.batchSize) {
+            {   // 消费时加锁
+                std::unique_lock<std::mutex> l(lock_);
+                // 当推理空间已保存图片数量为batchSize时, 等待, 等待推理线程把这批数据取走推理,然后再重新复制
+                condition.wait(l, [&]() {
+                    // false, 表示继续等待. true, 表示不等待,跳出wait
+                    // 当gpuMemoryIn填入预处理图片数据为batchSize时,执行推理. 或者最后图片数量不够一个batch也可以推理,此时q_mats一定是空的
+                    return count >= curParam.batchSize || q_mats.empty();
+                });
+
+                // 每次想推理空间gpuMemoryIn复制batchSize个处理好的图片
+                for (int i = 0; i < curParam.batchSize; ++i) {
+                    if(q_mats.empty()) break;
+                    auto mat = q_mats.front();
+                    //从前面删除
+                    q_mats.pop();
+                    // 消费掉一个,就可以通知队列跳出等待,继续生产
+                    condition.notify_one();
+                    checkRuntime(cudaMemcpyAsync(&gpuMemoryIn + count * inputSize, &mat, inputSize, cudaMemcpyDeviceToDevice, stream));
+
+                    count += 1;
+                }
+                copy_flag=true;
+            }
         }
+        if (q_mats.empty() && count > 0)
+            break;
+        std::this_thread::yield();
     }
 }
 
@@ -285,9 +306,10 @@ int trtInferProcess(ParamBase &curParam, AlgorithmBase *curFunc,
     // 将预处理图片复制到推理空间
     std::thread t1(uploadTensor, std::ref(curParam), std::ref(count), std::ref(*gpuMemoryIn), std::ref(singleInputSize), std::ref(stream));
     // 执行推理
-    std::thread t2(trtEnqueueV3, std::ref(curParam), std::ref(memory), std::ref(pinMemoryOut), std::ref(gpuMemoryOut),std::ref(count),std::ref(stream));
+    std::thread t2(trtEnqueueV3, std::ref(curParam), std::ref(memory), std::ref(pinMemoryOut), std::ref(gpuMemoryOut), std::ref(count),
+                   std::ref(stream));
     // 结构后处理
-    std::thread t3(postProcess,std::ref());
+    std::thread t3(postProcess, std::ref());
 
 
     if (t0.joinable()) t0.join();
