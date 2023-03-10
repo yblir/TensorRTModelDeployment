@@ -157,7 +157,7 @@ int trtInferProcess(ParamBase &curParm, AlgorithmBase *curFunc,
     }
 }
 
-int initEngine(productParm &parm, productFunc &func) {
+int initEngine(productParam &parm, productFunc &func) {
     //人脸检测模型初始化
 //    if (nullptr == func.yoloFace) {
 //        AlgorithmBase *curAlg = AlgorithmBase::loadDynamicLibrary(
@@ -181,7 +181,7 @@ int initEngine(productParm &parm, productFunc &func) {
         if (!curAlg) printf("error");
 
         func.yoloDetect = curAlg;
-        int initFlag = initCommon(parm.yoloDetectParm, func.yoloDetect);
+        int initFlag = initCommon(parm.yoloDetectParam, func.yoloDetect);
         if (0 > initFlag) {
             printf("yolo detect init failed\n");
             return -1;
@@ -191,10 +191,10 @@ int initEngine(productParm &parm, productFunc &func) {
     return 0;
 }
 
-int inferEngine(productParm &parm, productFunc &func, std::vector<cv::Mat> &mats, productResult &out) {
+int inferEngine(productParam &parm, productFunc &func, std::vector<cv::Mat> &mats, productResult &out) {
     // 以engine是否存在为判定,存在则执行推理
-    if (nullptr != parm.yoloDetectParm.engine)
-        trtInferProcess(parm.yoloDetectParm, func.yoloDetect, mats, out.detectResult);
+    if (nullptr != parm.yoloDetectParam.engine)
+        trtInferProcess(parm.yoloDetectParam, func.yoloDetect, mats, out.detectResult);
 
 //    if (nullptr != conf.yoloConfig.engine)
 //       trtInferProcess(conf.yoloConfig, func.yoloFace, matVector);
@@ -202,7 +202,7 @@ int inferEngine(productParm &parm, productFunc &func, std::vector<cv::Mat> &mats
     return 0;
 }
 
-int getResult(productParm &parm, productResult &out) {
+int getResult(productParam &parm, productResult &out) {
     // 以engine是否存在为判定,存在则输出结果
 //    if (nullptr != parm.yoloDetectParm.engine)
 //        trtInferProcess(parm.yoloDetectParm, func.yoloDetect, mats, out.detectResult);
