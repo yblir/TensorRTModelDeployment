@@ -48,13 +48,15 @@ link_directories()
 add_subdirectory(algorithm_product)
 
 # 定义了这个工程会生成一个文件名为run 的可执行文件，相关的源文件是mian.cpp
-add_executable(run main.cpp
+add_executable(run
+#        main.cpp
+        main_new.cpp
         utils/general.h utils/general.cpp utils/box_utils.h utils/box_utils.cpp
 #        algorithm_product/YoloFace.h algorithm_product/YoloFace.cpp
         algorithm_product/YoloDetect.h algorithm_product/YoloDetect.cpp
         algorithm_product/product.h
-        interface/face_interface.h interface/face_interface.cpp
-#        interface/face_interface_new.h interface/face_interface_new.cpp
+#        interface/face_interface.h interface/face_interface.cpp
+        interface/face_interface_new.h interface/face_interface_new.cpp
         algorithm_factory/factory.h algorithm_factory/factory.cpp
         interface/beifen.cpp algorithm_factory/Infer.cpp algorithm_factory/Infer.h)
 

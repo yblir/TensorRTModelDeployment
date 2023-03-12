@@ -177,7 +177,9 @@ int initEngine(productParam &parm, productFunc &func) {
     // 其他检测模型初始化
     if (nullptr == func.yoloDetect) {
         // 调用成功会返回对应模型指针对象. 失败返回nullptr
-        AlgorithmBase *curAlg = AlgorithmBase::loadDynamicLibrary("/mnt/e/GitHub/TensorRTModelDeployment/cmake-build-debug-wsl/dist/lib/libTrtYoloDetect.so");
+        AlgorithmBase *curAlg = AlgorithmBase::loadDynamicLibrary(
+                "/mnt/i/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
+                );
         if (!curAlg) printf("error");
 
         func.yoloDetect = curAlg;

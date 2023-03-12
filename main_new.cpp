@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
 //    conf.yoloConfig.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/face_detect_v0.5_b17e5c7577192da3d3eb6b4bb850f8e_1out.onnx";
 //    conf.yoloConfig.gpuId = int(strtol(argv[1], nullptr, 10));
 
-    param.yoloDetectParam.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
+    param.yoloDetectParam.onnxPath = "/mnt/i/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
     param.yoloDetectParam.gpuId = int(strtol(argv[1], nullptr, 10));
     param.yoloDetectParam.batchSize = 2;
     param.yoloDetectParam.inputHeight = 640;
@@ -82,22 +82,22 @@ int main(int argc, char *argv[]) {
 
     inferEngine(param, func, imagePaths, outs);
 
-    int i = 0;
-    // 画yolo目标检测框
-    if (!outs.detectResult.empty()) {
-        // 遍历每张图片
-        for (auto &out: outs.detectResult) {
-            // 遍历一张图片中每个预测框,并画到图片上
-            for (auto &box: out) {
-                drawImage(matVector[i], box);
-            }
-            // 把画好框的图片写入本地
-            std::string drawName = "draw" + std::to_string(i) + ".jpg";
-            cv::imwrite(drawName, matVector[i]);
-            i += 1;
-        }
-    }
-
+//    int i = 0;
+//    // 画yolo目标检测框
+//    if (!outs.detectResult.empty()) {
+//        // 遍历每张图片
+//        for (auto &out: outs.detectResult) {
+//            // 遍历一张图片中每个预测框,并画到图片上
+//            for (auto &box: out) {
+//                drawImage(matVector[i], box);
+//            }
+//            // 把画好框的图片写入本地
+//            std::string drawName = "draw" + std::to_string(i) + ".jpg";
+//            cv::imwrite(drawName, matVector[i]);
+//            i += 1;
+//        }
+//    }
+    printf(reinterpret_cast<const char *>('fsdfsdfsfd\n'));
     return 0;
 }
 

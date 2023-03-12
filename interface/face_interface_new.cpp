@@ -23,17 +23,27 @@ std::mutex lock_;
 
 std::condition_variable condition;
 
+// 推理输入
 struct Job {
-    std::shared_ptr<std::promise<float *>> gpuPtr;
-    std::vector<std::vector<float>> d2is;
+    std::shared_ptr<std::promise<float *>> gpuOutputPtr;
     float *inputTensor;
+
+};
+
+// 推理输出
+struct Out {
+    std::shared_future<float *> inferResult;
+    std::vector<std::vector<float>> d2is;
     int inferNum;
 };
+
 //std::queue<float *> qJobs;
 std::queue<Job> qJobs;
+// 存储每个batch的推理结果,统一后处理
+std::queue<Out> qOuts;
 
 std::atomic<bool> queueFinish{false};
-std::atomic<bool> cpuToGpuFinish{false};
+std::atomic<bool> inferFinish{false};
 std::atomic<bool> batchCopyOk{false};
 
 bool check_cuda_runtime(cudaError_t code, const char *op, const char *file, int line) {
@@ -119,58 +129,41 @@ std::vector<int> setBatchAndInferMemory(ParamBase &curParam) {
     return memory;
 }
 
-//// 适用于模型推理的通用trt流程
-//int trtEnqueueV3(ParamBase &curParam, std::vector<int> memory,
-//                 float *pinMemoryIn, float *pinMemoryOut, float *gpuMemoryIn, float *gpuMemoryOut) {
-//    //创建cuda任务流
-//    cudaStream_t stream;
-//    cudaStreamCreate(&stream);
-//
-//    //模型输入数据从锁页内存转到gpu上
-//    checkRuntime(cudaMemcpyAsync(gpuMemoryIn, pinMemoryIn, memory[0] * sizeof(float), cudaMemcpyHostToDevice, stream));
-//
-//    // 指定onnx中输入输出tensor名
-//    curParam.context->setTensorAddress(curParam.inputName.c_str(), gpuMemoryIn);
-//    curParam.context->setTensorAddress(curParam.outputName.c_str(), gpuMemoryOut);
-//    // 执行异步推理
-//    curParam.context->enqueueV3(stream);
-//
-//    // 将推理结果从gpu拷贝到cpu上
-//    cudaMemcpyAsync(pinMemoryOut, gpuMemoryOut, memory[1] * sizeof(float), cudaMemcpyDeviceToHost, stream);
-//    // 流同步
-//    cudaStreamSynchronize(stream);
-//}
-
 // 适用于模型推理的通用trt流程
-int trtEnqueueV3(ParamBase &curParam, int &count, cudaStream_t &stream) {
+int trtEnqueueV3(ParamBase &curParam, int &count, float *gpuMemoryOut, cudaStream_t &stream) {
     while (true) {
         {
             std::unique_lock<std::mutex> l(lock_);
             condition.wait(l, [&]() {
                 // false, 表示继续等待. true, 表示不等待,跳出wait
-                // 当gpuMemoryIn填入预处理图片数据为batchSize时,执行推理. 或者最后图片数量不够一个batch也可以推理,此时q_mats一定是空的
-                return batchCopyOk && !qJobs.empty();
+                // 队列不为空, 就说明推理空间图片已准备好,退出等待,继续推理
+                // 当图片都处理完,并且队列为空,有要退出等待,因为此时推理工作已完成
+                return !qJobs.empty() || (queueFinish && qJobs.empty());
             });
+            // 退出推理线程
+            if (queueFinish && qJobs.empty()) break;
+
             auto job = qJobs.front();
             qJobs.pop();
             curParam.context->setTensorAddress(curParam.inputName.c_str(), job.inputTensor);
             // 执行异步推理
             curParam.context->enqueueV3(stream);
 
-            // 设置一个batch没有填满
-            batchCopyOk = false;
             // 消费掉一个,就可以通知队列跳出等待,继续生产
             condition.notify_one();
 
             // 流同步
             cudaStreamSynchronize(stream);
+
+            // 流同步后,获取该batchSize推理结果
+            job.gpuOutputPtr->set_value(gpuMemoryOut);
+
             // 释放已推理完的显存空间
             cudaFree(job.inputTensor);
 
-            // 队列为空, 跳出推理线程
-            if (qJobs.empty()) break;
         }
     }
+    inferFinish = true;
 }
 
 //// 通用推理接口
@@ -263,13 +256,15 @@ int trtEnqueueV3(ParamBase &curParam, int &count, cudaStream_t &stream) {
 ////    bool running = false;
 //}
 
-void preProcess2(ParamBase &curParam, std::vector<std::string> &imgPaths, std::vector<int> memory, cudaStream_t &stream) {
+void
+preProcess2(ParamBase &curParam, std::vector<std::string> &imgPaths, std::vector<int> &memory, cudaStream_t &stream) {
     auto lastAddress = &imgPaths.back();
     float *gpuMemoryIn = nullptr;
     checkRuntime(cudaMalloc(&gpuMemoryIn, memory[0] * sizeof(float)));
     int count = 0;
     int inputSize = memory[0] / curParam.batchSize;
     Job job;
+    Out out;
 
     for (auto &imgPath: imgPaths) {
         // 记录队列最后一个
@@ -281,14 +276,15 @@ void preProcess2(ParamBase &curParam, std::vector<std::string> &imgPaths, std::v
         cv::Mat scaleImage = letterBox(mat, 640, 640, d2i);
 
         cv::cuda::GpuMat gpuMat(scaleImage);
-        cv::cuda::cvtColor(mat, gpuMat, cv::COLOR_BGR2RGB);
+        cv::cuda::cvtColor(gpuMat, gpuMat, cv::COLOR_BGR2RGB);
         // 数值归一化
         gpuMat.convertTo(gpuMat, CV_32FC3, 1. / 255., 0);
 
         // 依次存储一个batchSize中图片放射变换参数
-        job.d2is.push_back({d2i[0], d2i[1], d2i[2], d2i[3], d2i[4], d2i[5]});
+        out.d2is.push_back({d2i[0], d2i[1], d2i[2], d2i[3], d2i[4], d2i[5]});
         if (count < curParam.batchSize) {
-            checkRuntime(cudaMemcpyAsync(&gpuMemoryIn + count * inputSize, &gpuMat, inputSize, cudaMemcpyDeviceToDevice, stream));
+//  + count * inputSize
+            checkRuntime(cudaMemcpy(&gpuMemoryIn + count * inputSize, &gpuMat, inputSize, cudaMemcpyDeviceToDevice));
             count += 1;
         }
 
@@ -296,80 +292,73 @@ void preProcess2(ParamBase &curParam, std::vector<std::string> &imgPaths, std::v
         {
             std::unique_lock<std::mutex> l(lock_);
             condition.wait(l, [&]() {
-                // false, 表示继续等待.
-                // true, 表示不等待,跳出wait
+                // false, 表示继续等待. true, 表示不等待,跳出wait
 //                wait流程: 一旦进入wait,解锁. 退出wait,又加锁 最多3个batch
                 return qJobs.size() < 3;
             });
 
             if (count >= curParam.batchSize) {
                 job.inputTensor = gpuMemoryIn;
-                job.inferNum = count;
+                // 记录当前推理图片数量,正常情况count=batchSize, 但最后批次,可能会小于batchSize
+                out.inferNum = count;
+                // 以后取回该批次图片的结果
+                job.gpuOutputPtr.reset(new std::promise<float *>());
+                // 关联当前输入数据的未来输出
+                out.inferResult = job.gpuOutputPtr->get_future();
+
                 // 将存有推理数据的显存空间指针保存
                 qJobs.push(job);
+                qOuts.push(out);
+
                 // 一个batch的数据已上传到推理空间
-                batchCopyOk = true;
-                // 重新开辟一块显存
-                checkRuntime(cudaMalloc(&gpuMemoryIn, memory[0] * sizeof(float)));
+//                batchCopyOk = true;
                 count = 0;
                 condition.notify_one();
+
+                // 最后图片取完,刚好够一个batch,此时不必再开辟新空间了
+                if (&imgPath != lastAddress) {
+                    // 重新开辟一块显存, 并关联输入输出队列
+                    checkRuntime(cudaMalloc(&gpuMemoryIn, memory[0] * sizeof(float)));
+                    // 清空保存仿射变换参数,每个out只保留一个batch的参数
+                    std::vector<std::vector<float>>().swap(out.d2is);
+                }
+
             }
         }
-        // 说明最后的数据不满足一个batch
-        if (count >= 0) {
-            job.inputTensor = gpuMemoryIn;
-            job.inferNum = count;
-            qJobs.push(job);
-            batchCopyOk = true;
-            condition.notify_one();
-        }
     }
-    // 当图片遍历完时, 结束推理
-//    bool running = false;
+    // 所有处理处理完,处理不满足一个batchSize的情况
+    if (count < curParam.batchSize) {
+        job.inputTensor = gpuMemoryIn;
+        out.inferNum = count;
+        // 以后取回该批次图片的结果
+        job.gpuOutputPtr.reset(new std::promise<float *>());
+        // 关联当前输入数据的未来输出
+        out.inferResult = job.gpuOutputPtr->get_future();
+
+        qJobs.push(job);
+        qOuts.push(out);
+
+        condition.notify_one();
+    }
 }
 
-void postProcess() {
+void postProcess(ParamBase &curParam, AlgorithmBase *curFunc, float *pinMemoryOut, std::vector<int> &memory,
+                 std::vector<std::vector<std::vector<float>>> &result) {
+    int singleOutputSize = memory[1] / curParam.batchSize;
+    while (true) {
+        if (!qOuts.empty()) {
+            auto out = qOuts.front();
+            cudaMemcpyAsync(pinMemoryOut, out.inferResult.get(), memory[1] * sizeof(float), cudaMemcpyDeviceToHost);
+            curFunc->postProcess(curParam, pinMemoryOut, singleOutputSize, out.inferNum, result);
 
+        }
+        // 当推理结束,且推理输出队列为空,表示后处理也结束, 跳出.
+        if (inferFinish && qOuts.empty()) break;
+
+        std::this_thread::yield();
+    }
 }
 
-//void uploadTensor(ParamBase &curParam, int &count, float &gpuMemoryIn, int inputSize, cudaStream_t &stream) {
-//    while (true) {
-//
-//        {   // 消费时加锁
-//            std::unique_lock<std::mutex> l(lock_);
-//            // 当推理空间已保存图片数量为batchSize时, 等待, 等待推理线程把这批数据取走推理,然后再重新复制
-//            condition.wait(l, [&]() {
-//                // false, 表示继续等待. true, 表示不等待,跳出wait
-//                // 当gpuMemoryIn填入预处理图片数据为batchSize时,执行推理. 或者最后图片数量不够一个batch也可以推理,此时q_mats一定是空的
-//                return !batchCopyOk && !qJobs.empty();
-//            });
-//
-//            auto job = qJobs.front();
-//            //从前面删除
-//            qJobs.pop();
-//            // 消费掉一个,就可以通知队列跳出等待,继续生产
-//            condition.notify_one();
-//            checkRuntime(cudaMemcpyAsync(&gpuMemoryIn + count * inputSize, &job.inputTensor, inputSize, cudaMemcpyDeviceToDevice, stream));
-//
-//            count += 1;
-//        }
-//        // 队列为空,队列也不在写入, 不满足一个batch也直接跳出, 结束线程
-//        if (queueFinish && qJobs.empty()) {
-//            cpuToGpuFinish = true;
-//            //最后,若发现count>0,说明推理已经上传有图片,不论是否够一个batch,都视为拷贝完成,都要执行推理,
-//            if (count > 0) batchCopyOk = true;
-////                condition.notify_all();
-//            condition.notify_one();
-//            break;
-//        }
-//        // 正常运行时,满足一个batch, 通知更新等待条件,通知推理线程, 推理空间数据已经准备好
-//        if (count >= curParam.batchSize) {
-//            batchCopyOk = true;
-////                condition.notify_all();
-//            condition.notify_one();
-//        }
-//    }
-//}
 
 // 通用推理接口
 int trtInferProcess(ParamBase &curParam, AlgorithmBase *curFunc,
@@ -389,9 +378,9 @@ int trtInferProcess(ParamBase &curParam, AlgorithmBase *curFunc,
 
     // 预处理,一次处理batchSize张图片, 包括尺寸缩放,归一化,色彩转换,图片数据从内存提取到gpu
     int count = 0;
-    // 计算模型推理时,单个输入输出tensor占用空间
-    int singleInputSize = memory[0] / curParam.batchSize;
-    int singleOutputSize = memory[1] / curParam.batchSize;
+//    // 计算模型推理时,单个输入输出tensor占用空间
+//    int singleInputSize = memory[0] / curParam.batchSize;
+//    int singleOutputSize = memory[1] / curParam.batchSize;
 
     // 指定onnx中输入输出tensor名
 //    curParam.context->setTensorAddress(curParam.inputName.c_str(), gpuMemoryIn);
@@ -404,20 +393,19 @@ int trtInferProcess(ParamBase &curParam, AlgorithmBase *curFunc,
     // 取得最后一个元素的地址
 //    auto lastAddress = &mats.back();
     // 预处理
-    std::thread t0(preProcess, std::ref(curParam), std::ref(imgPaths));
+    std::thread t0(preProcess2, std::ref(curParam), std::ref(imgPaths), std::ref(memory), std::ref(stream));
     // 将预处理图片复制到推理空间
 //    std::thread t1(uploadTensor, std::ref(curParam), std::ref(count), std::ref(*gpuMemoryIn), std::ref(singleInputSize), std::ref(stream));
     // 执行推理
-    std::thread t2(trtEnqueueV3, std::ref(curParam), std::ref(memory), std::ref(pinMemoryOut), std::ref(gpuMemoryOut), std::ref(count),
-                   std::ref(stream));
+    std::thread t1(trtEnqueueV3, std::ref(curParam), std::ref(count), std::ref(gpuMemoryOut), std::ref(stream));
     // 结构后处理
-    std::thread t3(postProcess, std::ref());
+    std::thread t2(postProcess, std::ref(curParam), std::ref(curFunc),
+                   std::ref(pinMemoryOut), std::ref(memory), std::ref(result));
 
 
     if (t0.joinable()) t0.join();
     if (t1.joinable()) t1.join();
     if (t2.joinable()) t2.join();
-    if (t3.joinable()) t3.join();
 
 }
 
@@ -443,7 +431,9 @@ int initEngine(productParam &param, productFunc &func) {
     if (nullptr == func.yoloDetect) {
         // 调用成功会返回对应模型指针对象. 失败返回nullptr
         AlgorithmBase *curAlg = AlgorithmBase::loadDynamicLibrary(
-                "/mnt/e/GitHub/TensorRTModelDeployment/cmake-build-debug-wsl/dist/lib/libTrtYoloDetect.so");
+//                "/mnt/e/GitHub/TensorRTModelDeployment/cmake-build-debug-wsl/dist/lib/libTrtYoloDetect.so"
+                "/mnt/i/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
+        );
         if (!curAlg) printf("error");
 
         func.yoloDetect = curAlg;
@@ -457,10 +447,10 @@ int initEngine(productParam &param, productFunc &func) {
     return 0;
 }
 
-int inferEngine(productParam &param, productFunc &func, std::vector<cv::Mat> &mats, productResult &out) {
+int inferEngine(productParam &param, productFunc &func, std::vector<std::string> &imgPaths, productResult &out) {
     // 以engine是否存在为判定,存在则执行推理
     if (nullptr != param.yoloDetectParam.engine)
-        trtInferProcess(param.yoloDetectParam, func.yoloDetect, mats, out.detectResult);
+        trtInferProcess(param.yoloDetectParam, func.yoloDetect, imgPaths, out.detectResult);
 
 //    if (nullptr != conf.yoloConfig.engine)
 //       trtInferProcess(conf.yoloConfig, func.yoloFace, matVector);
