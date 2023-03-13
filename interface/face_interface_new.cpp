@@ -259,7 +259,9 @@ int trtEnqueueV3(ParamBase &curParam, int &count, float *gpuMemoryOut, cudaStrea
 void
 preProcess2(ParamBase &curParam, std::vector<std::string> &imgPaths, std::vector<int> &memory, cudaStream_t &stream) {
     auto lastAddress = &imgPaths.back();
-    float *gpuMemoryIn = nullptr;
+    // 若全部在gpu上完成,不再需要pin相关任何东西
+    float *gpuMemoryIn = nullptr, *pinMemoryIn = nullptr;
+    checkRuntime(cudaMallocHost(&pinMemoryIn, memory[0] * sizeof(float)));
     checkRuntime(cudaMalloc(&gpuMemoryIn, memory[0] * sizeof(float)));
     int count = 0;
     int inputSize = memory[0] / curParam.batchSize;
@@ -275,19 +277,20 @@ preProcess2(ParamBase &curParam, std::vector<std::string> &imgPaths, std::vector
         float d2i[6];
         cv::Mat scaleImage = letterBox(mat, 640, 640, d2i);
 
-        cv::cuda::GpuMat gpuMat(scaleImage);
-        cv::cuda::cvtColor(gpuMat, gpuMat, cv::COLOR_BGR2RGB);
-        // 数值归一化
-        gpuMat.convertTo(gpuMat, CV_32FC3, 1. / 255., 0);
+//        cv::cuda::GpuMat gpuMat(scaleImage);
+//        cv::cuda::cvtColor(gpuMat, gpuMat, cv::COLOR_BGR2RGB);
+//        // 数值归一化
+//        gpuMat.convertTo(gpuMat, CV_32FC3, 1. / 255., 0);
 
         // 依次存储一个batchSize中图片放射变换参数
         out.d2is.push_back({d2i[0], d2i[1], d2i[2], d2i[3], d2i[4], d2i[5]});
         if (count < curParam.batchSize) {
-//  + count * inputSize
-            checkRuntime(cudaMemcpy(&gpuMemoryIn + count * inputSize, &gpuMat, inputSize, cudaMemcpyDeviceToDevice));
+            BGR2RGB(scaleImage, pinMemoryIn + count * inputSize);
+//            checkRuntime(cudaMemcpy(&gpuMemoryIn + count * inputSize, &gpuMat, inputSize, cudaMemcpyDeviceToDevice));
             count += 1;
         }
-
+        // 小于一个batch,不再往下继续.
+        if (count < curParam.batchSize) continue;
         // 加锁
         {
             std::unique_lock<std::mutex> l(lock_);
@@ -297,37 +300,37 @@ preProcess2(ParamBase &curParam, std::vector<std::string> &imgPaths, std::vector
                 return qJobs.size() < 3;
             });
 
-            if (count >= curParam.batchSize) {
-                job.inputTensor = gpuMemoryIn;
-                // 记录当前推理图片数量,正常情况count=batchSize, 但最后批次,可能会小于batchSize
-                out.inferNum = count;
-                // 以后取回该批次图片的结果
-                job.gpuOutputPtr.reset(new std::promise<float *>());
-                // 关联当前输入数据的未来输出
-                out.inferResult = job.gpuOutputPtr->get_future();
+            //全部到gpu上,不需要这句复制
+            checkRuntime(cudaMemcpy(&gpuMemoryIn, &pinMemoryIn, count * inputSize, cudaMemcpyHostToDevice));
+            job.inputTensor = gpuMemoryIn;
+            // 记录当前推理图片数量,正常情况count=batchSize, 但最后批次,可能会小于batchSize
+            out.inferNum = count;
+            // 以后取回该批次图片的结果
+            job.gpuOutputPtr.reset(new std::promise<float *>());
+            // 关联当前输入数据的未来输出
+            out.inferResult = job.gpuOutputPtr->get_future();
 
-                // 将存有推理数据的显存空间指针保存
-                qJobs.push(job);
-                qOuts.push(out);
+            // 将存有推理数据的显存空间指针保存
+            qJobs.push(job);
+            qOuts.push(out);
 
-                // 一个batch的数据已上传到推理空间
+            // 一个batch的数据已上传到推理空间
 //                batchCopyOk = true;
-                count = 0;
-                condition.notify_one();
+            count = 0;
+            condition.notify_one();
 
-                // 最后图片取完,刚好够一个batch,此时不必再开辟新空间了
-                if (&imgPath != lastAddress) {
-                    // 重新开辟一块显存, 并关联输入输出队列
-                    checkRuntime(cudaMalloc(&gpuMemoryIn, memory[0] * sizeof(float)));
-                    // 清空保存仿射变换参数,每个out只保留一个batch的参数
-                    std::vector<std::vector<float>>().swap(out.d2is);
-                }
-
+            // 最后图片取完,刚好够一个batch,此时不必再开辟新空间了
+            if (&imgPath != lastAddress) {
+                // 重新开辟一块显存, 并关联输入输出队列
+                checkRuntime(cudaMalloc(&gpuMemoryIn, memory[0] * sizeof(float)));
+                // 清空保存仿射变换参数,每个out只保留一个batch的参数
+                std::vector<std::vector<float>>().swap(out.d2is);
             }
         }
     }
     // 所有处理处理完,处理不满足一个batchSize的情况
     if (count < curParam.batchSize) {
+        checkRuntime(cudaMemcpy(&gpuMemoryIn, &pinMemoryIn, count * inputSize, cudaMemcpyHostToDevice));
         job.inputTensor = gpuMemoryIn;
         out.inferNum = count;
         // 以后取回该批次图片的结果
@@ -431,8 +434,8 @@ int initEngine(productParam &param, productFunc &func) {
     if (nullptr == func.yoloDetect) {
         // 调用成功会返回对应模型指针对象. 失败返回nullptr
         AlgorithmBase *curAlg = AlgorithmBase::loadDynamicLibrary(
-//                "/mnt/e/GitHub/TensorRTModelDeployment/cmake-build-debug-wsl/dist/lib/libTrtYoloDetect.so"
-                "/mnt/i/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
+                "/mnt/e/GitHub/TensorRTModelDeployment/cmake-build-debug-wsl/dist/lib/libTrtYoloDetect.so"
+//                "/mnt/i/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
         );
         if (!curAlg) printf("error");
 
