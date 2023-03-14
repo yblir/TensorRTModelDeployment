@@ -83,22 +83,24 @@ int main(int argc, char *argv[]) {
 
     inferEngine(param, func, imagePaths, outs);
 
-//    int i = 0;
-//    // 画yolo目标检测框
-//    if (!outs.detectResult.empty()) {
-//        // 遍历每张图片
-//        for (auto &out: outs.detectResult) {
-//            // 遍历一张图片中每个预测框,并画到图片上
-//            for (auto &box: out) {
-//                drawImage(matVector[i], box);
-//            }
-//            // 把画好框的图片写入本地
-//            std::string drawName = "draw" + std::to_string(i) + ".jpg";
-//            cv::imwrite(drawName, matVector[i]);
-//            i += 1;
-//        }
-//    }
-    printf(reinterpret_cast<const char *>('fsdfsdfsfd\n'));
+    std::cout << "在原图上画框" << std::endl;
+    int i = 0;
+    // 画yolo目标检测框
+    if (!outs.detectResult.empty()) {
+        // 遍历每张图片
+        for (auto &out: outs.detectResult) {
+            cv::Mat img = cv::imread(imagePaths[i]);
+            // 遍历一张图片中每个预测框,并画到图片上
+            for (auto &box: out) {
+                drawImage(img, box);
+            }
+            // 把画好框的图片写入本地
+            std::string drawName = "draw" + std::to_string(i) + ".jpg";
+            cv::imwrite(drawName, img);
+            i += 1;
+        }
+    }
+//    printf(reinterpret_cast<const char *>('fsdfsdfsfd\n'));
     return 0;
 }
 
