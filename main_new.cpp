@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
     */
     // 判断参数个数, 若不为3,终止程序
     auto timer = new Timer();
-
+    double total;
     if (argc != 3) {
         std::cout << " the number of param is incorrect, must be 3, but now is " << argc << std::endl;
         std::cout << "param format is ./AiSdkDemo gpu_id img_dir_path" << std::endl;
@@ -47,8 +47,8 @@ int main(int argc, char *argv[]) {
 //    conf.yoloConfig.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/face_detect_v0.5_b17e5c7577192da3d3eb6b4bb850f8e_1out.onnx";
 //    conf.yoloConfig.gpuId = int(strtol(argv[1], nullptr, 10));
 
-    param.yoloDetectParam.onnxPath = "/mnt/i/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
-//    param.yoloDetectParam.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
+//    param.yoloDetectParam.onnxPath = "/mnt/i/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
+    param.yoloDetectParam.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
     param.yoloDetectParam.gpuId = int(strtol(argv[1], nullptr, 10));
     param.yoloDetectParam.batchSize = 2;
     param.yoloDetectParam.inputHeight = 640;
@@ -62,11 +62,11 @@ int main(int argc, char *argv[]) {
     if (ret != 0)
         return ret;
     std::cout << "init ok !" << std::endl;
-    // =====================================================================
+    // ============================================================================================
 
     //创建输出文件夹
-    std::string path1 = std::string(argv[2]) + "/";
-
+//    std::string path1 = std::string(argv[2]) + "/";
+    std::string path1="/mnt/e/cartoon_data/personai_icartoonface_detval/";
     std::filesystem::path imgInputDir(path1);
     std::filesystem::path imgOutputDir(path1 + "output/");
     //检查文件夹路径是否合法, 检查输出文件夹路径是否存在,不存在则创建
@@ -80,15 +80,20 @@ int main(int argc, char *argv[]) {
     std::vector<std::string> imagePaths;
     // 获取该文件夹下所有图片绝对路径,存储在vector向量中
     getImagePath(imgInputDir, imagePaths);
-
+    auto t = timer->curTimePoint();
     inferEngine(param, func, imagePaths, outs);
-
+    total = timer->timeCount(t);
+    printf("total time: %.2f\n", total);
     std::cout << "在原图上画框" << std::endl;
     int i = 0;
     // 画yolo目标检测框
     if (!outs.detectResult.empty()) {
         // 遍历每张图片
         for (auto &out: outs.detectResult) {
+            if (out.empty()) {
+                i += 1;
+                continue;
+            }
             cv::Mat img = cv::imread(imagePaths[i]);
             // 遍历一张图片中每个预测框,并画到图片上
             for (auto &box: out) {
@@ -96,11 +101,19 @@ int main(int argc, char *argv[]) {
             }
             // 把画好框的图片写入本地
             std::string drawName = "draw" + std::to_string(i) + ".jpg";
-            cv::imwrite(drawName, img);
+            cv::imwrite(imgOutputDir / drawName, img);
             i += 1;
         }
     }
-//    printf(reinterpret_cast<const char *>('fsdfsdfsfd\n'));
+    printf("right over!\n");
     return 0;
 }
 
+//pre   use time: 23570.03 ms, thread use time: 275680.40 ms, pre img num = 10000
+//infer use time: 48621.25 ms, thread use time: 275689.61 ms
+//post  use time: 4344.31 ms, thread use time: 275692.25 ms
+//total time: 275692.59 多线程
+//total time: 107878.64 单线程
+
+// 第二次
+//total time: 140312.34 多线程
