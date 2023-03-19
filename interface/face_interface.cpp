@@ -56,7 +56,8 @@ int initCommon(ParamBase &curParm, class AlgorithmBase *curFunc) {
         return -1;
     }
     curParm.context = prtFree(curParm.engine->createExecutionContext());
-    std::cout << "create engine and context success: " << std::filesystem::path(curParm.enginePath).filename() << std::endl;
+    std::cout << "create engine and context success: " << std::filesystem::path(curParm.enginePath).filename()
+              << std::endl;
 
     return 0;
 }
@@ -66,6 +67,7 @@ std::vector<int> setBatchAndInferMemory(ParamBase &curParm) {
     //计算输入tensor所占存储空间大小,设置指定的动态batch的大小,之后再重新指定输入tensor形状
     auto inputShape = curParm.engine->getTensorShape(curParm.inputName.c_str());
     inputShape.d[0] = curParm.batchSize;
+
     curParm.context->setInputShape(curParm.inputName.c_str(), inputShape);
     //batchSize * c * h * w
     int inputSize = curParm.batchSize * inputShape.d[1] * inputShape.d[2] * inputShape.d[3];
@@ -77,7 +79,6 @@ std::vector<int> setBatchAndInferMemory(ParamBase &curParm) {
     curParm.predictLength = outputShape.d[2];
     // 计算推理结果所占内存空间大小
     int outputSize = curParm.batchSize * outputShape.d[1] * outputShape.d[2];
-
     // 使用元组返回多个多个不同的类型值, 供函数外调用,有以下两种方式可使用
 //    return std::make_tuple(inputShape, inputSize, outputSize);
 //    return std::tuple<nvinfer1::Dims32, int, int>{inputShape, inputSize, outputSize};
@@ -130,7 +131,7 @@ int trtInferProcess(ParamBase &curParm, AlgorithmBase *curFunc,
     // 计算模型推理时,单个输入输出tensor占用空间
     int singleInputSize = memory[0] / curParm.batchSize;
     int singleOutputSize = memory[1] / curParm.batchSize;
-
+//    printf("11111\n");
     // 取得最后一个元素的地址
     auto lastAddress = &mats.back();
 
@@ -142,14 +143,62 @@ int trtInferProcess(ParamBase &curParm, AlgorithmBase *curFunc,
         if (count <= curParm.batchSize)
             // 处理单张图片,每次预处理图片,指针要跳过前面处理过的图片
             curFunc->preProcess(curParm, mat, pinMemoryIn + (count - 1) * singleInputSize);
-
+//        printf("22222\n");
         //够一个batchSize,执行推理. 或者当循环vector取到最后一个元素时(当前元素地址与最后一个元素地址相同),不论是否够一个batchSize, 都要执行推理
         if (count == curParm.batchSize || &mat == lastAddress) {
             //通用推理过程,推理成功后将结果从gpu复制到锁页内存pinMemoryOut
             trtEnqueueV3(curParm, memory, pinMemoryIn, pinMemoryOut, gpuMemoryIn, gpuMemoryOut);
             //后处理,函数内循环处理一个batchSize的所有图片
             curFunc->postProcess(curParm, pinMemoryOut, singleOutputSize, count, result);
+//            printf("33333\n");
+            // 清0标记,清空用于后处理的images,清空用于图像尺寸缩放的d2is,重新开始下一个bachSize.
+            count = 0;
+            std::vector<std::vector<float>>().swap(curParm.d2is);
+        }
+    }
+}
 
+// 通用推理接口
+int trtInferProcess(ParamBase &curParm, AlgorithmBase *curFunc,
+                    std::vector<std::string> &imgPaths, std::vector<std::vector<std::vector<float>>> &result) {
+    //配置锁页内存,gpu显存指针
+    float *pinMemoryIn = nullptr, *pinMemoryOut = nullptr, *gpuMemoryIn = nullptr, *gpuMemoryOut = nullptr;
+    //0:当前推理模型输入tensor存储空间大小,1:当前推理输出结果存储空间大小
+    std::vector<int> memory = setBatchAndInferMemory(curParm);
+//    printf("##########\n");
+    // 以下,开辟内存操作不能在单独函数中完成,因为是二级指针,在当前函数中开辟内存,离开函数内存空间会消失
+    // 在锁页内存和gpu上开辟输入tensor数据所在存储空间
+    checkRuntime(cudaMallocHost(&pinMemoryIn, memory[0] * sizeof(float)));
+    checkRuntime(cudaMalloc(&gpuMemoryIn, memory[0] * sizeof(float)));
+    // 分别在锁页内存和gpu上开辟空间,用于存储推理结果
+    checkRuntime(cudaMallocHost(&pinMemoryOut, memory[1] * sizeof(float)));
+    checkRuntime(cudaMalloc(&gpuMemoryOut, memory[1] * sizeof(float)));
+//    printf("ttttttt\n");
+    // 预处理,一次处理batchSize张图片, 包括尺寸缩放,归一化,色彩转换,图片数据从内存提取到gpu
+    int count = 0;
+    // 计算模型推理时,单个输入输出tensor占用空间
+    int singleInputSize = memory[0] / curParm.batchSize;
+    int singleOutputSize = memory[1] / curParm.batchSize;
+//    printf("11111\n");
+    // 取得最后一个元素的地址
+    auto lastAddress = &imgPaths.back();
+
+    for (auto &imgPath: imgPaths) {
+        // 记录已推理图片数量
+        count += 1;
+        auto mat = cv::imread(imgPath);
+        // 遍历所有图片,若图片数量不够一个batch,加入的处理队列中
+        if (count <= curParm.batchSize)
+            // 处理单张图片,每次预处理图片,指针要跳过前面处理过的图片
+            curFunc->preProcess(curParm, mat, pinMemoryIn + (count - 1) * singleInputSize);
+//        printf("22222\n");
+        //够一个batchSize,执行推理. 或者当循环vector取到最后一个元素时(当前元素地址与最后一个元素地址相同),不论是否够一个batchSize, 都要执行推理
+        if (count == curParm.batchSize || &imgPath == lastAddress) {
+            //通用推理过程,推理成功后将结果从gpu复制到锁页内存pinMemoryOut
+            trtEnqueueV3(curParm, memory, pinMemoryIn, pinMemoryOut, gpuMemoryIn, gpuMemoryOut);
+            //后处理,函数内循环处理一个batchSize的所有图片
+            curFunc->postProcess(curParm, pinMemoryOut, singleOutputSize, count, result);
+//            printf("33333\n");
             // 清0标记,清空用于后处理的images,清空用于图像尺寸缩放的d2is,重新开始下一个bachSize.
             count = 0;
             std::vector<std::vector<float>>().swap(curParm.d2is);
@@ -178,9 +227,9 @@ int initEngine(productParam &parm, productFunc &func) {
     if (nullptr == func.yoloDetect) {
         // 调用成功会返回对应模型指针对象. 失败返回nullptr
         AlgorithmBase *curAlg = AlgorithmBase::loadDynamicLibrary(
-//                "/mnt/i/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
-                "/mnt/e/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
-                );
+                "/mnt/i/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
+//                "/mnt/e/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
+        );
         if (!curAlg) printf("error");
 
         func.yoloDetect = curAlg;
@@ -198,6 +247,17 @@ int inferEngine(productParam &parm, productFunc &func, std::vector<cv::Mat> &mat
     // 以engine是否存在为判定,存在则执行推理
     if (nullptr != parm.yoloDetectParam.engine)
         trtInferProcess(parm.yoloDetectParam, func.yoloDetect, mats, out.detectResult);
+
+//    if (nullptr != conf.yoloConfig.engine)
+//       trtInferProcess(conf.yoloConfig, func.yoloFace, matVector);
+
+    return 0;
+}
+
+int inferEngine(productParam &parm, productFunc &func, std::vector<std::string> &imgPaths, productResult &out) {
+    // 以engine是否存在为判定,存在则执行推理
+    if (nullptr != parm.yoloDetectParam.engine)
+        trtInferProcess(parm.yoloDetectParam, func.yoloDetect, imgPaths, out.detectResult);
 
 //    if (nullptr != conf.yoloConfig.engine)
 //       trtInferProcess(conf.yoloConfig, func.yoloFace, matVector);

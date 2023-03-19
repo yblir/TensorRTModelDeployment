@@ -47,10 +47,10 @@ int main(int argc, char *argv[]) {
 //    conf.yoloConfig.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/face_detect_v0.5_b17e5c7577192da3d3eb6b4bb850f8e_1out.onnx";
 //    conf.yoloConfig.gpuId = int(strtol(argv[1], nullptr, 10));
 
-//    param.yoloDetectParam.onnxPath = "/mnt/i/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
-    param.yoloDetectParam.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
+    param.yoloDetectParam.onnxPath = "/mnt/i/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
+//    param.yoloDetectParam.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
     param.yoloDetectParam.gpuId = int(strtol(argv[1], nullptr, 10));
-    param.yoloDetectParam.batchSize = 5;
+    param.yoloDetectParam.batchSize = 2;
     param.yoloDetectParam.inputHeight = 640;
     param.yoloDetectParam.inputWidth = 640;
     param.yoloDetectParam.inputName = "images";
@@ -69,7 +69,8 @@ int main(int argc, char *argv[]) {
 
     //创建输出文件夹
 //    std::string path1 = std::string(argv[2]) + "/";
-    std::string path1 = "/mnt/e/cartoon_data/personai_icartoonface_detval/";
+//    std::string path1 = "/mnt/e/cartoon_data/personai_icartoonface_detval/";
+    std::string path1="/mnt/d/VOCdevkit/voc_test/";
     std::filesystem::path imgInputDir(path1);
     std::filesystem::path imgOutputDir(path1 + "output/");
     //检查文件夹路径是否合法, 检查输出文件夹路径是否存在,不存在则创建
@@ -80,34 +81,35 @@ int main(int argc, char *argv[]) {
     if (!std::filesystem::exists(imgOutputDir))
         std::filesystem::create_directories(imgOutputDir);
 
-    std::vector<cv::Mat> matVector;
+//    std::vector<cv::Mat> matVector;
+    std::vector<std::string> imagePaths;
     // 获取该文件夹下所有图片绝对路径,存储在vector向量中
-    getImageMatFromPath(imgInputDir, matVector);
-
+//    getImageMatFromPath(imgInputDir, matVector);
+    getImagePath(imgInputDir,imagePaths);
     double inferTime = 0.0f;
     auto t1 = timer->curTimePoint();
-    inferEngine(param, func, matVector, outs);
+    inferEngine(param, func, imagePaths, outs);
     total = timer->timeCount(t1);
     printf("total time: %.2f\n", total);
-    int i = 0;
-    // 画yolo目标检测框
-    if (!outs.detectResult.empty()) {
-        // 遍历每张图片
-        for (auto &out: outs.detectResult) {
-            if (out.empty()) {
-                i += 1;
-                continue;
-            }
-            // 遍历一张图片中每个预测框,并画到图片上
-            for (auto &box: out) {
-                drawImage(matVector[i], box);
-            }
-            // 把画好框的图片写入本地
-            std::string drawName = "draw" + std::to_string(i) + ".jpg";
-            cv::imwrite(imgOutputDir / drawName, matVector[i]);
-            i += 1;
-        }
-    }
+//    int i = 0;
+//    // 画yolo目标检测框
+//    if (!outs.detectResult.empty()) {
+//        // 遍历每张图片
+//        for (auto &out: outs.detectResult) {
+//            if (out.empty()) {
+//                i += 1;
+//                continue;
+//            }
+//            // 遍历一张图片中每个预测框,并画到图片上
+//            for (auto &box: out) {
+//                drawImage(matVector[i], box);
+//            }
+//            // 把画好框的图片写入本地
+//            std::string drawName = "draw" + std::to_string(i) + ".jpg";
+//            cv::imwrite(imgOutputDir / drawName, matVector[i]);
+//            i += 1;
+//        }
+//    }
 
 //    for (auto &imgPath: imgPaths) {
 //        cv::Mat img = cv::imread(imgPath);

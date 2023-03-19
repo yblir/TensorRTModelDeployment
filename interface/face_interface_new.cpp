@@ -24,7 +24,6 @@ std::condition_variable condition;
 struct Job {
     std::shared_ptr<std::promise<float *>> gpuOutputPtr;
     float *inputTensor{};
-
 };
 
 // 推理输出
@@ -127,12 +126,16 @@ std::vector<int> setBatchAndInferMemory(ParamBase &curParam) {
 }
 
 // 在gpu上开辟两块gpuMemoryIn内存,一个batch预处理数据存储一个memory中,队列长度为2,只有当其中一个memory被取走推理时,才继续预处理,写入空的memory,存入队列
-void preProcess(ParamBase &curParam, std::vector<std::string> &imgPaths, std::vector<int> &memory, cudaStream_t &stream) {
+void preProcess(ParamBase &curParam, std::vector<std::string> &imgPaths, std::vector<int> &memory) {
     // 记录预处理总耗时
     double totalTime, totalTime2;
     auto t = timer.curTimePoint();
 
     auto lastAddress = &imgPaths.back();
+
+    //创建cuda任务流
+    cudaStream_t stream;
+    checkRuntime(cudaStreamCreate(&stream));
 
     // 以下,开辟内存操作不能在单独函数中完成,因为是二级指针,在当前函数中开辟内存,离开函数内存空间会消失
     // 若全部在gpu上完成,不再需要pin相关任何东西
@@ -172,37 +175,42 @@ void preProcess(ParamBase &curParam, std::vector<std::string> &imgPaths, std::ve
         // 统计图片尺寸变换等预处理耗时
         totalTime += timer.timeCount(preTime);
 
+        //全部到gpu上,不需要这句复制
+        checkRuntime(cudaMemcpyAsync(gpuMemoryIn, pinMemoryIn,
+                                     memory[0] * sizeof(float), cudaMemcpyHostToDevice, stream));
+//            checkRuntime(cudaMemcpyAsync(gpuMemoryIn, pinMemoryIn, memory[0] * sizeof(float), cudaMemcpyHostToDevice, stream));
+        job.inputTensor = gpuMemoryIn;
+        // 记录当前推理图片数量,正常情况count=batchSize, 但最后批次,可能会小于batchSize
+        out.inferNum = count;
+        // 以后取回该批次图片的结果
+        job.gpuOutputPtr.reset(new std::promise<float *>());
+        // 关联当前输入数据的未来输出
+        out.inferResult = job.gpuOutputPtr->get_future();
+
+        // 流同步,在写入队列前,确保待推理数据已复制到gpu上
+        checkRuntime(cudaStreamSynchronize(stream));
+
         // 加锁
         {
             std::unique_lock<std::mutex> l(lock_);
             // false, 表示继续等待. true, 表示不等待,跳出wait. wait流程: 一旦进入wait,解锁. 退出wait,又加锁 最多3个batch
             condition.wait(l, [&]() { return qJobs.size() < 5; });
-            //全部到gpu上,不需要这句复制
-            checkRuntime(cudaMemcpy(gpuMemoryIn, pinMemoryIn, memory[0] * sizeof(float), cudaMemcpyHostToDevice));
-//            checkRuntime(cudaMemcpyAsync(gpuMemoryIn, pinMemoryIn, memory[0] * sizeof(float), cudaMemcpyHostToDevice, stream));
-            job.inputTensor = gpuMemoryIn;
-            // 记录当前推理图片数量,正常情况count=batchSize, 但最后批次,可能会小于batchSize
-            out.inferNum = count;
-            // 以后取回该批次图片的结果
-            job.gpuOutputPtr.reset(new std::promise<float *>());
-            // 关联当前输入数据的未来输出
-            out.inferResult = job.gpuOutputPtr->get_future();
 
             // 将存有推理数据的显存空间指针保存
             qJobs.push(job);
             qOuts.push(out);
-
-            imgNums += count;
-            count = 0;
             condition.notify_one();
+        }
 
-            // 最后图片取完,刚好够一个batch,此时不必再开辟新空间了
-            if (&imgPath != lastAddress) {
-                // 重新开辟一块显存, 并关联输入输出队列
-                checkRuntime(cudaMalloc(&gpuMemoryIn, memory[0] * sizeof(float)));
-                // 清空保存仿射变换参数,每个out只保留一个batch的参数
-                std::vector<std::vector<float>>().swap(out.d2is);
-            }
+        imgNums += count;
+        count = 0;
+
+        // 最后图片取完,刚好够一个batch,此时不必再开辟新空间了
+        if (&imgPath != lastAddress) {
+            // 重新开辟一块显存, 并关联输入输出队列
+            checkRuntime(cudaMallocAsync(&gpuMemoryIn, memory[0] * sizeof(float), stream));
+            // 清空保存仿射变换参数,每个out只保留一个batch的参数
+            std::vector<std::vector<float>>().swap(out.d2is);
         }
     }
     // 所有图片处理完,处理不满足一个batchSize的情况
@@ -215,29 +223,35 @@ void preProcess(ParamBase &curParam, std::vector<std::string> &imgPaths, std::ve
         job.gpuOutputPtr.reset(new std::promise<float *>());
         // 关联当前输入数据的未来输出
         out.inferResult = job.gpuOutputPtr->get_future();
-
-        qJobs.push(job);
-        qOuts.push(out);
-        queueFinish = true;
-        condition.notify_one();
-    } else {
-        queueFinish = true;
-        condition.notify_one();
+        {
+            std::lock_guard<std::mutex> l(lock_);
+            qJobs.push(job);
+            qOuts.push(out);
+            condition.notify_one();
+        }
     }
+    queueFinish = true;
+
     // 线程结束时,仅是否pinMemoryIn, gpuMemoryIn存有推理数据,在推理线程中释放
-    cudaFree(pinMemoryIn);
+//    checkRuntime(cudaFreeAsync(pinMemoryIn, stream));
+    checkRuntime(cudaFree(pinMemoryIn));
     totalTime2 = timer.timeCount(t);
     printf("pre   use time: %.2f ms, thread use time: %.2f ms, pre img num = %d\n", totalTime, totalTime2, imgNums);
+    checkRuntime(cudaStreamDestroy(stream));
 }
 
 // 适用于模型推理的通用trt流程
-int trtEnqueueV3(ParamBase &curParam, std::vector<int> &memory, cudaStream_t &stream) {
+int trtEnqueueV3(ParamBase &curParam, std::vector<int> &memory) {
     // 记录推理耗时
     double totalTime, totalTime2;
     auto t = timer.curTimePoint();
 
+    //创建cuda任务流
+    cudaStream_t stream;
+    checkRuntime(cudaStreamCreate(&stream));
+
     float *gpuMemoryOut = nullptr;
-    checkRuntime(cudaMalloc(&gpuMemoryOut, memory[1] * sizeof(float)));
+    checkRuntime(cudaMallocAsync(&gpuMemoryOut, memory[1] * sizeof(float), stream));
 
     Job job;
     while (true) {
@@ -254,7 +268,7 @@ int trtEnqueueV3(ParamBase &curParam, std::vector<int> &memory, cudaStream_t &st
             // 消费掉一个元素,通知队列跳出等待,继续生产
             condition.notify_one();
         }
-
+//        printf("qjobs.size = %lu\n",qJobs.size());
         curParam.context->setTensorAddress(curParam.inputName.c_str(), job.inputTensor);
         curParam.context->setTensorAddress(curParam.outputName.c_str(), gpuMemoryOut);
 
@@ -262,32 +276,36 @@ int trtEnqueueV3(ParamBase &curParam, std::vector<int> &memory, cudaStream_t &st
         auto qT1 = timer.curTimePoint();
         // 执行异步推理
         curParam.context->enqueueV3(stream);
+        // todo 如果所有线程都公用一个流,这里的等待会不会影响其他线程? 在每个前处理,推理,后处理中各建一个流会更快吗?
         // 流同步
         cudaStreamSynchronize(stream);
 
         totalTime += timer.timeCount(qT1);
         // 流同步后,获取该batchSize推理结果
         job.gpuOutputPtr->set_value(gpuMemoryOut);
-
-        // 释放已推理完的pinMemoryIn显存空间
-        cudaFree(job.inputTensor);
+        // 异步释放已推理完的pinMemoryIn显存空间
+        checkRuntime(cudaFreeAsync(job.inputTensor, stream));
         // 再判断一次推理数据队列,若图片都处理完且队列空,说明推理结束,不必再开辟新空间了,直接退出线程
         if (queueFinish && qJobs.empty()) break;
 
         // 重新开辟推理输出空间,保证每个推理输出空间都不同,避免多线程推理时的结果覆盖
-        checkRuntime(cudaMalloc(&gpuMemoryOut, memory[1] * sizeof(float)));
+        checkRuntime(cudaMallocAsync(&gpuMemoryOut, memory[1] * sizeof(float), stream));
     }
-
     inferFinish = true;
+    checkRuntime(cudaStreamDestroy(stream));
     totalTime2 = timer.timeCount(t);
     printf("infer use time: %.2f ms, thread use time: %.2f ms\n", totalTime, totalTime2);
 }
 
-void postProcess(ParamBase &curParam, AlgorithmBase *curFunc, std::vector<int> &memory,
-                 std::vector<std::vector<std::vector<float>>> &result) {
+void postProcess(ParamBase &curParam, AlgorithmBase *curFunc,
+                 std::vector<int> &memory, std::vector<std::vector<std::vector<float>>> &result) {
     // 记录后处理耗时
     double totalTime, totalTime2;
     auto t = timer.curTimePoint();
+
+    //创建cuda任务流
+    cudaStream_t stream;
+    checkRuntime(cudaStreamCreate(&stream));
 
     int singleOutputSize = memory[1] / curParam.batchSize;
     float *pinMemoryOut = nullptr;
@@ -296,33 +314,36 @@ void postProcess(ParamBase &curParam, AlgorithmBase *curFunc, std::vector<int> &
 
     Out out;
     while (true) {
-        if (!qOuts.empty()) {
-            {
-                std::lock_guard<std::mutex> l(lock_);
-                out = qOuts.front();
-                // 把当前取出的元素删掉
-                qOuts.pop();
-            }
-            float *futureResult = out.inferResult.get();
-            // 转移到内存中处理
-            cudaMemcpy(pinMemoryOut, futureResult, memory[1] * sizeof(float), cudaMemcpyDeviceToHost);
-            curParam.d2is = out.d2is;
-            auto qT1 = timer.curTimePoint();
-            curFunc->postProcess(curParam, pinMemoryOut, singleOutputSize, out.inferNum, result);
+        {
+            std::unique_lock<std::mutex> l(lock_);
+            // false, 表示继续等待. true, 表示不等待,跳出wait
+            // 队列不为空, 就说明推理空间图片已准备好,退出等待,继续推理. 当图片都处理完,并且队列为空,要退出等待,因为此时推理工作已完成
+            condition.wait(l, [&]() { return !qOuts.empty() || (inferFinish && qOuts.empty()); });
+            // 退出推理线程
+            if (inferFinish && qOuts.empty()) break;
 
-            // 清理已用完的gpuMemoryOut
-            cudaFree(futureResult);
-            totalTime += timer.timeCount(qT1);
+            out = qOuts.front();
+            // 把当前取出的元素删掉
+            qOuts.pop();
         }
-        // 当推理结束,且推理输出队列为空,表示后处理也结束, 跳出.
-        if (inferFinish && qOuts.empty()) break;
-        //交出线程控制权,减少cpu压力
-        std::this_thread::yield();
+        float *futureResult = out.inferResult.get();
+        // 转移到内存中处理
+        cudaMemcpy(pinMemoryOut, futureResult, memory[1] * sizeof(float), cudaMemcpyDeviceToHost);
+        curParam.d2is = out.d2is;
+        auto qT1 = timer.curTimePoint();
+        curFunc->postProcess(curParam, pinMemoryOut, singleOutputSize, out.inferNum, result);
+        totalTime += timer.timeCount(qT1);
+
+        // 清理已用完的gpuMemoryOut
+        checkRuntime(cudaFreeAsync(futureResult, stream));
+//        checkRuntime(cudaFree(futureResult));
     }
+
     // 后处理全部完成,释放存储推理结果的pinMemoryOut
-    cudaFree(pinMemoryOut);
+    checkRuntime(cudaFreeAsync(pinMemoryOut, stream));
     totalTime2 = timer.timeCount(t);
     printf("post  use time: %.2f ms, thread use time: %.2f ms\n", totalTime, totalTime2);
+    checkRuntime(cudaStreamDestroy(stream));
 }
 
 
@@ -338,14 +359,15 @@ int trtInferProcess(ParamBase &curParam, AlgorithmBase *curFunc,
     cudaStreamCreate(&stream);
 
     // 预处理
-    std::thread t0(preProcess, std::ref(curParam), std::ref(imgPaths), std::ref(memory), std::ref(stream));
+    std::thread t0(preProcess, std::ref(curParam), std::ref(imgPaths), std::ref(memory));
     // 执行推理
-    std::thread t1(trtEnqueueV3, std::ref(curParam), std::ref(memory), std::ref(stream));
+    std::thread t1(trtEnqueueV3, std::ref(curParam), std::ref(memory));
     // 结果后处理
     std::thread t2(postProcess, std::ref(curParam), std::ref(curFunc), std::ref(memory), std::ref(result));
 
     if (t0.joinable()) t0.join();
     if (t1.joinable()) t1.join();
+//    if (t12.joinable()) t12.join();
     if (t2.joinable()) t2.join();
 
     cudaStreamDestroy(stream);
@@ -373,8 +395,8 @@ int initEngine(productParam &param, productFunc &func) {
     if (nullptr == func.yoloDetect) {
         // 调用成功会返回对应模型指针对象. 失败返回nullptr
         AlgorithmBase *curAlg = AlgorithmBase::loadDynamicLibrary(
-                "/mnt/e/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
-//                "/mnt/i/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
+//                "/mnt/e/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
+                "/mnt/i/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
         );
         if (!curAlg) printf("error");
 

@@ -26,6 +26,7 @@ int initCommon(ParamBase &confSpecific, class AlgorithmBase *funcSpecific);
 int inferEngine(productParam &parm, productFunc &func, std::vector<cv::Mat> &images, int &res_num);
 int initEngine(productParam &parm, productFunc &func);
 int inferEngine(productParam &parm, productFunc &func, std::vector<cv::Mat> &mats, productResult &out);
+int inferEngine(productParam &parm, productFunc &func, std::vector<std::string> &imagePaths, productResult &out);
 int inferEngine(productParam &parm, productFunc &func, std::vector<cv::cuda::GpuMat> &matVector, productResult out);
 
 int releaseEngine(Handle engine);

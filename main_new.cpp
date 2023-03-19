@@ -47,8 +47,8 @@ int main(int argc, char *argv[]) {
 //    conf.yoloConfig.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/face_detect_v0.5_b17e5c7577192da3d3eb6b4bb850f8e_1out.onnx";
 //    conf.yoloConfig.gpuId = int(strtol(argv[1], nullptr, 10));
 
-//    param.yoloDetectParam.onnxPath = "/mnt/i/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
-    param.yoloDetectParam.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
+    param.yoloDetectParam.onnxPath = "/mnt/i/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
+//    param.yoloDetectParam.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
     param.yoloDetectParam.gpuId = int(strtol(argv[1], nullptr, 10));
     param.yoloDetectParam.batchSize = 2;
     param.yoloDetectParam.inputHeight = 640;
@@ -66,7 +66,8 @@ int main(int argc, char *argv[]) {
 
     //创建输出文件夹
 //    std::string path1 = std::string(argv[2]) + "/";
-    std::string path1="/mnt/e/cartoon_data/personai_icartoonface_detval/";
+//    std::string path1="/mnt/e/cartoon_data/personai_icartoonface_detval/";
+    std::string path1="/mnt/d/VOCdevkit/voc_test/";
     std::filesystem::path imgInputDir(path1);
     std::filesystem::path imgOutputDir(path1 + "output/");
     //检查文件夹路径是否合法, 检查输出文件夹路径是否存在,不存在则创建
@@ -117,3 +118,33 @@ int main(int argc, char *argv[]) {
 
 // 第二次
 //total time: 140312.34 多线程
+
+//pre   use time: 7296.06 ms, thread use time: 103052.07 ms, pre img num = 2000
+//infer use time: 102836.99 ms, thread use time: 103712.01 ms
+//==========================
+//runtime error /mnt/i/GitHub/TensorRTModelDeployment/interface/face_interface_new.cpp:351  cudaFree(pinMemoryOut) failed.
+//code = cudaErrorInvalidValue, message = invalid argument
+//        post  use time: 1141.27 ms, thread use time: 103715.55 ms
+//        total time: 103717.01
+
+// total time: 150920.16
+
+// total time: 72240.65 单线程
+// total time: 36926.75 多线程
+
+//pre   use time: 8733.38 ms, thread use time: 60971.82 ms, pre img num = 2000
+//infer use time: 60714.26 ms, thread use time: 61155.07 ms
+//runtime error /mnt/i/GitHub/TensorRTModelDeployment/interface/face_interface_new.cpp:343  cudaFreeAsync(pinMemoryOut, stream) failed.
+//  code = cudaErrorInvalidValue, message = invalid argument
+//post  use time: 2292.49 ms, thread use time: 61157.56 ms
+//total time: 61159.27
+
+// pre   use time: 7098.98 ms, thread use time: 41385.91 ms, pre img num = 2000
+//infer use time: 28610.63 ms, thread use time: 41414.50 ms
+//runtime error /mnt/i/GitHub/TensorRTModelDeployment/interface/face_interface_new.cpp:343  cudaFreeAsync(pinMemoryOut, stream) failed.
+//  code = cudaErrorInvalidValue, message = invalid argument
+//post  use time: 816.60 ms, thread use time: 41416.87 ms
+//total time: 41418.07
+
+
+
