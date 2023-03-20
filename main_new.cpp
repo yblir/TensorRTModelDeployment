@@ -14,7 +14,7 @@
 #include <opencv2/opencv.hpp>
 //#include <dirent.h>
 
-#include "interface/face_interface_new.h"
+#include "interface/face_interface_thread.h"
 //#include "file_base.h"
 #include "algorithm_factory/struct_data_type.h"
 //#include "algorithm_product/product.h"
@@ -47,8 +47,8 @@ int main(int argc, char *argv[]) {
 //    conf.yoloConfig.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/face_detect_v0.5_b17e5c7577192da3d3eb6b4bb850f8e_1out.onnx";
 //    conf.yoloConfig.gpuId = int(strtol(argv[1], nullptr, 10));
 
-    param.yoloDetectParam.onnxPath = "/mnt/i/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
-//    param.yoloDetectParam.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
+//    param.yoloDetectParam.onnxPath = "/mnt/i/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
+    param.yoloDetectParam.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
     param.yoloDetectParam.gpuId = int(strtol(argv[1], nullptr, 10));
     param.yoloDetectParam.batchSize = 2;
     param.yoloDetectParam.inputHeight = 640;
@@ -66,8 +66,8 @@ int main(int argc, char *argv[]) {
 
     //创建输出文件夹
 //    std::string path1 = std::string(argv[2]) + "/";
-//    std::string path1="/mnt/e/cartoon_data/personai_icartoonface_detval/";
-    std::string path1="/mnt/d/VOCdevkit/voc_test/";
+    std::string path1="/mnt/e/cartoon_data/personai_icartoonface_detval/";
+//    std::string path1="/mnt/d/VOCdevkit/voc_test/";
     std::filesystem::path imgInputDir(path1);
     std::filesystem::path imgOutputDir(path1 + "output/");
     //检查文件夹路径是否合法, 检查输出文件夹路径是否存在,不存在则创建
@@ -85,29 +85,29 @@ int main(int argc, char *argv[]) {
     inferEngine(param, func, imagePaths, outs);
     total = timer->timeCount(t);
     printf("total time: %.2f\n", total);
-    std::cout << "在原图上画框" << std::endl;
-    int i = 0;
-    // 画yolo目标检测框
-    if (!outs.detectResult.empty()) {
-        // 遍历每张图片
-        for (auto &out: outs.detectResult) {
-            if (out.empty()) {
-                i += 1;
-                continue;
-            }
-            cv::Mat img = cv::imread(imagePaths[i]);
-            // 遍历一张图片中每个预测框,并画到图片上
-            for (auto &box: out) {
-                drawImage(img, box);
-            }
-            // 把画好框的图片写入本地
-            std::string drawName = "draw" + std::to_string(i) + ".jpg";
-            cv::imwrite(imgOutputDir / drawName, img);
-            i += 1;
-        }
-    }
-    printf("right over!\n");
-    return 0;
+//    std::cout << "在原图上画框" << std::endl;
+//    int i = 0;
+//    // 画yolo目标检测框
+//    if (!outs.detectResult.empty()) {
+//        // 遍历每张图片
+//        for (auto &out: outs.detectResult) {
+//            if (out.empty()) {
+//                i += 1;
+//                continue;
+//            }
+//            cv::Mat img = cv::imread(imagePaths[i]);
+//            // 遍历一张图片中每个预测框,并画到图片上
+//            for (auto &box: out) {
+//                drawImage(img, box);
+//            }
+//            // 把画好框的图片写入本地
+//            std::string drawName = "draw" + std::to_string(i) + ".jpg";
+//            cv::imwrite(imgOutputDir / drawName, img);
+//            i += 1;
+//        }
+//    }
+//    printf("right over!\n");
+//    return 0;
 }
 
 //pre   use time: 23570.03 ms, thread use time: 275680.40 ms, pre img num = 10000
@@ -145,6 +145,35 @@ int main(int argc, char *argv[]) {
 //  code = cudaErrorInvalidValue, message = invalid argument
 //post  use time: 816.60 ms, thread use time: 41416.87 ms
 //total time: 41418.07
+
+
+//runtime error /mnt/e/GitHub/TensorRTModelDeployment/interface/face_interface_new.cpp:236  cudaFreeAsync(pinMemoryIn, stream) failed.
+//  code = cudaErrorInvalidValue, message = invalid argument
+//pre   use time: 23950.46 ms, thread use time: 433624.82 ms, pre img num = 10000
+//infer use time: 59202.62 ms, thread use time: 433635.70 ms
+//runtime error /mnt/e/GitHub/TensorRTModelDeployment/interface/face_interface_new.cpp:343  cudaFreeAsync(pinMemoryOut, stream) failed.
+//  code = cudaErrorInvalidValue, message = invalid argument
+//post  use time: 2646.69 ms, thread use time: 433637.90 ms
+//total time: 433639.40
+//total time: 218542.59
+
+
+//pre   use time: 23609.07 ms, thread use time: 148098.20 ms, pre img num = 10000
+//infer use time: 45088.74 ms, thread use time: 148107.23 ms
+//runtime error /mnt/e/GitHub/TensorRTModelDeployment/interface/face_interface_thread.cpp:342  cudaFreeAsync(pinMemoryOut, stream) failed.
+//  code = cudaErrorInvalidValue, message = invalid argument
+//post  use time: 2915.31 ms, thread use time: 148109.52 ms
+//total time: 148110.45
+
+//pre   use time: 23572.81 ms, thread use time: 148410.35 ms, pre img num = 10000
+//infer use time: 45030.09 ms, thread use time: 148419.60 ms
+//        post  use time: 3054.38 ms, thread use time: 148424.88 ms
+//        total time: 148426.40
+
+//pre   use time: 23619.03 ms, thread use time: 147302.26 ms, pre img num = 10000
+//infer use time: 44853.61 ms, thread use time: 147311.58 ms
+//        post  use time: 3060.45 ms, thread use time: 147315.90 ms
+//        total time: 147317.15
 
 
 

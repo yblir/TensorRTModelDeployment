@@ -131,7 +131,6 @@ int trtInferProcess(ParamBase &curParm, AlgorithmBase *curFunc,
     // 计算模型推理时,单个输入输出tensor占用空间
     int singleInputSize = memory[0] / curParm.batchSize;
     int singleOutputSize = memory[1] / curParm.batchSize;
-//    printf("11111\n");
     // 取得最后一个元素的地址
     auto lastAddress = &mats.back();
 
@@ -143,14 +142,12 @@ int trtInferProcess(ParamBase &curParm, AlgorithmBase *curFunc,
         if (count <= curParm.batchSize)
             // 处理单张图片,每次预处理图片,指针要跳过前面处理过的图片
             curFunc->preProcess(curParm, mat, pinMemoryIn + (count - 1) * singleInputSize);
-//        printf("22222\n");
         //够一个batchSize,执行推理. 或者当循环vector取到最后一个元素时(当前元素地址与最后一个元素地址相同),不论是否够一个batchSize, 都要执行推理
         if (count == curParm.batchSize || &mat == lastAddress) {
             //通用推理过程,推理成功后将结果从gpu复制到锁页内存pinMemoryOut
             trtEnqueueV3(curParm, memory, pinMemoryIn, pinMemoryOut, gpuMemoryIn, gpuMemoryOut);
             //后处理,函数内循环处理一个batchSize的所有图片
             curFunc->postProcess(curParm, pinMemoryOut, singleOutputSize, count, result);
-//            printf("33333\n");
             // 清0标记,清空用于后处理的images,清空用于图像尺寸缩放的d2is,重新开始下一个bachSize.
             count = 0;
             std::vector<std::vector<float>>().swap(curParm.d2is);
@@ -165,7 +162,6 @@ int trtInferProcess(ParamBase &curParm, AlgorithmBase *curFunc,
     float *pinMemoryIn = nullptr, *pinMemoryOut = nullptr, *gpuMemoryIn = nullptr, *gpuMemoryOut = nullptr;
     //0:当前推理模型输入tensor存储空间大小,1:当前推理输出结果存储空间大小
     std::vector<int> memory = setBatchAndInferMemory(curParm);
-//    printf("##########\n");
     // 以下,开辟内存操作不能在单独函数中完成,因为是二级指针,在当前函数中开辟内存,离开函数内存空间会消失
     // 在锁页内存和gpu上开辟输入tensor数据所在存储空间
     checkRuntime(cudaMallocHost(&pinMemoryIn, memory[0] * sizeof(float)));
@@ -173,13 +169,11 @@ int trtInferProcess(ParamBase &curParm, AlgorithmBase *curFunc,
     // 分别在锁页内存和gpu上开辟空间,用于存储推理结果
     checkRuntime(cudaMallocHost(&pinMemoryOut, memory[1] * sizeof(float)));
     checkRuntime(cudaMalloc(&gpuMemoryOut, memory[1] * sizeof(float)));
-//    printf("ttttttt\n");
     // 预处理,一次处理batchSize张图片, 包括尺寸缩放,归一化,色彩转换,图片数据从内存提取到gpu
     int count = 0;
     // 计算模型推理时,单个输入输出tensor占用空间
     int singleInputSize = memory[0] / curParm.batchSize;
     int singleOutputSize = memory[1] / curParm.batchSize;
-//    printf("11111\n");
     // 取得最后一个元素的地址
     auto lastAddress = &imgPaths.back();
 
@@ -191,14 +185,12 @@ int trtInferProcess(ParamBase &curParm, AlgorithmBase *curFunc,
         if (count <= curParm.batchSize)
             // 处理单张图片,每次预处理图片,指针要跳过前面处理过的图片
             curFunc->preProcess(curParm, mat, pinMemoryIn + (count - 1) * singleInputSize);
-//        printf("22222\n");
         //够一个batchSize,执行推理. 或者当循环vector取到最后一个元素时(当前元素地址与最后一个元素地址相同),不论是否够一个batchSize, 都要执行推理
         if (count == curParm.batchSize || &imgPath == lastAddress) {
             //通用推理过程,推理成功后将结果从gpu复制到锁页内存pinMemoryOut
             trtEnqueueV3(curParm, memory, pinMemoryIn, pinMemoryOut, gpuMemoryIn, gpuMemoryOut);
             //后处理,函数内循环处理一个batchSize的所有图片
             curFunc->postProcess(curParm, pinMemoryOut, singleOutputSize, count, result);
-//            printf("33333\n");
             // 清0标记,清空用于后处理的images,清空用于图像尺寸缩放的d2is,重新开始下一个bachSize.
             count = 0;
             std::vector<std::vector<float>>().swap(curParm.d2is);
@@ -227,8 +219,8 @@ int initEngine(productParam &parm, productFunc &func) {
     if (nullptr == func.yoloDetect) {
         // 调用成功会返回对应模型指针对象. 失败返回nullptr
         AlgorithmBase *curAlg = AlgorithmBase::loadDynamicLibrary(
-                "/mnt/i/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
-//                "/mnt/e/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
+//                "/mnt/i/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
+                "/mnt/e/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
         );
         if (!curAlg) printf("error");
 

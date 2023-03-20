@@ -12,7 +12,7 @@
 #include <future>
 
 #include "../utils/general.h"
-#include "face_interface_new.h"
+#include "face_interface_thread.h"
 #include "../utils/box_utils.h"
 
 //struct

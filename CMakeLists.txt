@@ -56,9 +56,9 @@ add_executable(run
 #        algorithm_product/YoloFace.h algorithm_product/YoloFace.cpp
         algorithm_product/YoloDetect.h algorithm_product/YoloDetect.cpp
         algorithm_product/product.h
-
+#
 #        interface/face_interface.h interface/face_interface.cpp
-        interface/face_interface_new.h interface/face_interface_new.cpp
+        interface/face_interface_thread.h interface/face_interface_thread.cpp
 
         algorithm_factory/factory.h algorithm_factory/factory.cpp
         interface/beifen.cpp algorithm_factory/Infer.cpp algorithm_factory/Infer.h)
