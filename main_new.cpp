@@ -66,8 +66,8 @@ int main(int argc, char *argv[]) {
 
     //创建输出文件夹
 //    std::string path1 = std::string(argv[2]) + "/";
-    std::string path1="/mnt/e/cartoon_data/personai_icartoonface_detval/";
-//    std::string path1="/mnt/d/VOCdevkit/voc_test/";
+//    std::string path1="/mnt/e/cartoon_data/personai_icartoonface_detval/";
+    std::string path1="/mnt/e/BaiduNetdiskDownload/VOCdevkit/voc_test_6000/";
     std::filesystem::path imgInputDir(path1);
     std::filesystem::path imgOutputDir(path1 + "output/");
     //检查文件夹路径是否合法, 检查输出文件夹路径是否存在,不存在则创建
@@ -85,9 +85,9 @@ int main(int argc, char *argv[]) {
     inferEngine(param, func, imagePaths, outs);
     total = timer->timeCount(t);
     printf("total time: %.2f\n", total);
-//    std::cout << "在原图上画框" << std::endl;
-//    int i = 0;
-//    // 画yolo目标检测框
+    std::cout << "在原图上画框" << std::endl;
+    int i = 0;
+    // 画yolo目标检测框
 //    if (!outs.detectResult.empty()) {
 //        // 遍历每张图片
 //        for (auto &out: outs.detectResult) {
@@ -106,74 +106,41 @@ int main(int argc, char *argv[]) {
 //            i += 1;
 //        }
 //    }
-//    printf("right over!\n");
-//    return 0;
+    printf("right over!\n");
+    return 0;
 }
+/*
+ for(ff 图片)
+   vector(存储有一个batch的结果) = inferengine( 图片路径)
+*/
+//pre   use time: 14029.04 ms, thread use time: 117828.75 ms, pre img num = 6000
+//infer use time: 30711.35 ms, thread use time: 117840.00 ms
+//post  use time: 1704.45 ms, thread use time: 117844.82 ms
+//total time: 117846.24
 
-//pre   use time: 23570.03 ms, thread use time: 275680.40 ms, pre img num = 10000
-//infer use time: 48621.25 ms, thread use time: 275689.61 ms
-//post  use time: 4344.31 ms, thread use time: 275692.25 ms
-//total time: 275692.59 多线程
-//total time: 107878.64 单线程
+//pre   use time: 13982.90 ms, thread use time: 93028.23 ms, pre img num = 6000
+//infer use time: 26992.98 ms, thread use time: 93037.26 ms
+//post  use time: 1751.12 ms, thread use time: 93041.80 ms
+//total time: 93043.74
 
-// 第二次
-//total time: 140312.34 多线程
+//pre   use time: 14001.84 ms, thread use time: 94202.40 ms, pre img num = 6000
+//infer use time: 27069.24 ms, thread use time: 94211.42 ms
+//post  use time: 1768.55 ms, thread use time: 94216.24 ms
+//total time: 94217.77
 
-//pre   use time: 7296.06 ms, thread use time: 103052.07 ms, pre img num = 2000
-//infer use time: 102836.99 ms, thread use time: 103712.01 ms
-//==========================
-//runtime error /mnt/i/GitHub/TensorRTModelDeployment/interface/face_interface_new.cpp:351  cudaFree(pinMemoryOut) failed.
-//code = cudaErrorInvalidValue, message = invalid argument
-//        post  use time: 1141.27 ms, thread use time: 103715.55 ms
-//        total time: 103717.01
+//===============================================================
+//pre   use time: 13999.50 ms, thread use time: 96727.27 ms, pre img num = 6000
+//infer use time: 27080.28 ms, thread use time: 96736.42 ms
+//post  use time: 1779.62 ms, thread use time: 96741.24 ms
+//total time: 96742.49
 
-// total time: 150920.16
-
-// total time: 72240.65 单线程
-// total time: 36926.75 多线程
-
-//pre   use time: 8733.38 ms, thread use time: 60971.82 ms, pre img num = 2000
-//infer use time: 60714.26 ms, thread use time: 61155.07 ms
-//runtime error /mnt/i/GitHub/TensorRTModelDeployment/interface/face_interface_new.cpp:343  cudaFreeAsync(pinMemoryOut, stream) failed.
-//  code = cudaErrorInvalidValue, message = invalid argument
-//post  use time: 2292.49 ms, thread use time: 61157.56 ms
-//total time: 61159.27
-
-// pre   use time: 7098.98 ms, thread use time: 41385.91 ms, pre img num = 2000
-//infer use time: 28610.63 ms, thread use time: 41414.50 ms
-//runtime error /mnt/i/GitHub/TensorRTModelDeployment/interface/face_interface_new.cpp:343  cudaFreeAsync(pinMemoryOut, stream) failed.
-//  code = cudaErrorInvalidValue, message = invalid argument
-//post  use time: 816.60 ms, thread use time: 41416.87 ms
-//total time: 41418.07
+//pre   use time: 13953.80 ms, thread use time: 97768.33 ms, pre img num = 6000
+//infer use time: 27350.60 ms, thread use time: 97778.11 ms
+//post  use time: 1771.26 ms, thread use time: 97782.84 ms
+//total time: 97784.16
 
 
-//runtime error /mnt/e/GitHub/TensorRTModelDeployment/interface/face_interface_new.cpp:236  cudaFreeAsync(pinMemoryIn, stream) failed.
-//  code = cudaErrorInvalidValue, message = invalid argument
-//pre   use time: 23950.46 ms, thread use time: 433624.82 ms, pre img num = 10000
-//infer use time: 59202.62 ms, thread use time: 433635.70 ms
-//runtime error /mnt/e/GitHub/TensorRTModelDeployment/interface/face_interface_new.cpp:343  cudaFreeAsync(pinMemoryOut, stream) failed.
-//  code = cudaErrorInvalidValue, message = invalid argument
-//post  use time: 2646.69 ms, thread use time: 433637.90 ms
-//total time: 433639.40
-//total time: 218542.59
-
-
-//pre   use time: 23609.07 ms, thread use time: 148098.20 ms, pre img num = 10000
-//infer use time: 45088.74 ms, thread use time: 148107.23 ms
-//runtime error /mnt/e/GitHub/TensorRTModelDeployment/interface/face_interface_thread.cpp:342  cudaFreeAsync(pinMemoryOut, stream) failed.
-//  code = cudaErrorInvalidValue, message = invalid argument
-//post  use time: 2915.31 ms, thread use time: 148109.52 ms
-//total time: 148110.45
-
-//pre   use time: 23572.81 ms, thread use time: 148410.35 ms, pre img num = 10000
-//infer use time: 45030.09 ms, thread use time: 148419.60 ms
-//        post  use time: 3054.38 ms, thread use time: 148424.88 ms
-//        total time: 148426.40
-
-//pre   use time: 23619.03 ms, thread use time: 147302.26 ms, pre img num = 10000
-//infer use time: 44853.61 ms, thread use time: 147311.58 ms
-//        post  use time: 3060.45 ms, thread use time: 147315.90 ms
-//        total time: 147317.15
-
-
-
+// pre   use time: 14056.91 ms, thread use time: 90496.34 ms, pre img num = 6000
+//infer use time: 26742.28 ms, thread use time: 90505.30 ms
+//post  use time: 1752.58 ms, thread use time: 90510.30 ms
+//total time: 90511.79
