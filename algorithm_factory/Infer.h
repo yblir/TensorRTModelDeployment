@@ -6,13 +6,11 @@
 #define TENSORRTMODELDEPLOYMENT_INFER_H
 
 #include <iostream>
-#include <opencv2/opencv.hpp>
-
-//onnx解释器头文件
-#include <NvOnnxParser.h>
+#include <future>
+#include <condition_variable>
 
 //配置文件基类,自定义配置文件
-struct ParmBase {
+struct ParamBase {
     // 1 从外部配置文件传入 ========================================================
     int gpuId = 0;
     std::string onnxPath;
@@ -45,25 +43,28 @@ struct ParmBase {
 };
 
 // 难以判断不同模型输出结果一定有什么,因此仅设一个空基类,唯一作用就是被product.h中productResult继承,实现多态效果
-struct ResultBase{
+struct ResultBase {
 
 };
 
 class Infer {
-    virtual int initParam(void *param) = 0;
-    // 多线程,传入图片路径,读取图片并写入队列
-    virtual std::shared_ptr<std::string> commit(const std::string& input)=0;
-    // 图片预处理
-    virtual int preProcess(ParmBase &parm, cv::Mat &image, float *pinMemoryCurrentIn) = 0;
-    // 图片后处理
-    virtual int postProcess(ParmBase &parm, float *pinMemoryOut, int singleOutputSize,
-                            int outputNums, std::vector<std::vector<std::vector<float>>> &result) = 0;
+public:
+    Infer() = default;
+    virtual ~Infer() = default;
 
-    // ================================================================================
+//    std::shared_ptr<Infer> createInfer(ParamBase &param, const std::string &enginePath);
+//    std::shared_ptr<std::string> commit(const std::string &input);
+    virtual std::vector<std::shared_future<std::string>> commit(const std::vector<std::string>& imagePaths);
+
+    // 图片预处理
+    virtual int preProcess(ParamBase &param, cv::Mat &image, float *pinMemoryCurrentIn);
+    // 图片后处理
+    virtual int postProcess(ParamBase &param, float *pinMemoryOut, int singleOutputSize,
+                            int outputNums, std::vector<std::vector<std::vector<float>>> &result);
 
 };
+std::shared_ptr<Infer> createInfer(ParamBase &param, const std::string &enginePath);
 
-// 链接到动态库
 typedef Infer *(*AlgorithmCreate)();
 
 #endif //TENSORRTMODELDEPLOYMENT_INFER_H

@@ -54,12 +54,14 @@ add_executable(run
 
         utils/general.h utils/general.cpp utils/box_utils.h utils/box_utils.cpp
 #        algorithm_product/YoloFace.h algorithm_product/YoloFace.cpp
-        algorithm_product/YoloDetect.h algorithm_product/YoloDetect.cpp
+#        algorithm_product/YoloDetect.h algorithm_product/YoloDetect.cpp
+        algorithm_product/YoloDetect2.h algorithm_product/YoloDetect2.cpp
         algorithm_product/product.h
 #
 #        interface/face_interface.h interface/face_interface.cpp
         interface/face_interface_thread.h interface/face_interface_thread.cpp
 
+        algorithm_factory/infer.h algorithm_factory/infer.cpp
         algorithm_factory/factory.h algorithm_factory/factory.cpp
         interface/beifen.cpp algorithm_factory/Infer.cpp algorithm_factory/Infer.h)
 
