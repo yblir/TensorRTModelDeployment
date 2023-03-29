@@ -23,6 +23,7 @@ template<typename T>
 std::shared_ptr<T> ptrFree(T *ptr) {
     return std::shared_ptr<T>(ptr, [](T *p) { delete p; });
 }
+
 // 推理输入
 struct Job {
     std::shared_ptr<std::promise<float *>> gpuOutputPtr;
@@ -80,6 +81,8 @@ public:
 class InferImpl : public Infer {
 public:
     InferImpl();
+    ~InferImpl() override;
+
     // 获得引擎名字, conf: 对应具体实现算法的结构体引用
     static std::string getEnginePath(const ParamBase &conf);
     //构建引擎文件,并保存到硬盘, 所有模型构建引擎文件方法都一样,如果加自定义层,继承算法各自实现
@@ -87,16 +90,19 @@ public:
     //加载引擎到gpu,准备推理.
     static std::vector<unsigned char> loadEngine(const std::string &engineFilePath);
 
-//    std::shared_ptr<std::string> commit(const std::string &input) override;
-
     // 创建推理engine
     static bool createInfer(ParamBase &param, const std::string &enginePath);
     //加载算法so文件
     static Infer *loadDynamicLibrary(const std::string &soPath);
 
-//    bool startThread();
+    bool startThread(ParamBase &param);
+    std::shared_future<std::map<std::string,std::vector<std::vector<std::vector<float>>>>> commit(const std::vector<std::string> &imagePaths) override;
+    static std::vector<int> setBatchAndInferMemory(ParamBase &curParam);
 
-    std::vector<std::shared_future<std::string>> commit(const std::vector<std::string>& imagePaths) override;
+    int preProcess(ParamBase &param, cv::Mat &image, float *pinMemoryCurrentIn) override {};
+
+    int postProcess(ParamBase &param, float *pinMemoryOut, int singleOutputSize,
+                    int outputNums, std::vector<std::vector<std::vector<float>>> &result) override {};
 private:
     //struct
     std::mutex lock_;
@@ -110,9 +116,9 @@ private:
     std::atomic<bool> queueFinish{false};
     std::atomic<bool> inferFinish{false};
 
-    std::thread preThread;
-    std::thread inferThread;
-    std::thread postThread;
+    std::shared_ptr<std::thread> preThread;
+    std::shared_ptr<std::thread> inferThread;
+    std::shared_ptr<std::thread> postThread;
 
     //创建cuda任务流,对应上述三个处理线程
     cudaStream_t preStream{};
@@ -194,7 +200,8 @@ bool InferImpl::buildEngine(const std::string &onnxFilePath, const std::string &
     config->addOptimizationProfile(profile);
 
     //5 直接序列化推理引擎
-    std::shared_ptr<nvinfer1::IHostMemory> serializedModel = ptrFree(builder->buildSerializedNetwork(*network, *config));
+    std::shared_ptr<nvinfer1::IHostMemory> serializedModel = ptrFree(
+            builder->buildSerializedNetwork(*network, *config));
     if (nullptr == serializedModel) {
         printf("build engine failed\n");
         return false;
@@ -291,7 +298,8 @@ bool InferImpl::createInfer(ParamBase &param, const std::string &enginePath) {
     }
 //    是因为有1个是输入.剩下的才是输出
     if (2 != param.engine->getNbIOTensors()) {
-        printf("create engine failed: onnx导出有问题,必须是1个输入和1个输出,当前有%d个输出\n", param.engine->getNbIOTensors() - 1);
+        printf("create engine failed: onnx导出有问题,必须是1个输入和1个输出,当前有%d个输出\n",
+               param.engine->getNbIOTensors() - 1);
         return false;
     }
     if (nullptr == param.engine) {
@@ -299,14 +307,46 @@ bool InferImpl::createInfer(ParamBase &param, const std::string &enginePath) {
         return false;
     }
     param.context = ptrFree(param.engine->createExecutionContext());
-    std::cout << "create engine and context success: " << std::filesystem::path(param.enginePath).filename() << std::endl;
-
+    std::cout << "create engine and context success: " << std::filesystem::path(param.enginePath).filename()
+              << std::endl;
+//    worker_ = std::make_shared<std::thread>(&InferController::worker, this, std::ref(pro));
     return true;
 }
 
-std::vector<std::shared_future<std::string>> InferImpl::commit(const std::vector<std::string> &imagePaths) {
+std::shared_future<std::map<std::string,std::vector<std::vector<std::vector<float>>>>> InferImpl::commit(const std::vector<std::string> &imagePaths) {
+    std::shared_future<std::map<std::string,std::vector<std::vector<std::vector<float>>>>> res;
+    return res;
+}
 
-    return 0;
+std::vector<int> InferImpl::setBatchAndInferMemory(ParamBase &curParam) {
+    //计算输入tensor所占存储空间大小,设置指定的动态batch的大小,之后再重新指定输入tensor形状
+    auto inputShape = curParam.engine->getTensorShape(curParam.inputName.c_str());
+    inputShape.d[0] = curParam.batchSize;
+    curParam.context->setInputShape(curParam.inputName.c_str(), inputShape);
+    //batchSize * c * h * w
+    int inputSize = curParam.batchSize * inputShape.d[1] * inputShape.d[2] * inputShape.d[3];
+
+    // 获得输出tensor形状,计算输出所占存储空间
+    auto outputShape = curParam.engine->getTensorShape(curParam.outputName.c_str());
+    // 记录这两个输出维度数量,在后处理时会用到
+    curParam.predictNums = outputShape.d[1];
+    curParam.predictLength = outputShape.d[2];
+    // 计算推理结果所占内存空间大小
+    int outputSize = curParam.batchSize * outputShape.d[1] * outputShape.d[2];
+
+    // 使用元组返回多个多个不同的类型值, 供函数外调用,有以下两种方式可使用
+//    return std::make_tuple(inputShape, inputSize, outputSize);
+//    return std::tuple<nvinfer1::Dims32, int, int>{inputShape, inputSize, outputSize};
+
+    // 将输入输出所占空间大小返回
+    std::vector<int> memory = {inputSize, outputSize};
+    return memory;
+}
+
+bool InferImpl::startThread(ParamBase &param) {
+    preThread = std::make_shared<std::thread>(&InferImpl::preProcess, this,
+                                              std::ref(param), std::ref(imgPaths), std::ref(memory));
+    preThread;
 }
 
 InferImpl::InferImpl() {
@@ -315,12 +355,16 @@ InferImpl::InferImpl() {
     cudaStreamCreate(&postStream);
 }
 
+InferImpl::~InferImpl() {
+    printf('d');
+}
+
 std::shared_ptr<Infer> createInfer(ParamBase &param, const std::string &enginePath) {
     // 实例化一个推理器的实现类（inferImpl），以指针形式返回
     std::shared_ptr<InferImpl> instance(new InferImpl());
     // 如果创建引擎不成功就reset
     if (!instance->createInfer(param, enginePath)) instance.reset();
-    if (instance) instance.startThread
+    if (instance) instance->startThread(ParamBase &param);
     return instance;
 }
 

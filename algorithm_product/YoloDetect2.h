@@ -6,10 +6,9 @@
 #define TENSORRTMODELDEPLOYMENT_YOLODETECT_H
 
 #include "../algorithm_factory/infer.h"
-//#include "../algorithm_factory/struct_data_type.h"
 #include "../utils/box_utils.h"
 #include "../utils/general.h"
-#include "product.h"
+//#include "product.h"
 
 class YoloDetect : public Infer {
 public:

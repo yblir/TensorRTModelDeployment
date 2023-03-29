@@ -82,11 +82,18 @@ int main(int argc, char *argv[]) {
     // 获取该文件夹下所有图片绝对路径,存储在vector向量中
     getImagePath(imgInputDir, imagePaths);
     auto t = timer->curTimePoint();
-    inferEngine(param, func, imagePaths, outs);
-    total = timer->timeCount(t);
-    printf("total time: %.2f\n", total);
-    std::cout << "在原图上画框" << std::endl;
-    int i = 0;
+    std::vector<std::string > batch;
+    int count =0;
+    for(auto &item :imagePaths){
+        batch.emplace_back(item);
+        count+=1;
+        if (count==2) auto curResult= inferEngine(param, func, imagePaths, outs);
+    }
+//    inferEngine(param, func, imagePaths, outs);
+//    total = timer->timeCount(t);
+//    printf("total time: %.2f\n", total);
+//    std::cout << "在原图上画框" << std::endl;
+//    int i = 0;
     // 画yolo目标检测框
 //    if (!outs.detectResult.empty()) {
 //        // 遍历每张图片
