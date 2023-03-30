@@ -16,7 +16,10 @@
 #include <memory>
 #include <dlfcn.h>
 #include <opencv2/opencv.hpp>
+#include <utility>
 #include "Infer.h"
+
+using batchBoxesType = std::vector<std::vector<std::vector<float>>>;
 
 //通过智能指针管理nv, 内存自动释放,避免泄露.
 template<typename T>
@@ -30,12 +33,31 @@ struct Job {
     float *inputTensor{};
 };
 
+// 推理输入
+struct Job2 {
+    std::shared_ptr<std::promise<std::map<std::string, batchBoxesType>>> gpuOutputPtr;
+//    float *inputTensor{};
+    std::vector<std::string> paths;
+};
+
 // 推理输出
 struct Out {
     std::shared_future<float *> inferResult;
     std::vector<std::vector<float>> d2is;
     int inferNum{};
 };
+
+#define checkRuntime(op) check_cuda_runtime((op),#op,__FILE__,__LINE__)
+
+bool check_cuda_runtime(cudaError_t code, const char *op, const char *file, int line) {
+    if (cudaSuccess != code) {
+        const char *errName = cudaGetErrorName(code);
+        const char *errMsg = cudaGetErrorString(code);
+        printf("runtime error %s:%d  %s failed. \n  code = %s, message = %s\n", file, line, op, errName, errMsg);
+        return false;
+    }
+    return true;
+}
 
 const char *severity_string(nvinfer1::ILogger::Severity t) {
     switch (t) {
@@ -58,14 +80,6 @@ class TRTLogger : public nvinfer1::ILogger {
 public:
     void log(Severity severity, nvinfer1::AsciiChar const *msg) noexcept override {
         if (severity <= Severity::kWARNING) {
-            // 打印带颜色的字符，格式如下：
-            // printf("\033[47;33m打印的文本\033[0m");
-            // 其中 \033[ 是起始标记
-            //      47    是背景颜色
-            //      ;     分隔符
-            //      33    文字颜色
-            //      m     开始标记结束
-            //      \033[0m 是终止标记
             if (severity == Severity::kWARNING) {
                 printf("\033[33m%s: %s\033[0m\n", severity_string(severity), msg);
             } else if (severity <= Severity::kERROR) {
@@ -80,7 +94,7 @@ public:
 
 class InferImpl : public Infer {
 public:
-    InferImpl();
+    InferImpl(std::vector<int> &memory);
     ~InferImpl() override;
 
     // 获得引擎名字, conf: 对应具体实现算法的结构体引用
@@ -95,26 +109,47 @@ public:
     //加载算法so文件
     static Infer *loadDynamicLibrary(const std::string &soPath);
 
-    bool startThread(ParamBase &param);
-    std::shared_future<std::map<std::string,std::vector<std::vector<std::vector<float>>>>> commit(const std::vector<std::string> &imagePaths) override;
+    bool startThread(ParamBase &param, std::vector<int> &memory);
+    std::shared_future<std::map<std::string, batchBoxesType>> commit(const std::vector<std::string> &imagePaths) override;
     static std::vector<int> setBatchAndInferMemory(ParamBase &curParam);
 
+//    std::vector<int> getMemory
     int preProcess(ParamBase &param, cv::Mat &image, float *pinMemoryCurrentIn) override {};
 
     int postProcess(ParamBase &param, float *pinMemoryOut, int singleOutputSize,
-                    int outputNums, std::vector<std::vector<std::vector<float>>> &result) override {};
+                    int outputNums, batchBoxesType &result) override {};
+
+    void inferPre(ParamBase &curParam, std::vector<int> &memory);
+    int inferTrt(ParamBase &curParam, std::vector<int> &memory);
+    void inferPost(ParamBase &curParam, AlgorithmBase *curFunc, std::vector<int> &memory,
+                   std::shared_future<batchBoxesType> &result);
+    void getMemory(std::vector<int> memory_);
 private:
-    //struct
     std::mutex lock_;
     std::condition_variable cv_;
+    float *gpuMemoryIn0 = nullptr, *gpuMemoryIn1 = nullptr, *pinMemoryIn = nullptr;
+    float *gpuMemoryOut0 = nullptr, *gpuMemoryOut1 = nullptr, *pinMemoryOut = nullptr;
+    float *gpuIn[2], *gpuOut[2];
+    std::vector<int> memory;
 
+    Job preJob;
+    Job trtJob;
+    Out preOut;
+    Out postOut;
+    Job2 job2;
+//    std::vector<int> memory = InferImpl::setBatchAndInferMemory(curParam);
     std::queue<Job> qJobs;
 // 存储每个batch的推理结果,统一后处理
 //    std::queue<Out> qOuts;
     std::queue<float *> qOuts;
 
+    std::queue<Job2> qJob2;
+
+    std::queue<std::vector<std::string >> qPaths;
+
     std::atomic<bool> queueFinish{false};
     std::atomic<bool> inferFinish{false};
+    std::atomic<bool> workRunning{true};
 
     std::shared_ptr<std::thread> preThread;
     std::shared_ptr<std::thread> inferThread;
@@ -298,8 +333,7 @@ bool InferImpl::createInfer(ParamBase &param, const std::string &enginePath) {
     }
 //    是因为有1个是输入.剩下的才是输出
     if (2 != param.engine->getNbIOTensors()) {
-        printf("create engine failed: onnx导出有问题,必须是1个输入和1个输出,当前有%d个输出\n",
-               param.engine->getNbIOTensors() - 1);
+        printf("create engine failed: onnx导出有问题,必须是1个输入和1个输出,当前有%d个输出\n", param.engine->getNbIOTensors() - 1);
         return false;
     }
     if (nullptr == param.engine) {
@@ -307,15 +341,239 @@ bool InferImpl::createInfer(ParamBase &param, const std::string &enginePath) {
         return false;
     }
     param.context = ptrFree(param.engine->createExecutionContext());
-    std::cout << "create engine and context success: " << std::filesystem::path(param.enginePath).filename()
-              << std::endl;
+    std::cout << "create engine and context success: " << std::filesystem::path(param.enginePath).filename() << std::endl;
 //    worker_ = std::make_shared<std::thread>(&InferController::worker, this, std::ref(pro));
     return true;
 }
 
-std::shared_future<std::map<std::string,std::vector<std::vector<std::vector<float>>>>> InferImpl::commit(const std::vector<std::string> &imagePaths) {
-    std::shared_future<std::map<std::string,std::vector<std::vector<std::vector<float>>>>> res;
-    return res;
+std::shared_future<std::map<std::string, batchBoxesType>> InferImpl::commit(const std::vector<std::string> &imagePaths) {
+    // 将传入的多张或一张图片,一次性传入队列总
+    Job2 job3;
+    job3.paths = imagePaths;
+    job3.gpuOutputPtr.reset(new std::promise<std::map<std::string, batchBoxesType>>());
+    // 创建share_future变量,一次性取回传入的所有图片结果
+    std::shared_future<std::map<std::string, batchBoxesType>> fut = job3.gpuOutputPtr->get_future();
+    {
+        std::lock_guard<std::mutex> l(lock_);
+        //
+        qJob2.emplace(std::move(job3));
+    }
+    // 通知图片预处理线程,图片以及就位.
+    cv_.notify_one();
+    return fut;
+}
+
+void InferImpl::inferPre(ParamBase &curParam, std::vector<int> &memory) {
+    // 记录预处理总耗时
+    double totalTime, totalTime2;
+    auto t = timer.curTimePoint();
+
+    unsigned long mallocSize = memory[0] * sizeof(float);
+
+    Job2 job_temp;
+    {
+        std::unique_lock<std::mutex> l(lock_);
+        cv_.wait(l, [&]() { return !qJob2.empty() || !workRunning; });
+        if (!workRunning) return;
+        job_temp = qJob2.front();
+        qJob2.pop();
+    }
+    auto lastAddress = &job_temp.paths.back();
+
+    // count统计推理图片数量,正常情况下等于batchSize,但在最后一次,可能小于batchSize.imgNums统计预处理图片数量,index是gpuIn的索引,三个显存轮换使用
+    int count = 0, imgNums = 0, index = 0, inputSize = memory[0] / curParam.batchSize;
+    Job job;
+    Out out;
+    cv::Mat mat;
+
+    for (auto &imgPath: job_temp.paths) {
+        // auto stream = cv::cuda::StreamAccessor::wrapStream(m_stream);
+        mat = cv::imread(imgPath);
+        // 记录前处理耗时
+        auto preTime = timer.curTimePoint();
+        float d2i[6];
+        cv::Mat scaleImage = letterBox(mat, curParam.inputWidth, curParam.inputHeight, d2i);
+//      -------------------------------------------------------------------------
+//        cv::cuda::GpuMat gpuMat(scaleImage);
+//        cv::cuda::cvtColor(gpuMat, gpuMat, cv::COLOR_BGR2RGB);
+//        // 数值归一化
+//        gpuMat.convertTo(gpuMat, CV_32FC3, 1. / 255., 0);
+//      -------------------------------------------------------------------------
+        // 依次存储一个batchSize中图片放射变换参数
+        out.d2is.push_back({d2i[0], d2i[1], d2i[2], d2i[3], d2i[4], d2i[5]});
+        if (count < curParam.batchSize) {
+            BGR2RGB(scaleImage, pinMemoryIn + count * inputSize);
+//            checkRuntime(cudaMemcpy(gpuMemoryIn + count * inputSize, &gpuMat, memory[0] * sizeof(float), cudaMemcpyDeviceToDevice));
+            count += 1;
+        }
+
+        // 小于一个batch,不再往下继续.
+        if (count < curParam.batchSize) continue;
+        // 统计图片尺寸变换等预处理耗时
+        totalTime += timer.timeCount(preTime);
+
+        //全部到gpu上,不需要这句复制
+        checkRuntime(cudaMemcpyAsync(gpuIn[index], pinMemoryIn, mallocSize, cudaMemcpyHostToDevice, stream));
+//            checkRuntime(cudaMemcpyAsync(gpuMemoryIn, pinMemoryIn, memory[0] * sizeof(float), cudaMemcpyHostToDevice, stream));
+        job.inputTensor = gpuIn[index];
+        // 记录当前推理图片数量,正常情况count=batchSize, 但最后批次,可能会小于batchSize
+//        out.inferNum = count;
+        // 以后取回该批次图片的结果
+//        job.gpuOutputPtr.reset(new std::promise<float *>());
+        // 关联当前输入数据的未来输出
+//        out.inferResult = job.gpuOutputPtr->get_future();
+
+        // 流同步,在写入队列前,确保待推理数据已复制到gpu上
+        checkRuntime(cudaStreamSynchronize(stream));
+
+        // 加锁
+        {
+            std::unique_lock<std::mutex> l(lock_);
+            // false, 表示继续等待. true, 表示不等待,跳出wait. wait流程: 一旦进入wait,解锁. 退出wait,又加锁 最多3个batch
+            cv_.wait(l, [&]() { return qJobs.size() < 3; });
+
+            // 将存有推理数据的显存空间指针保存
+            qJobs.push(job);
+//            qOuts.push(out);
+            cv_.notify_one();
+        }
+
+        imgNums += count;
+        count = 0;
+        // 轮换到下一个显存空间
+        index = index >= 1 ? 0 : index + 1;
+        // 清空保存仿射变换参数,每个out只保留一个batch的参数
+        if (&imgPath != lastAddress) std::vector<std::vector<float>>().swap(out.d2is);
+
+    }
+    // 所有图片处理完,处理不满足一个batchSize的情况
+    if (count != 0 && count < curParam.batchSize) {
+        checkRuntime(cudaMemcpy(gpuIn[index], pinMemoryIn, count * inputSize * sizeof(float), cudaMemcpyHostToDevice));
+        job.inputTensor = gpuIn[index];
+//        out.inferNum = count;
+        imgNums += count;
+        // 以后取回该批次图片的结果
+//        job.gpuOutputPtr.reset(new std::promise<float *>());
+        // 关联当前输入数据的未来输出
+//        out.inferResult = job.gpuOutputPtr->get_future();
+        // 加锁
+        {
+            std::unique_lock<std::mutex> l(lock_);
+            cv_.wait(l, [&]() { return qJobs.size() < 3; });
+            // 将存有推理数据的显存空间指针保存
+            qJobs.push(job);
+//            qOuts.push(out);
+            cv_.notify_one();
+        }
+    }
+    queueFinish = true;
+
+    // 线程结束时,仅是否pinMemoryIn, gpuMemoryIn存有推理数据,在推理线程中释放
+//    for (auto &item: gpuIn) checkRuntime(cudaFreeAsync(item, stream));
+//    checkRuntime(cudaFreeHost(pinMemoryIn));
+    totalTime2 = timer.timeCount(t);
+    printf("pre   use time: %.2f ms, thread use time: %.2f ms, pre img num = %d\n", totalTime, totalTime2, imgNums);
+    checkRuntime(cudaStreamDestroy(stream));
+}
+
+// 适用于模型推理的通用trt流程
+int InferImpl::inferTrt(ParamBase &curParam, std::vector<int> &memory) {
+    // 记录推理耗时
+    double totalTime, totalTime2;
+    auto t = timer.curTimePoint();
+    unsigned long mallocSize = memory[1] * sizeof(float);
+    //创建cuda任务流
+//    cudaStream_t stream;
+//    checkRuntime(cudaStreamCreate(&stream));
+
+//    float *gpuMemoryOut = nullptr;
+//    checkRuntime(cudaMallocAsync(&gpuMemoryOut, mallocSize, stream));
+    curParam.context->setTensorAddress(curParam.outputName.c_str(), gpuMemoryOut);
+    Job job;
+    while (true) {
+        {
+            std::unique_lock<std::mutex> l(lock_);
+            // false, 表示继续等待. true, 表示不等待,跳出wait
+            // 队列不为空, 就说明推理空间图片已准备好,退出等待,继续推理. 当图片都处理完,并且队列为空,要退出等待,因为此时推理工作已完成
+            cv_.wait(l, [&]() { return !qJobs.empty(); });
+            job = qJobs.front();
+            qJobs.pop();
+            // 消费掉一个元素,通知队列跳出等待,继续生产
+            cv_.notify_one();
+        }
+        curParam.context->setTensorAddress(curParam.inputName.c_str(), job.inputTensor);
+
+        auto qT1 = timer.curTimePoint();
+        curParam.context->enqueueV3(stream);
+        cudaStreamSynchronize(stream);
+
+        totalTime += timer.timeCount(qT1);
+        // 流同步后,获取该batchSize推理结果
+        {
+            std::unique_lock<std::mutex> l(lock_);
+            // false, 表示继续等待. true, 表示不等待,跳出wait. wait流程: 一旦进入wait,解锁. 退出wait,又加锁 最多3个batch
+            cv_.wait(l, [&]() { return qOuts2.size() < 2; });
+            qOuts2.push(gpuMemoryOut);
+            cv_.notify_one();
+        }
+
+        // 再判断一次推理数据队列,若图片都处理完且队列空,说明推理结束,不必再开辟新空间了,直接退出线程
+        if (queueFinish && qJobs.empty()) break;
+
+        // 重新开辟推理输出空间,保证每个推理输出空间都不同,避免多线程推理时的结果覆盖
+//        checkRuntime(cudaMallocAsync(&gpuMemoryOut, mallocSize, stream));
+    }
+    inferFinish = true;
+    totalTime2 = timer.timeCount(t);
+    printf("infer use time: %.2f ms, thread use time: %.2f ms\n", totalTime, totalTime2);
+    checkRuntime(cudaStreamDestroy(stream));
+}
+
+void
+InferImpl::inferPost(ParamBase &curParam, AlgorithmBase *curFunc, std::vector<int> &memory, std::shared_future<batchBoxesType> &result) {
+    // 记录后处理耗时
+    double totalTime, totalTime2;
+    auto t = timer.curTimePoint();
+//    std::shared_future<std::vector<std::vector<std::vector<float>>>> result;
+
+    int mallocSize = memory[1] * sizeof(float), singleOutputSize = memory[1] / curParam.batchSize;
+//    float *pinMemoryOut = nullptr;
+    // 分别在锁页内存和gpu上开辟空间,用于存储推理结果
+//    checkRuntime(cudaMallocHost(&pinMemoryOut, mallocSize));
+
+    float *out;
+    while (true) {
+        {
+            std::unique_lock<std::mutex> l(lock_);
+            // false, 表示继续等待. true, 表示不等待,跳出wait
+            // 队列不为空, 就说明推理空间图片已准备好,退出等待,继续推理. 当图片都处理完,并且队列为空,要退出等待,因为此时推理工作已完成
+            cv_.wait(l, [&]() { return !qOut2.empty() || (inferFinish && qOut2.empty()); });
+            // 退出推理线程
+            if (inferFinish && qOuts2.empty()) return;
+
+            out = qOuts2.front();
+            // 把当前取出的元素删掉
+            qOuts2.pop();
+        }
+    }
+//        float *futureResult = out.inferResult.get();
+    // 转移到内存中处理
+    cudaMemcpy(pinMemoryOut, out, mallocSize, cudaMemcpyDeviceToHost);
+    curParam.d2is = out.d2is;
+    auto qT1 = timer.curTimePoint();
+    curFunc->postProcess(curParam, pinMemoryOut, singleOutputSize, out.inferNum, result);
+    totalTime += timer.timeCount(qT1);
+
+    // 清理已用完的gpuMemoryOut
+//        checkRuntime(cudaFreeAsync(futureResult, stream));
+
+
+    // 后处理全部完成,释放存储推理结果的pinMemoryOut
+//    if (pinMemoryOut) checkRuntime(cudaFreeHost(pinMemoryOut));
+    totalTime2 = timer.timeCount(t);
+    printf("post  use time: %.2f ms, thread use time: %.2f ms\n", totalTime, totalTime2);
+
+//    return result;
 }
 
 std::vector<int> InferImpl::setBatchAndInferMemory(ParamBase &curParam) {
@@ -343,28 +601,64 @@ std::vector<int> InferImpl::setBatchAndInferMemory(ParamBase &curParam) {
     return memory;
 }
 
-bool InferImpl::startThread(ParamBase &param) {
-    preThread = std::make_shared<std::thread>(&InferImpl::preProcess, this,
-                                              std::ref(param), std::ref(imgPaths), std::ref(memory));
-    preThread;
+bool InferImpl::startThread(ParamBase &param, std::vector<int> &memory) {
+    preThread = std::make_shared<std::thread>(&InferImpl::inferPre, this, std::ref(param), std::ref(memory));
+    inferThread = std::make_shared<std::thread>(&InferImpl::inferTrt, this, std::ref(param), std::ref(memory));
+    postThread = std::make_shared<std::thread>(&InferImpl::inferPost, this, std::ref(param),
+                                               std::ref(curFunc), std::ref(memory), std::ref(result));
 }
 
-InferImpl::InferImpl() {
+void InferImpl::getMemory(std::vector<int> memory_) {
+    this->memory = std::move(memory_);
+}
+
+InferImpl::InferImpl(std::vector<int> &memory) {
+//    this->memory = memory;
+
+    cudaStream_t initStream;
+    cudaStreamCreate(&initStream);
+
     cudaStreamCreate(&preStream);
     cudaStreamCreate(&inferStream);
     cudaStreamCreate(&postStream);
+//    getMemory(memory);
+    unsigned long InMallocSize = memory[0] * sizeof(float);
+    unsigned long OutMallocSize = memory[1] * sizeof(float);
+
+    checkRuntime(cudaMallocAsync(&gpuMemoryIn0, InMallocSize, initStream));
+    checkRuntime(cudaMallocAsync(&gpuMemoryIn1, InMallocSize, initStream));
+
+    checkRuntime(cudaMallocAsync(&gpuMemoryOut0, OutMallocSize, initStream));
+    checkRuntime(cudaMallocAsync(&gpuMemoryOut1, OutMallocSize, initStream));
+
+    checkRuntime(cudaMallocHost(&pinMemoryOut, InMallocSize));
+    checkRuntime(cudaMallocHost(&pinMemoryIn, OutMallocSize));
+
+    gpuIn[0] = gpuMemoryIn0;
+    gpuIn[1] = gpuMemoryIn1;
+    gpuOut[0] = gpuMemoryOut0;
+    gpuOut[1] = gpuMemoryOut1;
+
+    checkRuntime(cudaStreamDestroy(initStream));
 }
 
 InferImpl::~InferImpl() {
-    printf('d');
+//    printf('d');
 }
 
+
 std::shared_ptr<Infer> createInfer(ParamBase &param, const std::string &enginePath) {
+    std::vector<int> memory = InferImpl::setBatchAndInferMemory(param);
     // 实例化一个推理器的实现类（inferImpl），以指针形式返回
-    std::shared_ptr<InferImpl> instance(new InferImpl());
+    std::shared_ptr<InferImpl> instance(new InferImpl(memory));
     // 如果创建引擎不成功就reset
-    if (!instance->createInfer(param, enginePath)) instance.reset();
-    if (instance) instance->startThread(ParamBase &param);
+    if (!instance->createInfer(param, enginePath)) {
+        instance.reset();
+        return instance;
+    }
+    if (instance) {
+        instance->startThread(param, memory);
+    }
     return instance;
 }
 
