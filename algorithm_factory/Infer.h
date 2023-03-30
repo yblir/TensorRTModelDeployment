@@ -67,12 +67,10 @@ public:
     virtual ~Infer() = default;
 
 //    virtual std::vector<std::shared_future<std::string>> commit(const std::string &imagePath) {};
-    virtual std::shared_future<std::map<std::string, std::vector<std::vector<std::vector<float>>>>>
-    commit(const std::string &imagePath) {};
+    virtual std::shared_future<std::vector<std::vector<std::vector<float>>>> commit(const std::string &imagePath) {};
 
 //    virtual std::vector<std::shared_future<std::string>> commit(const std::vector<std::string> &imagePaths) {};
-    virtual std::shared_future<std::map<std::string, std::vector<std::vector<std::vector<float>>>>>
-    commit(const std::vector<std::string> &imagePaths) {};
+    virtual std::shared_future< std::vector<std::vector<std::vector<float>>>> commit(const std::vector<std::string> &imagePaths) {};
     // 图片预处理
     virtual int preProcess(ParamBase &param, cv::Mat &image, float *pinMemoryCurrentIn) = 0;
     // 图片后处理
