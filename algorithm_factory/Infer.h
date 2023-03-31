@@ -12,16 +12,9 @@
 #include <istream>
 //编译用的头文件
 #include <NvInfer.h>
-////onnx解释器头文件
-//#include <NvOnnxParser.h>
-////推理用的运行时头文件
-//#include <NvInferRuntime.h>
-//#include <cuda_runtime.h>
-//#include <filesystem>
-//#include <fstream>
-//#include <memory>
-//#include <dlfcn.h>
 #include <opencv2/opencv.hpp>
+
+using batchBoxesType = std::vector<std::vector<std::vector<float>>>;
 
 //配置文件基类,自定义配置文件
 struct ParamBase {
@@ -67,19 +60,17 @@ public:
     virtual ~Infer() = default;
 
 //    virtual std::vector<std::shared_future<std::string>> commit(const std::string &imagePath) {};
-    virtual std::shared_future<std::vector<std::vector<std::vector<float>>>> commit(const std::string &imagePath) {};
+    virtual std::shared_future<batchBoxesType> commit(const std::string &imagePath) {};
 
 //    virtual std::vector<std::shared_future<std::string>> commit(const std::vector<std::string> &imagePaths) {};
-    virtual std::shared_future< std::vector<std::vector<std::vector<float>>>> commit(const std::vector<std::string> &imagePaths) {};
-    // 图片预处理
+    virtual std::shared_future<batchBoxesType> commit(const std::vector<std::string> &imagePaths) {};
+
     virtual int preProcess(ParamBase &param, cv::Mat &image, float *pinMemoryCurrentIn) = 0;
-    // 图片后处理
-    virtual int postProcess(ParamBase &param, float *pinMemoryOut, int singleOutputSize,
-                            int outputNums, std::vector<std::vector<std::vector<float>>> &result) = 0;
+    virtual int postProcess(ParamBase &param, float *pinMemoryOut, int singleOutputSize, int outputNums, std::vector<std::vector<float>> &result) = 0;
 
 };
 
-std::shared_ptr<Infer> createInfer(ParamBase &param, const std::string &enginePath);
+std::shared_ptr<Infer> createInfer(ParamBase &param, const std::string &enginePath,Infer &curFunc);
 
 typedef Infer *(*AlgorithmCreate)();
 
