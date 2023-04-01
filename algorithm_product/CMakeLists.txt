@@ -31,11 +31,15 @@ find_package(CUDA REQUIRED)
 
 aux_source_directory(. DIR_LIB_SRCS)
 #ADD_LIBRARY(TrtFaceYolo SHARED ${DIR_LIB_SRCS} product.h YoloDetect.cpp YoloDetect.h)
-ADD_LIBRARY(TrtYoloDetect SHARED ${DIR_LIB_SRCS} product.h YoloDetect.cpp YoloDetect.h
+ADD_LIBRARY(TrtYoloDetect SHARED ${DIR_LIB_SRCS}
+        product.h
+#        YoloDetect.cpp YoloDetect.h
+        YoloDetect2.cpp YoloDetect2.h
 #        YoloFace.h YoloFace.cpp
         ../utils/general.h ../utils/general.cpp ../utils/box_utils.h ../utils/box_utils.cpp
-        ../interface/face_interface.h ../interface/face_interface.cpp
-        ../algorithm_factory/factory.h ../algorithm_factory/factory.cpp ../algorithm_factory/struct_data_type.h)
+#        ../interface/face_interface.h ../interface/face_interface.cpp
+#        ../algorithm_factory/factory.h ../algorithm_factory/factory.cpp ../algorithm_factory/struct_data_type.h
+        )
 #TARGET_LINK_LIBRARIES(TrtFaceYolo
 #        -lcudart -lopencv_core -lopencv_imgproc -lopencv_imgcodecs -lopencv_cudaarithm
 #        -lopencv_cudawarping -lopencv_cudaimgproc

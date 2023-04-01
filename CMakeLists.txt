@@ -61,8 +61,10 @@ add_executable(run
 #        interface/face_interface.h interface/face_interface.cpp
         interface/face_interface_thread.h interface/face_interface_thread.cpp
 
-        algorithm_factory/infer.h algorithm_factory/infer.cpp
-        algorithm_factory/factory.h algorithm_factory/factory.cpp)
+        algorithm_factory/infer.h algorithm_factory/InferImpl.h
+#        algorithm_factory/factory.h algorithm_factory/factory.cpp
+        algorithm_factory/InferImpl.cpp
+        )
 
 # 为库或二进制可执行文件添加库链接，要用在add_executable之后,target是指通
 # 过add_executable()和add_library()指令生成已经创建的目标文件run

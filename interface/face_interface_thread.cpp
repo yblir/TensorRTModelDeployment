@@ -1,80 +1,68 @@
 //
 // Created by Administrator on 2023/1/9.
 //
-#include <cuda_runtime.h>
-#include <thread>
 #include <queue>
 #include <mutex>
 #include <condition_variable>
-#include <memory>
-#include <future>
-#include <condition_variable>
-//#include <future>
 
-#include "../utils/general.h"
 #include "face_interface_thread.h"
 #include "../utils/box_utils.h"
-#include "../algorithm_factory/infer.h"
+#include "../algorithm_factory/InferImpl.h"
 
-//struct
-std::mutex lock_;
+//// 推理输入
+//struct Job {
+//    std::shared_ptr<std::promise<float *>> gpuOutputPtr;
+//    float *inputTensor{};
+//};
+//
+//// 推理输出
+//struct Out {
+//    std::shared_future<float *> inferResult;
+//    std::vector<std::vector<float>> d2is;
+//    int inferNum{};
+//};
 
-std::condition_variable condition;
-
-// 推理输入
-struct Job {
-    std::shared_ptr<std::promise<float *>> gpuOutputPtr;
-    float *inputTensor{};
-};
-
-// 推理输出
-struct Out {
-    std::shared_future<float *> inferResult;
-    std::vector<std::vector<float>> d2is;
-    int inferNum{};
-};
-
-std::queue<Job> qJobs;
-// 存储每个batch的推理结果,统一后处理
-std::queue<Out> qOuts;
-std::queue<float *> qOuts2;
-
-std::atomic<bool> queueFinish{false};
-std::atomic<bool> inferFinish{false};
-Timer timer = Timer();
-
-bool check_cuda_runtime(cudaError_t code, const char *op, const char *file, int line) {
-    if (cudaSuccess != code) {
-        const char *errName = cudaGetErrorName(code);
-        const char *errMsg = cudaGetErrorString(code);
-        printf("runtime error %s:%d  %s failed. \n  code = %s, message = %s\n", file, line, op, errName, errMsg);
-        return false;
-    }
-    return true;
-}
+//std::queue<Job> qJobs;
+//// 存储每个batch的推理结果,统一后处理
+//std::queue<Out> qOuts;
+//std::queue<float *> qOuts2;
+//
+//std::atomic<bool> queueFinish{false};
+//std::atomic<bool> inferFinish{false};
+//Timer timer = Timer();
+//
+//bool check_cuda_runtime(cudaError_t code, const char *op, const char *file, int line) {
+//    if (cudaSuccess != code) {
+//        const char *errName = cudaGetErrorName(code);
+//        const char *errMsg = cudaGetErrorString(code);
+//        printf("runtime error %s:%d  %s failed. \n  code = %s, message = %s\n", file, line, op, errName, errMsg);
+//        return false;
+//    }
+//    return true;
+//}
 
 
-// 通用推理接口
-int trtInferProcess(ParamBase &curParam, AlgorithmBase *curFunc,
-                    std::vector<std::string> &imgPaths, std::vector<std::vector<std::vector<float>>> &result) {
-
-    //0:当前推理模型输入tensor存储空间大小,1:当前推理输出结果存储空间大小
-    std::vector<int> memory = setBatchAndInferMemory(curParam);
-
-    // 预处理
-    std::thread t0(preProcess, std::ref(curParam), std::ref(imgPaths), std::ref(memory));
-    // 执行推理
-    std::thread t1(trtEnqueueV3, std::ref(curParam), std::ref(memory));
-//    std::thread t12(trtEnqueueV3, std::ref(curParam), std::ref(memory));
-    // 结果后处理
-    std::thread t2(postProcess, std::ref(curParam), std::ref(curFunc), std::ref(memory), std::ref(result));
-
-    if (t0.joinable()) t0.join();
-    if (t1.joinable()) t1.join();
-//    if (t12.joinable()) t12.join();
-    if (t2.joinable()) t2.join();
-
-}
+//// 通用推理接口
+//int trtInferProcess(ParamBase &curParam, AlgorithmBase *curFunc,
+//                    std::vector<std::string> &imgPaths, std::vector<std::vector<std::vector<float>>> &result) {
+//
+//    //0:当前推理模型输入tensor存储空间大小,1:当前推理输出结果存储空间大小
+//    std::vector<int> memory = setBatchAndInferMemory(curParam);
+//
+//    // 预处理
+//    std::thread t0(preProcess, std::ref(curParam), std::ref(imgPaths), std::ref(memory));
+//    // 执行推理
+//    std::thread t1(trtEnqueueV3, std::ref(curParam), std::ref(memory));
+////    std::thread t12(trtEnqueueV3, std::ref(curParam), std::ref(memory));
+//    // 结果后处理
+//    std::thread t2(postProcess, std::ref(curParam), std::ref(curFunc), std::ref(memory), std::ref(result));
+//
+//    if (t0.joinable()) t0.join();
+//    if (t1.joinable()) t1.join();
+////    if (t12.joinable()) t12.join();
+//    if (t2.joinable()) t2.join();
+//
+//}
 
 
 int initEngine(productParam &param, productFunc &func) {
@@ -101,13 +89,15 @@ int initEngine(productParam &param, productFunc &func) {
 //                "/mnt/e/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
 ////                "/mnt/i/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
 //        );
+
         Infer *curAlg = InferImpl::loadDynamicLibrary(
                 "/mnt/e/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
 //                "/mnt/i/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
         );
         if (!curAlg) printf("error");
 
-        auto func.yoloDetect = createInfer(param.yoloDetectParam, param.yoloDetectParam.enginePath, curAlg);
+        auto temp = createInfer(param.yoloDetectParam, param.yoloDetectParam.enginePath, *curAlg);
+        func.yoloDetect = temp;
     }
 
     return 0;
@@ -128,14 +118,13 @@ int initEngine(productParam &param, productFunc &func) {
 //
 //    return 0;
 //}
-
+// productParam &param, productFunc &func, std::vector<std::string> &imgPaths
 // imgPaths图片数量为多少, 就一次性返回多少个输出结果.分批传入图片的逻辑由调用程序控制
 std::map<std::string, batchBoxesType> inferEngine(productParam &param, productFunc &func, std::vector<std::string> &imgPaths) {
     std::map<std::string, batchBoxesType> result;
     // 以engine是否存在为判定,存在则执行推理
     if (nullptr != param.yoloDetectParam.engine) {
-        std::vector<std::string> ss;
-        auto detectRes = func.yoloDetect->commit(ss);
+        auto detectRes = func.yoloDetect->commit(imgPaths);
         result["yoloDetect"] = detectRes.get();
     }
 //    if (nullptr != conf.yoloConfig.engine)

@@ -6,11 +6,8 @@
 #define TENSORRTMODELDEPLOYMENT_INFER_H
 
 #include <iostream>
+#include <vector>
 #include <future>
-#include <condition_variable>
-#include <iostream>
-#include <istream>
-//编译用的头文件
 #include <NvInfer.h>
 #include <opencv2/opencv.hpp>
 
@@ -54,6 +51,7 @@ struct ResultBase {
 
 };
 
+
 class Infer {
 public:
     Infer() = default;
@@ -66,11 +64,11 @@ public:
     virtual std::shared_future<batchBoxesType> commit(const std::vector<std::string> &imagePaths) {};
 
     virtual int preProcess(ParamBase &param, cv::Mat &image, float *pinMemoryCurrentIn) = 0;
-    virtual int postProcess(ParamBase &param, float *pinMemoryOut, int singleOutputSize, int outputNums, std::vector<std::vector<float>> &result) = 0;
-
+    virtual int postProcess(ParamBase &param, float *pinMemoryOut, int singleOutputSize, int outputNums, batchBoxesType &result) = 0;
 };
 
-std::shared_ptr<Infer> createInfer(ParamBase &param, const std::string &enginePath,Infer &curFunc);
+
+std::shared_ptr<Infer> createInfer(ParamBase &param, const std::string &enginePath, Infer &curFunc);
 
 typedef Infer *(*AlgorithmCreate)();
 

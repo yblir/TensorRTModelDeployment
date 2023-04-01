@@ -18,8 +18,7 @@ public:
     // 图片预处理
     int preProcess(ParamBase &param, cv::Mat &image, float *pinMemoryCurrentIn) override;
     // 图片后处理
-    int postProcess(ParamBase &parm, float *pinMemoryOut, int singleOutputSize,
-                    int outputNums, std::vector<std::vector<std::vector<float>>> &result) override;
+    int postProcess(ParamBase &param, float *pinMemoryOut, int singleOutputSize, int outputNums, batchBoxesType &result) override;
 
 
     std::vector<std::vector<float>> decodeBox(int predictNums, int predictLength,

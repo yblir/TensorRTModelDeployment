@@ -2,24 +2,16 @@
 #define HAVE_FACE_FEATURE
 
 #include <iostream>
-#include <iostream>
-#include <chrono>
-
 #include <string>
-#include<sys/time.h>
-#include<unistd.h>
 #include <filesystem>
 
 #include <opencv2/highgui/highgui.hpp>
-#include <opencv2/opencv.hpp>
+//#include <opencv2/opencv.hpp>
 //#include <dirent.h>
 
 #include "interface/face_interface_thread.h"
-//#include "file_base.h"
-#include "algorithm_factory/struct_data_type.h"
-//#include "algorithm_product/product.h"
+
 #include "utils/general.h"
-#include "utils/box_utils.h"
 
 // 0 /mnt/i/GitHub/TensorRTModelDeployment/imgs
 int main(int argc, char *argv[]) {
@@ -67,7 +59,7 @@ int main(int argc, char *argv[]) {
     //创建输出文件夹
 //    std::string path1 = std::string(argv[2]) + "/";
 //    std::string path1="/mnt/e/cartoon_data/personai_icartoonface_detval/";
-    std::string path1="/mnt/e/BaiduNetdiskDownload/VOCdevkit/voc_test_6000/";
+    std::string path1 = "/mnt/e/BaiduNetdiskDownload/VOCdevkit/voc_test_6000/";
     std::filesystem::path imgInputDir(path1);
     std::filesystem::path imgOutputDir(path1 + "output/");
     //检查文件夹路径是否合法, 检查输出文件夹路径是否存在,不存在则创建
@@ -78,16 +70,22 @@ int main(int argc, char *argv[]) {
     if (!std::filesystem::exists(imgOutputDir))
         std::filesystem::create_directories(imgOutputDir);
 
+    std::map<std::string, batchBoxesType> res;
     std::vector<std::string> imagePaths;
     // 获取该文件夹下所有图片绝对路径,存储在vector向量中
     getImagePath(imgInputDir, imagePaths);
     auto t = timer->curTimePoint();
-    std::vector<std::string > batch;
-    int count =0;
-    for(auto &item :imagePaths){
+    std::vector<std::string> batch;
+    int count = 0;
+    for (auto &item: imagePaths) {
         batch.emplace_back(item);
-        count+=1;
-        if (count==2) auto curResult= inferEngine(param, func, imagePaths, outs);
+        count += 1;
+        if (count == 5) {
+            auto curResult = inferEngine(param, func, batch);
+            batch.clear();
+        }
+        std::cout << "OKkkkkkkkkk!" << std::endl;
+
     }
 //    inferEngine(param, func, imagePaths, outs);
 //    total = timer->timeCount(t);

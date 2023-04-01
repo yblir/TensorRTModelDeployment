@@ -15,14 +15,15 @@
 //#include "struct_data_type.h"
 //#include "base_interface/ai_img_alg_base.h"
 //#include "../algorithm_product/YoloFace.h"
-#include "../algorithm_factory/factory.h"
+//#include "../algorithm_factory/factory.h"
 #include "../algorithm_product/product.h"
+#include "../algorithm_factory/infer.h"
 
-#define checkRuntime(op) check_cuda_runtime((op),#op,__FILE__,__LINE__)
+//#define checkRuntime(op) check_cuda_runtime((op),#op,__FILE__,__LINE__)
 
 using Handle = void *;
 
-bool check_cuda_runtime(cudaError_t code, const char *op, const char *file, int line);
+//bool check_cuda_runtime(cudaError_t code, const char *op, const char *file, int line);
 
 // 初始化过程中,各个模型都会用到的通用步骤
 int initCommon(ParamBase &confSpecific, class AlgorithmBase *funcSpecific);
@@ -33,6 +34,7 @@ int initEngine(productParam &param, productFunc &func);
 int inferEngine(productParam &param, productFunc &func, std::vector<cv::Mat> &mats, productResult &out);
 int inferEngine(productParam &param, productFunc &func, std::vector<cv::cuda::GpuMat> &matVector, productResult out);
 int inferEngine(productParam &param, productFunc &func, std::vector<std::string> &imgPaths, productResult &out);
+std::map<std::string, batchBoxesType> inferEngine(productParam &param, productFunc &func, std::vector<std::string> &imgPaths);
 int releaseEngine(Handle engine);
 
 int getResult(productParam &param, productResult &out);

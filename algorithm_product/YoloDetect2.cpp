@@ -3,9 +3,14 @@
 //
 
 #include "YoloDetect2.h"
+#include "product.h"
 
-extern "C" AlgorithmBase *MakeAlgorithm(void) {
-    AlgorithmBase *curProduct = new YoloDetect;
+//extern "C" AlgorithmBase *MakeAlgorithm(void) {
+//    AlgorithmBase *curProduct = new YoloDetect;
+//    return curProduct;
+//}
+extern "C" Infer *MakeAlgorithm(void) {
+    Infer *curProduct = new YoloDetect;
     return curProduct;
 }
 
@@ -34,8 +39,7 @@ int YoloDetect::preProcess(ParamBase &param, cv::Mat &image, float *pinMemoryCur
 //    return 0;
 //}
 
-int YoloDetect::postProcess(ParamBase &param, float *pinMemoryOut, int singleOutputSize,
-                            int outputNums, std::vector<std::vector<std::vector<float>>> &result) {
+int YoloDetect::postProcess(ParamBase &param, float *pinMemoryOut, int singleOutputSize, int outputNums, batchBoxesType &result) {
 //std::vector<std::vector<std::vector<float>>> YoloDetect::postProcess(ParamBase &param, float *pinMemoryOut, int singleOutputSize, int outputNums, ResultBase &result) {
     //将父类对象转为子类对象,这样才能调用属于子类的成员变量
     auto curParam = reinterpret_cast<YoloDetectParam &>(param);
@@ -89,9 +93,9 @@ std::vector<std::vector<float>> YoloDetect::decodeBox(int predictNums, int predi
     return boxes;
 }
 
-int YoloDetect::initParam(void *param) {
-    return 0;
-}
+//int YoloDetect::initParam(void *param) {
+//    return 0;
+//}
 
 std::vector<std::vector<std::vector<float>>> YoloDetect::getCurResult() {
     return m_curResult;
