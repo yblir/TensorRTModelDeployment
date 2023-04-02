@@ -91,8 +91,8 @@ private:
     std::queue<Job> qJobs;
 // 存储每个batch的推理结果,统一后处理
     std::queue<Out> qOuts;
-    futureJob fJob1;
-    std::queue<futureJob> qJob2;
+    futureJob fJob;
+    std::queue<futureJob> qfJobs;
 
     // 记录传入的图片数量
     std::queue<int> qfJobLength;

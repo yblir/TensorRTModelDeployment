@@ -91,8 +91,8 @@ int initEngine(productParam &param, productFunc &func) {
 //        );
 
         Infer *curAlg = InferImpl::loadDynamicLibrary(
-                "/mnt/e/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
-//                "/mnt/i/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
+//                "/mnt/e/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
+                "/mnt/i/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
         );
         if (!curAlg) printf("error");
 
@@ -125,11 +125,11 @@ std::map<std::string, batchBoxesType> inferEngine(productParam &param, productFu
     // 以engine是否存在为判定,存在则执行推理
     if (nullptr != param.yoloDetectParam.engine) {
         auto detectRes = func.yoloDetect->commit(imgPaths);
-        result["yoloDetect"] = detectRes.get();
+//        result["yoloDetect"] = detectRes.get();
     }
 //    if (nullptr != conf.yoloConfig.engine)
 //       trtInferProcess(conf.yoloConfig, func.yoloFace, matVector);
-
+    printf(" result[\"yoloDetect\"] \n");
     return result;
 }
 
