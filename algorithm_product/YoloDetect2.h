@@ -15,13 +15,12 @@ public:
     YoloDetect();
     ~YoloDetect() override;
 
-    // 图片预处理
+    // 预处理
     int preProcess(ParamBase &param, cv::Mat &image, float *pinMemoryCurrentIn) override;
-    // 图片后处理
-    int postProcess(ParamBase &param, float *pinMemoryOut, int singleOutputSize, int outputNums, batchBoxesType &result) override;
+    // 后处理
+    int postProcess(ParamBase &param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override;
 
-
-    std::vector<std::vector<float>> decodeBox(int predictNums, int predictLength,
+    static std::vector<std::vector<float>> decodeBox(int predictNums, int predictLength,
                                               float *pinOutput, int classNum, float scoreThresh, std::vector<float> d2i);
 
     std::vector<std::vector<std::vector<float>>> getCurResult();

@@ -12,6 +12,7 @@
 #include "interface/face_interface_thread.h"
 
 #include "utils/general.h"
+#include "utils/box_utils.h"
 
 // 0 /mnt/i/GitHub/TensorRTModelDeployment/imgs
 int main(int argc, char *argv[]) {
@@ -39,8 +40,8 @@ int main(int argc, char *argv[]) {
 //    conf.yoloConfig.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/face_detect_v0.5_b17e5c7577192da3d3eb6b4bb850f8e_1out.onnx";
 //    conf.yoloConfig.gpuId = int(strtol(argv[1], nullptr, 10));
 
-    param.yoloDetectParam.onnxPath = "/mnt/i/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
-//    param.yoloDetectParam.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
+//    param.yoloDetectParam.onnxPath = "/mnt/i/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
+    param.yoloDetectParam.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
     param.yoloDetectParam.gpuId = int(strtol(argv[1], nullptr, 10));
     param.yoloDetectParam.batchSize = 2;
     param.yoloDetectParam.inputHeight = 640;
@@ -59,8 +60,9 @@ int main(int argc, char *argv[]) {
     //创建输出文件夹
 //    std::string path1 = std::string(argv[2]) + "/";
 //    std::string path1="/mnt/e/cartoon_data/personai_icartoonface_detval/";
+    std::string path1 = "/mnt/e/BaiduNetdiskDownload/VOCdevkit/voc_test_10/";
 //    std::string path1 = "/mnt/e/BaiduNetdiskDownload/VOCdevkit/voc_test_6000/";
-    std::string path1 = "/mnt/d/VOCdevkit/voc_test/";
+//    std::string path1 = "/mnt/d/VOCdevkit/voc_test/";
     std::filesystem::path imgInputDir(path1);
     std::filesystem::path imgOutputDir(path1 + "output/");
     //检查文件夹路径是否合法, 检查输出文件夹路径是否存在,不存在则创建
@@ -78,14 +80,43 @@ int main(int argc, char *argv[]) {
     auto t = timer->curTimePoint();
     std::vector<std::string> batch;
     int count = 0;
+    int i = 0;
+//    int em=0;
+    std::map<std::basic_string<char>, std::vector<std::vector<std::vector<float>>>> curResult;
     for (auto &item: imagePaths) {
         batch.emplace_back(item);
         count += 1;
-        if (count == 5) {
-            auto curResult = inferEngine(param, func, batch);
+
+        if (count >= 5) {
+            curResult = inferEngine(param, func, batch);
+
+            int j = 0;
+            auto yoloRes = curResult["yoloDetect"];
+            for (auto &out: yoloRes) {
+                if (out.empty()) {
+                    i += 1;
+                    j += 1;
+                    continue;
+                }
+//                printf("11111\n");
+                cv::Mat img = cv::imread(batch[j]);
+                j += 1;
+//                printf("2222\n");
+                // 遍历一张图片中每个预测框,并画到图片上
+                for (auto &box: out) {
+                    drawImage(img, box);
+                }
+                // 把画好框的图片写入本地
+                std::string drawName = "draw" + std::to_string(i) + ".jpg";
+                cv::imwrite(imgOutputDir / drawName, img);
+                i += 1;
+                count = 0;
+            }
             batch.clear();
-            count = 0;
+//            break;
         }
+//        break;
+//        printf("em = %d\n",em);
 //        std::cout << "OKkkkkkkkkk!" << std::endl;
 
     }
@@ -151,3 +182,15 @@ int main(int argc, char *argv[]) {
 //infer use time: 26742.28 ms, thread use time: 90505.30 ms
 //post  use time: 1752.58 ms, thread use time: 90510.30 ms
 //total time: 90511.79
+
+//infer use time: 32412.12 ms, thread use time: 111476.13 ms
+//post  use time: 2455.01 ms, thread use time: 111476.13 ms
+//pre   use time: 14393.79 ms, thread use time: 111476.17 ms
+
+//pre   use time: 14457.16 ms, thread use time: 111777.15 ms
+//post  use time: 2533.36 ms, thread use time: 111777.14 ms
+//infer use time: 32659.31 ms, thread use time: 111777.16 ms
+
+//infer use time: 34023.43 ms, thread use time: 110131.58 ms
+//pre   use time: 14514.60 ms, thread use time: 110131.58 ms
+//post  use time: 2556.52 ms, thread use time: 110131.52 ms

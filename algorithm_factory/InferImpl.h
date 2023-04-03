@@ -69,7 +69,7 @@ public:
 
     int preProcess(ParamBase &param, cv::Mat &image, float *pinMemoryCurrentIn) override {};
 
-    int postProcess(ParamBase &param, float *pinMemoryOut, int singleOutputSize, int outputNums, batchBoxesType &result) override {};
+    int postProcess(ParamBase &param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override {};
 
     void inferPre(ParamBase &curParam);
     void inferTrt(ParamBase &curParam);
@@ -78,9 +78,7 @@ public:
 private:
     std::mutex lock_;
     std::condition_variable cv_;
-//    std::shared_ptr<float *> *gpuMemoryIn0 = nullptr, *gpuMemoryIn1 = nullptr, *pinMemoryIn = nullptr;
-//    std::shared_ptr<float *> *gpuMemoryOut0 = nullptr, *gpuMemoryOut1 = nullptr, *pinMemoryOut = nullptr;
-//    std::shared_ptr<float *> gpuIn[2], gpuOut[2];
+
     float *gpuMemoryIn0 = nullptr, *gpuMemoryIn1 = nullptr, *pinMemoryIn = nullptr;
     float *gpuMemoryOut0 = nullptr, *gpuMemoryOut1 = nullptr, *pinMemoryOut = nullptr;
     float *gpuIn[2]{}, *gpuOut[2]{};
@@ -97,9 +95,7 @@ private:
     // 记录传入的图片数量
     std::queue<int> qfJobLength;
 
-    std::queue<std::vector<std::string >> qPaths;
-
-    std::atomic<bool> queueFinish{false};
+    std::atomic<bool> preFinish{false};
     std::atomic<bool> inferFinish{false};
     std::atomic<bool> workRunning{true};
 
@@ -112,25 +108,5 @@ private:
     cudaStream_t inferStream{};
     cudaStream_t postStream{};
 };
-
-//std::shared_ptr<Infer> createInfer(ParamBase &param, const std::string &enginePath, Infer &curFunc) {
-//    std::vector<int> memory = InferImpl::setBatchAndInferMemory(param);
-//
-//    // 实例化一个推理器的实现类（inferImpl），以指针形式返回
-//    std::shared_ptr<InferImpl> instance(new InferImpl(memory));
-//
-//    // 如果创建引擎不成功就reset
-//    if (!instance->getEngineContext(param, enginePath)) {
-//        instance.reset();
-//        return instance;
-//    }
-//
-//    // 若线程启动失败,也返回空实例. 所有的错误信息都在函数内部打印
-//    if (!instance->startUpThread(param, curFunc)) {
-//        instance.reset();
-//        return instance;
-//    }
-//    return instance;
-//}
 
 #endif //TENSORRTMODELDEPLOYMENT_INFER_CPP

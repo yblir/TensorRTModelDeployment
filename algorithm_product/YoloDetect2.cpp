@@ -39,18 +39,17 @@ int YoloDetect::preProcess(ParamBase &param, cv::Mat &image, float *pinMemoryCur
 //    return 0;
 //}
 
-int YoloDetect::postProcess(ParamBase &param, float *pinMemoryOut, int singleOutputSize, int outputNums, batchBoxesType &result) {
-//std::vector<std::vector<std::vector<float>>> YoloDetect::postProcess(ParamBase &param, float *pinMemoryOut, int singleOutputSize, int outputNums, ResultBase &result) {
+int YoloDetect::postProcess(ParamBase &param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) {
     //将父类对象转为子类对象,这样才能调用属于子类的成员变量
     auto curParam = reinterpret_cast<YoloDetectParam &>(param);
-//    auto curResult = reinterpret_cast<YoloDetectResult &>(result);
-
+    std::vector<std::vector<float>> boxes, predict;
     // outPutNums是实际推理的图片数量. 正常运行时outPutNums等于batchSize, 但在最后推理阶段, outPutNums是小于batchSzie的
     for (int i = 0; i < outputNums; ++i) {
         // 处理图片时要跳过前面已经处理的图片
-        std::vector<std::vector<float>> boxes = decodeBox(curParam.predictNums, curParam.predictLength, pinMemoryOut + i * singleOutputSize,
-                                                          curParam.classNums, curParam.scoreThresh, param.d2is[i]);
-        std::vector<std::vector<float>> predict = nms(boxes, curParam.iouThresh);
+        boxes = decodeBox(curParam.predictNums, curParam.predictLength,
+                          pinMemoryCurrentOut + i * singleOutputSize, curParam.classNums, curParam.scoreThresh, param.d2is[i]);
+        predict = nms(boxes, curParam.iouThresh);
+
         result.push_back(predict);
     }
 
@@ -88,7 +87,6 @@ std::vector<std::vector<float>> YoloDetect::decodeBox(int predictNums, int predi
 
         boxes.push_back({new_x1, new_y1, new_x2, new_y2, (float) label, score});
     }
-//    printf("decoded boxes.size = %zu\n", boxes.size());
 
     return boxes;
 }
