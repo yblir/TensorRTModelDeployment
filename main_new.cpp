@@ -60,8 +60,8 @@ int main(int argc, char *argv[]) {
     //创建输出文件夹
 //    std::string path1 = std::string(argv[2]) + "/";
 //    std::string path1="/mnt/e/cartoon_data/personai_icartoonface_detval/";
-    std::string path1 = "/mnt/e/BaiduNetdiskDownload/VOCdevkit/voc_test_10/";
-//    std::string path1 = "/mnt/e/BaiduNetdiskDownload/VOCdevkit/voc_test_6000/";
+//    std::string path1 = "/mnt/e/BaiduNetdiskDownload/VOCdevkit/voc_test_10/";
+    std::string path1 = "/mnt/e/BaiduNetdiskDownload/VOCdevkit/voc_test_6000/";
 //    std::string path1 = "/mnt/d/VOCdevkit/voc_test/";
     std::filesystem::path imgInputDir(path1);
     std::filesystem::path imgOutputDir(path1 + "output/");
@@ -79,19 +79,27 @@ int main(int argc, char *argv[]) {
     getImagePath(imgInputDir, imagePaths);
     auto t = timer->curTimePoint();
     std::vector<std::string> batch;
+    std::vector<cv::Mat> batchImgs;
+    InputData data;
     int count = 0;
     int i = 0;
 //    int em=0;
     std::map<std::basic_string<char>, std::vector<std::vector<std::vector<float>>>> curResult;
     for (auto &item: imagePaths) {
         batch.emplace_back(item);
+        batchImgs.emplace_back(cv::imread(item));
         count += 1;
 
-        if (count >= 5) {
-            curResult = inferEngine(param, func, batch);
+        if (count >= 6) {
+            data.mats = batchImgs;
+//            data.imgPath=item;
+//            data.mat=cv::imread(item);
+//            data.imgPaths=batch;
+            curResult = inferEngine(param, func, data);
 
             int j = 0;
             auto yoloRes = curResult["yoloDetect"];
+//            printf("5555\n");
             for (auto &out: yoloRes) {
                 if (out.empty()) {
                     i += 1;
@@ -100,6 +108,7 @@ int main(int argc, char *argv[]) {
                 }
 //                printf("11111\n");
                 cv::Mat img = cv::imread(batch[j]);
+//                cv::Mat img= batchImgs[i];
                 j += 1;
 //                printf("2222\n");
                 // 遍历一张图片中每个预测框,并画到图片上
@@ -110,11 +119,14 @@ int main(int argc, char *argv[]) {
                 std::string drawName = "draw" + std::to_string(i) + ".jpg";
                 cv::imwrite(imgOutputDir / drawName, img);
                 i += 1;
-                count = 0;
+
             }
             batch.clear();
+            batchImgs.clear();
+            count = 0;
 //            break;
         }
+
 //        break;
 //        printf("em = %d\n",em);
 //        std::cout << "OKkkkkkkkkk!" << std::endl;
@@ -194,3 +206,7 @@ int main(int argc, char *argv[]) {
 //infer use time: 34023.43 ms, thread use time: 110131.58 ms
 //pre   use time: 14514.60 ms, thread use time: 110131.58 ms
 //post  use time: 2556.52 ms, thread use time: 110131.52 ms
+
+//pre   use time: 14836.47 ms, thread use time: 190120.89 ms
+//infer use time: 30508.79 ms, thread use time: 190120.86 ms
+//post  use time: 2219.18 ms, thread use time: 190120.84 ms

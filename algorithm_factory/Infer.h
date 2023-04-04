@@ -51,6 +51,15 @@ struct ResultBase {
 
 };
 
+// 输入数据类型必是以下中的一个
+struct InputData {
+    std::string imgPath;
+    std::vector<std::string> imgPaths;
+    cv::Mat mat;
+    std::vector<cv::Mat> mats;
+    cv::cuda::GpuMat gpuMat;
+    std::vector<cv::cuda::GpuMat> gpuMats;
+};
 
 class Infer {
 public:
@@ -58,13 +67,15 @@ public:
     virtual ~Infer() = default;
 
 //    virtual std::vector<std::shared_future<std::string>> commit(const std::string &imagePath) {};
-    virtual std::shared_future<batchBoxesType> commit(const std::string &imagePath) {};
-    virtual std::shared_future<batchBoxesType> commit(const cv::Mat &mat) {};
-    virtual std::shared_future<batchBoxesType> commit(const cv::cuda::GpuMat &mat) {};
-    
-    virtual std::shared_future<batchBoxesType> commit(const std::vector<std::string> &imagePaths) {};
-    virtual std::shared_future<batchBoxesType> commit(const std::vector<cv::Mat> &mats) {};
-    virtual std::shared_future<batchBoxesType> commit(const std::vector<cv::cuda::GpuMat> &mats) {};
+//    virtual std::shared_future<batchBoxesType> commit(const std::string &imagePath) {};
+//    virtual std::shared_future<batchBoxesType> commit(const cv::Mat &mat) {};
+//    virtual std::shared_future<batchBoxesType> commit(const cv::cuda::GpuMat &mat) {};
+//
+//    virtual std::shared_future<batchBoxesType> commit(const std::vector<std::string> &imagePaths) {};
+//    virtual std::shared_future<batchBoxesType> commit(const std::vector<cv::Mat> &mats) {};
+//    virtual std::shared_future<batchBoxesType> commit(const std::vector<cv::cuda::GpuMat> &mats) {};
+
+    virtual std::shared_future<batchBoxesType> commit(const InputData &data) {};
 
     virtual int preProcess(ParamBase &param, cv::Mat &image, float *pinMemoryCurrentIn) = 0;
     virtual int postProcess(ParamBase &param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) = 0;

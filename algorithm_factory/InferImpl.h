@@ -16,31 +16,26 @@ std::shared_ptr<T> ptrFree(T *ptr) {
 
 // 推理输入
 struct Job {
-//    std::shared_ptr<std::promise<float *>> gpuOutputPtr;
-//    std::shared_ptr<float> inputTensor{};
     float *inputTensor;
     std::vector<std::vector<float>> d2is;
     int inferNum{};
 };
 
-// 推理输入图片路径+最终输出结果
+// 推理输入图片路径+最终输出结果, 字段兼容各种输入类型. 不同输入类型对应传入对应字段中
 struct futureJob {
     //取得是后处理后的结果
     std::shared_ptr<std::promise<batchBoxesType>> batchResult;
-//    float *inputTensor{};
-    std::vector<std::string> imgPaths;
-};
 
-//// 推理输出
-//struct Out {
-//    std::shared_future<float *> inferResult;
-//    std::vector<std::vector<float>> d2is;
-//    int inferNum{};
-//};
+    std::string imgPath;
+    std::vector<std::string> imgPaths;
+    cv::Mat image;
+    std::vector<cv::Mat> images;
+    cv::cuda::GpuMat gpuImage;
+    std::vector<cv::cuda::GpuMat> gpuImages;
+};
 
 // 推理输出
 struct Out {
-//    std::shared_ptr<float> inferOut;
     float *inferOut;
     std::vector<std::vector<float>> d2is;
     int inferNum{};
@@ -62,11 +57,17 @@ public:
     static bool getEngineContext(ParamBase &param, const std::string &enginePath);
     //加载算法so文件
     static Infer *loadDynamicLibrary(const std::string &soPath);
-
-    bool startUpThread(ParamBase &param, Infer &curFunc);
-    std::shared_future<batchBoxesType> commit(const std::vector<std::string> &imagePaths) override;
     static std::vector<int> setBatchAndInferMemory(ParamBase &curParam);
-
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    static unsigned long clcInputLength(const InputData &data);
+//    std::shared_future<batchBoxesType> commit(const std::string &imagePath) override;
+//    std::shared_future<batchBoxesType> commit(const cv::Mat &images) override;
+//    std::shared_future<batchBoxesType> commit(const cv::cuda::GpuMat &images) override;
+//
+//    std::shared_future<batchBoxesType> commit(const std::vector<std::string> &imagePaths) override;
+//    std::shared_future<batchBoxesType> commit(const std::vector<cv::Mat> &images) override;
+//    std::shared_future<batchBoxesType> commit(const std::vector<cv::cuda::GpuMat> &images) override;
+    std::shared_future<batchBoxesType> commit(const InputData &data) override;
     int preProcess(ParamBase &param, cv::Mat &image, float *pinMemoryCurrentIn) override {};
 
     int postProcess(ParamBase &param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override {};
@@ -75,6 +76,12 @@ public:
     void inferTrt(ParamBase &curParam);
     void inferPost(ParamBase &curParam, Infer *curFunc);
 
+//    void inferPreBatch(ParamBase &curParam);
+//    void inferTrtBatch(ParamBase &curParam);
+//    void inferPostBatch(ParamBase &curParam, Infer *curFunc);
+
+    bool startUpThread(ParamBase &param, Infer &curFunc);
+//    bool startUpThreadBatch(ParamBase &param, Infer &curFunc);
 private:
     std::mutex lock_;
     std::condition_variable cv_;
@@ -107,6 +114,7 @@ private:
     cudaStream_t preStream{};
     cudaStream_t inferStream{};
     cudaStream_t postStream{};
+    double totaltemp;
 };
 
 #endif //TENSORRTMODELDEPLOYMENT_INFER_CPP

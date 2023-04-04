@@ -31,10 +31,19 @@ int initCommon(ParamBase &confSpecific, class AlgorithmBase *funcSpecific);
 // 测试重构一下?
 int inferEngine(productParam &param, productFunc &func, std::vector<cv::Mat> &images, int &res_num);
 int initEngine(productParam &param, productFunc &func);
-int inferEngine(productParam &param, productFunc &func, std::vector<cv::Mat> &mats, productResult &out);
-int inferEngine(productParam &param, productFunc &func, std::vector<cv::cuda::GpuMat> &matVector, productResult out);
-int inferEngine(productParam &param, productFunc &func, std::vector<std::string> &imgPaths, productResult &out);
-std::map<std::string, batchBoxesType> inferEngine(productParam &param, productFunc &func, std::vector<std::string> &imgPaths);
+//int inferEngine(productParam &param, productFunc &func, std::vector<cv::Mat> &mats, productResult &out);
+//int inferEngine(productParam &param, productFunc &func, std::vector<cv::cuda::GpuMat> &matVector, productResult out);
+//int inferEngine(productParam &param, productFunc &func, std::vector<std::string> &imgPaths, productResult &out);
+
+std::map<std::string, batchBoxesType> inferEngine(productParam &param, productFunc &func, const InputData &data);
+
+//std::map<std::string, batchBoxesType> inferEngine(productParam &param, productFunc &func, std::string &imgPath);
+//std::map<std::string, batchBoxesType> inferEngine(productParam &param, productFunc &func, std::vector<std::string> &imgPaths);
+//std::map<std::string, batchBoxesType> inferEngine(productParam &param, productFunc &func, cv::Mat &mat);
+//std::map<std::string, batchBoxesType> inferEngine(productParam &param, productFunc &func, std::vector<cv::Mat> &mats);
+//std::map<std::string, batchBoxesType> inferEngine(productParam &param, productFunc &func, cv::cuda::GpuMat &gpuMat);
+//std::map<std::string, batchBoxesType> inferEngine(productParam &param, productFunc &func, std::vector<cv::cuda::GpuMat> &gpuMats);
+
 int releaseEngine(Handle engine);
 
 int getResult(productParam &param, productResult &out);

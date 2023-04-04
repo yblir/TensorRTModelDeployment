@@ -96,8 +96,7 @@ int initEngine(productParam &param, productFunc &func) {
         );
         if (!curAlg) printf("error");
 
-        auto temp = createInfer(param.yoloDetectParam, param.yoloDetectParam.enginePath, *curAlg);
-        func.yoloDetect = temp;
+        func.yoloDetect = createInfer(param.yoloDetectParam, param.yoloDetectParam.enginePath, *curAlg);
     }
 
     return 0;
@@ -120,17 +119,21 @@ int initEngine(productParam &param, productFunc &func) {
 //}
 // productParam &param, productFunc &func, std::vector<std::string> &imgPaths
 // imgPaths图片数量为多少, 就一次性返回多少个输出结果.分批传入图片的逻辑由调用程序控制
-std::map<std::string, batchBoxesType> inferEngine(productParam &param, productFunc &func, std::vector<std::string> &imgPaths) {
+std::map<std::string, batchBoxesType> inferEngine(productParam &param, productFunc &func, const InputData &data) {
     std::map<std::string, batchBoxesType> result;
     // 以engine是否存在为判定,存在则执行推理
     if (nullptr != param.yoloDetectParam.engine) {
-        auto detectRes = func.yoloDetect->commit(imgPaths);
+        auto detectRes = func.yoloDetect->commit(data);
         result["yoloDetect"] = detectRes.get();
     }
 //    if (nullptr != conf.yoloConfig.engine)
 //       trtInferProcess(conf.yoloConfig, func.yoloFace, matVector);
 //    printf(" result[\"yoloDetect\"] \n");
     return result;
+}
+
+std::map<std::string, batchBoxesType> inferEngine(productParam &param, productFunc &func, std::vector<cv::Mat> &mats){
+
 }
 
 int getResult(productParam &param, productResult &out) {
