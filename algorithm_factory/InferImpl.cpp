@@ -260,13 +260,6 @@ bool InferImpl::getEngineContext(ParamBase &param, const std::string &enginePath
 //    return fut;
 //}
 
-//std::shared_future<batchBoxesType> InferImpl::commit(const cv::Mat &image) {
-//    return Infer::commit(mat);
-//}
-//
-//std::shared_future<batchBoxesType> InferImpl::commit(const cv::cuda::GpuMat &image) {
-//    return Infer::commit(mat);
-//}
 unsigned long InferImpl::clcInputLength(const InputData &data) {
     unsigned long len = 0;
 
@@ -284,7 +277,6 @@ unsigned long InferImpl::clcInputLength(const InputData &data) {
 
 std::shared_future<batchBoxesType> InferImpl::commit(const InputData &data) {
     // 将传入的多张或一张图片,一次性传入队列总
-    auto t3 = timer.curTimePoint();
     unsigned long len = InferImpl::clcInputLength(data);
     if (0 == len) std::thread();
 
@@ -295,7 +287,6 @@ std::shared_future<batchBoxesType> InferImpl::commit(const InputData &data) {
     fJob.imgPaths = data.imgPaths;
     fJob.gpuImage = data.gpuMat;
     fJob.gpuImages = data.gpuMats;
-    totaltemp += timer.timeCount(t3);
 
     fJob.batchResult.reset(new std::promise<batchBoxesType>());
     // 创建share_future变量,一次性取回传入的所有图片结果
@@ -312,7 +303,8 @@ std::shared_future<batchBoxesType> InferImpl::commit(const InputData &data) {
 
 void InferImpl::inferPre(ParamBase &curParam) {
     // 记录预处理总耗时
-    double totalTime, totalTime2;
+    double totalTime;
+    std::chrono::system_clock::time_point preTime;
     auto t = timer.curTimePoint();
 
     unsigned long mallocSize = this->memory[0] * sizeof(float);
@@ -350,7 +342,7 @@ void InferImpl::inferPre(ParamBase &curParam) {
 
         for (auto &curMat: mats) {
             // 记录前处理耗时
-            auto preTime = timer.curTimePoint();
+            preTime = timer.curTimePoint();
             cv::Mat scaleImage = letterBox(curMat, curParam.inputWidth, curParam.inputHeight, d2i);
 
             // 依次存储一个batchSize中图片放射变换参数
@@ -381,12 +373,12 @@ void InferImpl::inferPre(ParamBase &curParam) {
             // 清空保存仿射变换参数,只保留当前推理batch的参数
             std::vector<std::vector<float>>().swap(job.d2is);
         }
-//        printf("1111\n");
         //清空存储待推理图片的vector
         mats.clear();
 
         // 所有图片处理完,处理不满足一个batchSize的情况
         if (countPre != 0 && countPre < curParam.batchSize) {
+            totalTime += timer.timeCount(preTime);
             checkRuntime(cudaMemcpy(gpuIn[index], pinMemoryIn, countPre * inputSize * sizeof(float), cudaMemcpyHostToDevice));
             job.inputTensor = gpuIn[index];
             job.inferNum = countPre;
@@ -404,14 +396,13 @@ void InferImpl::inferPre(ParamBase &curParam) {
     preFinish = true;
     // 唤醒trt线程,告知预处理线程已结束
     cv_.notify_all();
-    totalTime2 = timer.timeCount(t);
-    printf("pre   use time: %.2f ms, thread use time: %.2f ms\n", totalTime, totalTime2);
+    printf("pre   use time: %.2f ms\n", totalTime);
 }
 
 // 适用于模型推理的通用trt流程
 void InferImpl::inferTrt(ParamBase &curParam) {
     // 记录推理耗时
-    double totalTime, totalTime2;
+    double totalTime;
     auto t = timer.curTimePoint();
     int index2 = 0;
 
@@ -444,7 +435,7 @@ void InferImpl::inferTrt(ParamBase &curParam) {
 
         cudaStreamSynchronize(inferStream);
         totalTime += timer.timeCount(qT1);
-//        printf("2222\n");
+
         // 流同步后,获取该batchSize推理结果
         {
             std::unique_lock<std::mutex> l(lock_);
@@ -457,13 +448,12 @@ void InferImpl::inferTrt(ParamBase &curParam) {
     inferFinish = true;
     //告知post线程,推理线程已结束
     cv_.notify_all();
-    totalTime2 = timer.timeCount(t);
-    printf("infer use time: %.2f ms, thread use time: %.2f ms\n", totalTime, totalTime2);
+    printf("infer use time: %.2f ms\n", totalTime);
 }
 
 void InferImpl::inferPost(ParamBase &curParam, Infer *curFunc) {
     // 记录后处理耗时
-    double totalTime, totalTime2;
+    double totalTime;
     auto t = timer.curTimePoint();
 
     unsigned long mallocSize = this->memory[1] * sizeof(float), singleOutputSize = this->memory[1] / curParam.batchSize;
@@ -502,7 +492,6 @@ void InferImpl::inferPost(ParamBase &curParam, Infer *curFunc) {
         //将每次后处理结果合并到输出vector中
         batchBoxes.insert(batchBoxes.end(), boxes.begin(), boxes.end());
         boxes.clear();
-        totalTime += timer.timeCount(qT1);
         // 当commit中传入图片处理完时,set value, 返回这批图片的结果. 重新计数, 并返回下一次要输出推理结果的图片数量
         if (totalNum <= countPost) {
             // 输出解码后的结果,在commit中接收
@@ -511,9 +500,9 @@ void InferImpl::inferPost(ParamBase &curParam, Infer *curFunc) {
             flag = true;
             batchBoxes.clear();
         }
+        totalTime += timer.timeCount(qT1);
     }
-    totalTime2 = timer.timeCount(t);
-    printf("post  use time: %.2f ms, thread use time: %.2f ms\n", totalTime, totalTime2);
+    printf("post  use time: %.2f ms\n", totalTime);
 
 }
 
@@ -551,20 +540,6 @@ bool InferImpl::startUpThread(ParamBase &param, Infer &curFunc) {
     printf("thread start up success !\n");
     return true;
 }
-
-//bool InferImpl::startUpThread(ParamBase &param, Infer &curFunc) {
-//    try {
-//        preThread = std::make_shared<std::thread>(&InferImpl::inferPre, this, std::ref(param));
-//        inferThread = std::make_shared<std::thread>(&InferImpl::inferTrt, this, std::ref(param));
-//        postThread = std::make_shared<std::thread>(&InferImpl::inferPost, this, std::ref(param), &curFunc);
-//    } catch (std::string &error) {
-//        printf("thread start up fail: %s !\n", error.c_str());
-//        return false;
-//    }
-//
-//    printf("thread start up success !\n");
-//    return true;
-//}
 
 InferImpl::InferImpl(std::vector<int> &memory) {
     this->memory = memory;
@@ -618,7 +593,6 @@ InferImpl::~InferImpl() {
     checkRuntime(cudaStreamDestroy(preStream));
     checkRuntime(cudaStreamDestroy(inferStream));
     checkRuntime(cudaStreamDestroy(postStream));
-    printf("commit temp = %.2f\n", totaltemp);
     printf("析构函数\n");
 }
 
@@ -637,19 +611,5 @@ std::shared_ptr<Infer> createInfer(ParamBase &param, const std::string &enginePa
         return instance;
     }
 
-//    // 单张batch输入
-//    if (param.batchSize == 1) {
-//        //若实例化失败 或 若线程启动失败,也返回空实例. 所有的错误信息都在函数内部打印
-//        if (!instance->startUpThread(param, curFunc)) {
-//            instance.reset();
-//            return instance;
-//        }
-//    } else {    // 多batch
-//        //若实例化失败 或 若线程启动失败,也返回空实例. 所有的错误信息都在函数内部打印
-//        if (!instance->startUpThread(param, curFunc)) {
-//            instance.reset();
-//            return instance;
-//        }
-//    }
     return instance;
 }

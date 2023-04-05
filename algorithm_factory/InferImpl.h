@@ -114,7 +114,6 @@ private:
     cudaStream_t preStream{};
     cudaStream_t inferStream{};
     cudaStream_t postStream{};
-    double totaltemp;
 };
 
 #endif //TENSORRTMODELDEPLOYMENT_INFER_CPP

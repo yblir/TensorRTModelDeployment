@@ -59,9 +59,9 @@ int main(int argc, char *argv[]) {
 
     //创建输出文件夹
 //    std::string path1 = std::string(argv[2]) + "/";
-//    std::string path1="/mnt/e/cartoon_data/personai_icartoonface_detval/";
+    std::string path1="/mnt/f/LearningData/voc_test_100/";
 //    std::string path1 = "/mnt/e/BaiduNetdiskDownload/VOCdevkit/voc_test_10/";
-    std::string path1 = "/mnt/e/BaiduNetdiskDownload/VOCdevkit/voc_test_6000/";
+//    std::string path1 = "/mnt/e/BaiduNetdiskDownload/VOCdevkit/voc_test_6000/";
 //    std::string path1 = "/mnt/d/VOCdevkit/voc_test/";
     std::filesystem::path imgInputDir(path1);
     std::filesystem::path imgOutputDir(path1 + "output/");
@@ -83,6 +83,8 @@ int main(int argc, char *argv[]) {
     InputData data;
     int count = 0;
     int i = 0;
+    double inferTime, total1,hua;
+    auto t8=timer->curTimePoint();
 //    int em=0;
     std::map<std::basic_string<char>, std::vector<std::vector<std::vector<float>>>> curResult;
     for (auto &item: imagePaths) {
@@ -90,16 +92,18 @@ int main(int argc, char *argv[]) {
         batchImgs.emplace_back(cv::imread(item));
         count += 1;
 
-        if (count >= 6) {
+        if (count >= 1) {
             data.mats = batchImgs;
 //            data.imgPath=item;
 //            data.mat=cv::imread(item);
 //            data.imgPaths=batch;
+            auto tt1=timer->curTimePoint();
             curResult = inferEngine(param, func, data);
-
+            inferTime+=timer->timeCount(tt1);
             int j = 0;
             auto yoloRes = curResult["yoloDetect"];
 //            printf("5555\n");
+            auto tb = timer->curTimePoint();
             for (auto &out: yoloRes) {
                 if (out.empty()) {
                     i += 1;
@@ -121,10 +125,11 @@ int main(int argc, char *argv[]) {
                 i += 1;
 
             }
+            hua+=timer->timeCount(tb);
             batch.clear();
             batchImgs.clear();
             count = 0;
-//            break;
+////            break;
         }
 
 //        break;
@@ -156,57 +161,7 @@ int main(int argc, char *argv[]) {
 //            i += 1;
 //        }
 //    }
-    printf("right over!\n");
+    total1=timer->timeCount(t8);
+    printf("right over! %.2f, %.2f,  %.2f\n",inferTime,total1,hua);
     return 0;
 }
-/*
- for(ff 图片)
-   vector(存储有一个batch的结果) = inferengine( 图片路径)
-*/
-//pre   use time: 14029.04 ms, thread use time: 117828.75 ms, pre img num = 6000
-//infer use time: 30711.35 ms, thread use time: 117840.00 ms
-//post  use time: 1704.45 ms, thread use time: 117844.82 ms
-//total time: 117846.24
-
-//pre   use time: 13982.90 ms, thread use time: 93028.23 ms, pre img num = 6000
-//infer use time: 26992.98 ms, thread use time: 93037.26 ms
-//post  use time: 1751.12 ms, thread use time: 93041.80 ms
-//total time: 93043.74
-
-//pre   use time: 14001.84 ms, thread use time: 94202.40 ms, pre img num = 6000
-//infer use time: 27069.24 ms, thread use time: 94211.42 ms
-//post  use time: 1768.55 ms, thread use time: 94216.24 ms
-//total time: 94217.77
-
-//===============================================================
-//pre   use time: 13999.50 ms, thread use time: 96727.27 ms, pre img num = 6000
-//infer use time: 27080.28 ms, thread use time: 96736.42 ms
-//post  use time: 1779.62 ms, thread use time: 96741.24 ms
-//total time: 96742.49
-
-//pre   use time: 13953.80 ms, thread use time: 97768.33 ms, pre img num = 6000
-//infer use time: 27350.60 ms, thread use time: 97778.11 ms
-//post  use time: 1771.26 ms, thread use time: 97782.84 ms
-//total time: 97784.16
-
-
-// pre   use time: 14056.91 ms, thread use time: 90496.34 ms, pre img num = 6000
-//infer use time: 26742.28 ms, thread use time: 90505.30 ms
-//post  use time: 1752.58 ms, thread use time: 90510.30 ms
-//total time: 90511.79
-
-//infer use time: 32412.12 ms, thread use time: 111476.13 ms
-//post  use time: 2455.01 ms, thread use time: 111476.13 ms
-//pre   use time: 14393.79 ms, thread use time: 111476.17 ms
-
-//pre   use time: 14457.16 ms, thread use time: 111777.15 ms
-//post  use time: 2533.36 ms, thread use time: 111777.14 ms
-//infer use time: 32659.31 ms, thread use time: 111777.16 ms
-
-//infer use time: 34023.43 ms, thread use time: 110131.58 ms
-//pre   use time: 14514.60 ms, thread use time: 110131.58 ms
-//post  use time: 2556.52 ms, thread use time: 110131.52 ms
-
-//pre   use time: 14836.47 ms, thread use time: 190120.89 ms
-//infer use time: 30508.79 ms, thread use time: 190120.86 ms
-//post  use time: 2219.18 ms, thread use time: 190120.84 ms
