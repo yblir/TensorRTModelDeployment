@@ -4,9 +4,11 @@
 #ifndef TENSORRTMODELDEPLOYMENT_INFER_CPP
 #define TENSORRTMODELDEPLOYMENT_INFER_CPP
 //编译用的头文件
-//#include <NvInfer.h>
 #include <condition_variable>
 #include "Infer.h"
+
+#define checkRuntime(op) check_cuda_runtime((op),#op,__FILE__,__LINE__)
+bool check_cuda_runtime(cudaError_t code, const char *op, const char *file, int line);
 
 //通过智能指针管理nv, 内存自动释放,避免泄露.
 template<typename T>
@@ -54,7 +56,7 @@ public:
     static std::vector<unsigned char> loadEngine(const std::string &engineFilePath);
 
     // 创建推理engine
-    static bool getEngineContext(ParamBase &param, const std::string &enginePath);
+    static bool getEngineContext(ParamBase &param);
     //加载算法so文件
     static Infer *loadDynamicLibrary(const std::string &soPath);
     static std::vector<int> setBatchAndInferMemory(ParamBase &curParam);

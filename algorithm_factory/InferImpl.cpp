@@ -13,8 +13,8 @@
 
 Timer timer = Timer();
 
-#define checkRuntime(op) check_cuda_runtime((op),#op,__FILE__,__LINE__)
-
+//#define checkRuntime(op) check_cuda_runtime((op),#op,__FILE__,__LINE__)
+//
 bool check_cuda_runtime(cudaError_t code, const char *op, const char *file, int line) {
     if (cudaSuccess != code) {
         const char *errName = cudaGetErrorName(code);
@@ -38,7 +38,7 @@ const char *severity_string(nvinfer1::ILogger::Severity t) {
         case nvinfer1::ILogger::Severity::kVERBOSE:
             return "verbose";
         default:
-            return "unknow";
+            return "unknown";
     }
 }
 
@@ -199,7 +199,7 @@ Infer *InferImpl::loadDynamicLibrary(const std::string &soPath) {
 }
 
 //使用所有加速算法的初始化部分: 初始化参数,构建engine, 反序列化制作engine
-bool InferImpl::getEngineContext(ParamBase &param, const std::string &enginePath) {
+bool InferImpl::getEngineContext(ParamBase &param) {
     //获取engine绝对路径
     param.enginePath = InferImpl::getEnginePath(param);
 
@@ -598,7 +598,7 @@ InferImpl::~InferImpl() {
 
 std::shared_ptr<Infer> createInfer(ParamBase &param, const std::string &enginePath, Infer &curFunc) {
 //    如果创建引擎不成功就reset
-    if (!InferImpl::getEngineContext(param, enginePath)) return nullptr;
+    if (!InferImpl::getEngineContext(param)) return nullptr;
 
     std::vector<int> memory = InferImpl::setBatchAndInferMemory(param);
     // 实例化一个推理器的实现类（inferImpl），以指针形式返回
