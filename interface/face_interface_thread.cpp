@@ -65,6 +65,43 @@
 //}
 
 
+//int initEngine(productParam &param, productFunc &func) {
+//    //人脸检测模型初始化
+////    if (nullptr == func.yoloFace) {
+////        AlgorithmBase *curAlg = AlgorithmBase::loadDynamicLibrary(
+////                "/mnt/e/GitHub/TensorRTModelDeployment/cmake-build-debug-wsl/dist/lib/libTrtFaceYolo.so");
+////        if (!curAlg) printf("error");
+////
+////        // 把函数指针从init函数中提出来,在infer推理阶段使用.
+////        func.yoloFace = curAlg;
+////
+////        int initFlag = initCommon(conf.yoloConfig, func.yoloFace);
+////        if (0 > initFlag) {
+////            printf("yolo face init failed\n");
+////            return -1;
+////        }
+////    }
+//
+//    // 其他检测模型初始化
+//    if (nullptr == func.yoloDetect) {
+//        // 调用成功会返回对应模型指针对象. 失败返回nullptr
+////        AlgorithmBase *curAlg = AlgorithmBase::loadDynamicLibrary(
+////                "/mnt/e/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
+//////                "/mnt/i/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
+////        );
+//
+//        Infer *curAlg = InferImpl::loadDynamicLibrary(
+////                "/mnt/e/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
+////                "/mnt/e/GitHub/TensorRTModelDeployment/cmake-build-debug-wsl/dist/lib/libTrtYoloDetect.so"
+//                "/mnt/i/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
+//        );
+//        if (!curAlg) printf("error");
+//
+//        func.yoloDetect = createInfer(param.yoloDetectParam, param.yoloDetectParam.enginePath, *curAlg);
+//    }
+//
+//    return 0;
+//}
 int initEngine(productParam &param, productFunc &func) {
     //人脸检测模型初始化
 //    if (nullptr == func.yoloFace) {
@@ -91,9 +128,9 @@ int initEngine(productParam &param, productFunc &func) {
 //        );
 
         Infer *curAlg = InferImpl::loadDynamicLibrary(
-//                "/mnt/e/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
+                "/mnt/e/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
 //                "/mnt/e/GitHub/TensorRTModelDeployment/cmake-build-debug-wsl/dist/lib/libTrtYoloDetect.so"
-                "/mnt/i/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
+//                "/mnt/i/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
         );
         if (!curAlg) printf("error");
 
@@ -102,7 +139,6 @@ int initEngine(productParam &param, productFunc &func) {
 
     return 0;
 }
-
 //// imgPaths图片数量为多少, 就一次性返回多少个输出结果.分批传入图片的逻辑由调用程序控制
 //int inferEngine(productParam &param, productFunc &func, std::vector<std::string> &imgPaths, productResult &out) {
 //    // 以engine是否存在为判定,存在则执行推理

@@ -60,4 +60,13 @@ struct productResult : public ResultBase {
 
 };
 
+// 该字段只在face_interface.cpp中使用, 在初始化阶段initEngine记录开辟的推理/后处理空间
+struct MemoryStorage {
+    std::vector<int> memory;
+    float *pinMemoryIn = nullptr;
+    float *pinMemoryOut = nullptr;
+    float *gpuMemoryIn = nullptr;
+    float *gpuMemoryOut = nullptr;
+};
+
 #endif //TENSORRT_PRO_PRODUCT_H

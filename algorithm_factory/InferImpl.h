@@ -56,7 +56,7 @@ public:
     static std::vector<unsigned char> loadEngine(const std::string &engineFilePath);
 
     // 创建推理engine
-    static bool getEngineContext(ParamBase &param);
+    static bool getEngineContext(ParamBase &curParam);
     //加载算法so文件
     static Infer *loadDynamicLibrary(const std::string &soPath);
     static std::vector<int> setBatchAndInferMemory(ParamBase &curParam);
@@ -82,7 +82,7 @@ public:
 //    void inferTrtBatch(ParamBase &curParam);
 //    void inferPostBatch(ParamBase &curParam, Infer *curFunc);
 
-    bool startUpThread(ParamBase &param, Infer &curFunc);
+    bool startUpThread(ParamBase &curParam, Infer &curFunc);
 //    bool startUpThreadBatch(ParamBase &param, Infer &curFunc);
 private:
     std::mutex lock_;

@@ -50,7 +50,7 @@ add_subdirectory(algorithm_product)
 # 定义了这个工程会生成一个文件名为run 的可执行文件，相关的源文件是mian.cpp
 add_executable(run
 #        main.cpp
-        main_new.cpp
+        main_thread.cpp
 
         utils/general.h utils/general.cpp utils/box_utils.h utils/box_utils.cpp
 #        algorithm_product/YoloFace.h algorithm_product/YoloFace.cpp
@@ -58,8 +58,8 @@ add_executable(run
         algorithm_product/YoloDetect2.h algorithm_product/YoloDetect2.cpp
         algorithm_product/product.h
 #
-        interface/face_interface.h interface/face_interface.cpp
-#        interface/face_interface_thread.h interface/face_interface_thread.cpp
+#        interface/face_interface.h interface/face_interface.cpp
+        interface/face_interface_thread.h interface/face_interface_thread.cpp
 
         algorithm_factory/infer.h algorithm_factory/InferImpl.h
 #        algorithm_factory/factory.h algorithm_factory/factory.cpp

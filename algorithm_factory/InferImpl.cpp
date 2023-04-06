@@ -199,47 +199,47 @@ Infer *InferImpl::loadDynamicLibrary(const std::string &soPath) {
 }
 
 //使用所有加速算法的初始化部分: 初始化参数,构建engine, 反序列化制作engine
-bool InferImpl::getEngineContext(ParamBase &param) {
+bool InferImpl::getEngineContext(ParamBase &curParam) {
     //获取engine绝对路径
-    param.enginePath = InferImpl::getEnginePath(param);
+    curParam.enginePath = InferImpl::getEnginePath(curParam);
 
     std::vector<unsigned char> engineFile;
     // 判断引擎文件是否存在,如果不存在,要先构建engine
-    if (std::filesystem::exists(param.enginePath))
+    if (std::filesystem::exists(curParam.enginePath))
         // engine存在,直接加载engine文件,反序列化引擎文件到内存
-        engineFile = InferImpl::loadEngine(param.enginePath);
+        engineFile = InferImpl::loadEngine(curParam.enginePath);
     else {
         //engine不存在,先build,序列化engine到硬盘, 再执行反序列化操作
-        if (InferImpl::buildEngine(param.onnxPath, param.enginePath, param.batchSize))
-            engineFile = InferImpl::loadEngine(param.enginePath);
+        if (InferImpl::buildEngine(curParam.onnxPath, curParam.enginePath, curParam.batchSize))
+            engineFile = InferImpl::loadEngine(curParam.enginePath);
     }
 
     if (engineFile.empty()) return false;
 
-//   也可以直接从字符串提取名字 param.enginePath.substr(param.enginePath.find_last_of("/"),-1)
-    std::cout << "start create engine: " << std::filesystem::path(param.enginePath).filename() << std::endl;
+//   也可以直接从字符串提取名字 curParam.enginePath.substr(curParam.enginePath.find_last_of("/"),-1)
+    std::cout << "start create engine: " << std::filesystem::path(curParam.enginePath).filename() << std::endl;
 
     // 创建engine并获得执行上下文context =======================================================================================
     TRTLogger logger;
     auto runtime = ptrFree(nvinfer1::createInferRuntime(logger));
-    param.engine = ptrFree(runtime->deserializeCudaEngine(engineFile.data(), engineFile.size()));
+    curParam.engine = ptrFree(runtime->deserializeCudaEngine(engineFile.data(), engineFile.size()));
 
-    if (nullptr == param.engine) {
+    if (nullptr == curParam.engine) {
         printf("deserialize cuda engine failed.\n");
         return false;
     }
 //    是因为有1个是输入.剩下的才是输出
-    if (2 != param.engine->getNbIOTensors()) {
+    if (2 != curParam.engine->getNbIOTensors()) {
         printf("create engine failed: onnx导出有问题,必须是1个输入和1个输出,当前有%d个输出\n",
-               param.engine->getNbIOTensors() - 1);
+               curParam.engine->getNbIOTensors() - 1);
         return false;
     }
-    if (nullptr == param.engine) {
-        std::cout << "failed engine name: " << std::filesystem::path(param.enginePath).filename() << std::endl;
+    if (nullptr == curParam.engine) {
+        std::cout << "failed engine name: " << std::filesystem::path(curParam.enginePath).filename() << std::endl;
         return false;
     }
-    param.context = ptrFree(param.engine->createExecutionContext());
-    std::cout << "create engine and context success: " << std::filesystem::path(param.enginePath).filename()
+    curParam.context = ptrFree(curParam.engine->createExecutionContext());
+    std::cout << "create engine and context success: " << std::filesystem::path(curParam.enginePath).filename()
               << std::endl;
     return true;
 }
@@ -527,11 +527,11 @@ std::vector<int> InferImpl::setBatchAndInferMemory(ParamBase &curParam) {
     return memory;
 }
 
-bool InferImpl::startUpThread(ParamBase &param, Infer &curFunc) {
+bool InferImpl::startUpThread(ParamBase &curParam, Infer &curFunc) {
     try {
-        preThread = std::make_shared<std::thread>(&InferImpl::inferPre, this, std::ref(param));
-        inferThread = std::make_shared<std::thread>(&InferImpl::inferTrt, this, std::ref(param));
-        postThread = std::make_shared<std::thread>(&InferImpl::inferPost, this, std::ref(param), &curFunc);
+        preThread = std::make_shared<std::thread>(&InferImpl::inferPre, this, std::ref(curParam));
+        inferThread = std::make_shared<std::thread>(&InferImpl::inferTrt, this, std::ref(curParam));
+        postThread = std::make_shared<std::thread>(&InferImpl::inferPost, this, std::ref(curParam), &curFunc);
     } catch (std::string &error) {
         printf("thread start up fail: %s !\n", error.c_str());
         return false;
@@ -596,16 +596,19 @@ InferImpl::~InferImpl() {
     printf("析构函数\n");
 }
 
-std::shared_ptr<Infer> createInfer(ParamBase &param, const std::string &enginePath, Infer &curFunc) {
+std::shared_ptr<Infer> createInfer(ParamBase &curParam, const std::string &enginePath, Infer &curFunc) {
 //    如果创建引擎不成功就reset
-    if (!InferImpl::getEngineContext(param)) return nullptr;
+    if (!InferImpl::getEngineContext(curParam)) {
+        printf("getEngineContext fail\n");
+        return nullptr;
+    }
 
-    std::vector<int> memory = InferImpl::setBatchAndInferMemory(param);
+    std::vector<int> memory = InferImpl::setBatchAndInferMemory(curParam);
     // 实例化一个推理器的实现类（inferImpl），以指针形式返回
     std::shared_ptr<InferImpl> instance(new InferImpl(memory));
 
     //若实例化失败 或 若线程启动失败,也返回空实例. 所有的错误信息都在函数内部打印
-    if (!instance || !instance->startUpThread(param, curFunc)) {
+    if (!instance || !instance->startUpThread(curParam, curFunc)) {
         printf("InferImpl instance fail\n");
         instance.reset();
         return instance;

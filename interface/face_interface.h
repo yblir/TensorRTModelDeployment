@@ -3,6 +3,7 @@
 //
 #ifndef FACEFEATUREDETECTOR_REBUILD_FACE_INTERFACE_H
 #define FACEFEATUREDETECTOR_REBUILD_FACE_INTERFACE_H
+
 #include <tuple>
 
 #include <NvInferRuntime.h>
@@ -24,15 +25,16 @@ using Handle = void *;
 int initCommon(ParamBase &confSpecific, class AlgorithmBase *funcSpecific);
 
 // 测试重构一下?
-int inferEngine(productParam &parm, productFunc &func, std::vector<cv::Mat> &images, int &res_num);
-int initEngine(productParam &parm, productFunc &func);
-int inferEngine(productParam &parm, productFunc &func, std::vector<cv::Mat> &mats, productResult &out);
-int inferEngine(productParam &parm, productFunc &func, std::vector<std::string> &imagePaths, productResult &out);
-int inferEngine(productParam &parm, productFunc &func, std::vector<cv::cuda::GpuMat> &matVector, productResult out);
-std::map<std::string, batchBoxesType> inferEngine(productParam &param, productFunc &func, const InputData &data);
+int inferEngine(productParam &param, productFunc &func, std::vector<cv::Mat> &images, int &res_num);
+int initEngine(productParam &param, productFunc &func, MemoryStorage &storage);
+//int initEngine(ParamBase &param, productFunc &func);
+int inferEngine(productParam &param, productFunc &func, std::vector<cv::Mat> &mats, productResult &out);
+int inferEngine(productParam &param, productFunc &func, std::vector<std::string> &imagePaths, productResult &out);
+int inferEngine(productParam &param, productFunc &func, std::vector<cv::cuda::GpuMat> &matVector, productResult out);
+std::map<std::string, batchBoxesType> inferEngine(productParam &param, productFunc &func, MemoryStorage &storage, const InputData &data);
 int releaseEngine(Handle engine);
 
-int getResult(productParam &parm, productResult &out);
+int getResult(productParam &param, productResult &out);
 
 /*
 *   @brief                  获取人脸特征提取结果

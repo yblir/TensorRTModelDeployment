@@ -9,8 +9,8 @@
 //#include <opencv2/opencv.hpp>
 //#include <dirent.h>
 
-//#include "interface/face_interface_thread.h"
-#include "interface/face_interface.h"
+#include "interface/face_interface_thread.h"
+//#include "interface/face_interface.h"
 #include "utils/general.h"
 #include "utils/box_utils.h"
 
@@ -40,8 +40,8 @@ int main(int argc, char *argv[]) {
 //    conf.yoloConfig.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/face_detect_v0.5_b17e5c7577192da3d3eb6b4bb850f8e_1out.onnx";
 //    conf.yoloConfig.gpuId = int(strtol(argv[1], nullptr, 10));
 
-    param.yoloDetectParam.onnxPath = "/mnt/i/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
-//    param.yoloDetectParam.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
+//    param.yoloDetectParam.onnxPath = "/mnt/i/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
+    param.yoloDetectParam.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
     param.yoloDetectParam.gpuId = int(strtol(argv[1], nullptr, 10));
     param.yoloDetectParam.batchSize = 2;
     param.yoloDetectParam.inputHeight = 640;
@@ -61,8 +61,8 @@ int main(int argc, char *argv[]) {
 //    std::string path1 = std::string(argv[2]) + "/";
 //    std::string path1="/mnt/f/LearningData/voc_test_100/";
 //    std::string path1 = "/mnt/e/BaiduNetdiskDownload/VOCdevkit/voc_test_10/";
-//    std::string path1 = "/mnt/e/BaiduNetdiskDownload/VOCdevkit/voc_test_6000/";
-    std::string path1 = "/mnt/d/VOCdevkit/voc_test_100/";
+    std::string path1 = "/mnt/e/BaiduNetdiskDownload/VOCdevkit/voc_test_6000/";
+//    std::string path1 = "/mnt/d/VOCdevkit/voc_test_100/";
     std::filesystem::path imgInputDir(path1);
     std::filesystem::path imgOutputDir(path1 + "output/");
     //检查文件夹路径是否合法, 检查输出文件夹路径是否存在,不存在则创建
@@ -83,8 +83,8 @@ int main(int argc, char *argv[]) {
     InputData data;
     int count = 0;
     int i = 0;
-    double inferTime, total1,hua;
-    auto t8=timer->curTimePoint();
+    double inferTime, total1, hua;
+    auto t8 = timer->curTimePoint();
 //    int em=0;
     std::map<std::basic_string<char>, std::vector<std::vector<std::vector<float>>>> curResult;
     for (auto &item: imagePaths) {
@@ -92,14 +92,14 @@ int main(int argc, char *argv[]) {
         batchImgs.emplace_back(cv::imread(item));
         count += 1;
 
-        if (count >= 1) {
+        if (count >= 5) {
             data.mats = batchImgs;
 //            data.imgPath=item;
 //            data.mat=cv::imread(item);
 //            data.imgPaths=batch;
-            auto tt1=timer->curTimePoint();
+            auto tt1 = timer->curTimePoint();
             curResult = inferEngine(param, func, data);
-            inferTime+=timer->timeCount(tt1);
+            inferTime += timer->timeCount(tt1);
             int j = 0;
             auto yoloRes = curResult["yoloDetect"];
 //            printf("5555\n");
@@ -110,59 +110,26 @@ int main(int argc, char *argv[]) {
                     j += 1;
                     continue;
                 }
-//                printf("11111\n");
                 cv::Mat img = cv::imread(batch[j]);
-//                cv::Mat img= batchImgs[i];
-                j += 1;
-//                printf("2222\n");
                 // 遍历一张图片中每个预测框,并画到图片上
                 for (auto &box: out) {
                     drawImage(img, box);
                 }
                 // 把画好框的图片写入本地
-                std::string drawName = "draw" + std::to_string(i) + ".jpg";
-                cv::imwrite(imgOutputDir / drawName, img);
-                i += 1;
-
+//                std::string drawName = "draw" + std::to_string(i++) + ".jpg";
+                cv::imwrite(imgOutputDir / batch[j].substr(batch[j].find_last_of('/')+1), img);
+                j++;
             }
-            hua+=timer->timeCount(tb);
+            hua += timer->timeCount(tb);
             batch.clear();
             batchImgs.clear();
             count = 0;
 ////            break;
         }
-
-//        break;
-//        printf("em = %d\n",em);
-//        std::cout << "OKkkkkkkkkk!" << std::endl;
-
     }
-//    inferEngine(param, func, imagePaths, outs);
-//    total = timer->timeCount(t);
-//    printf("total time: %.2f\n", total);
-//    std::cout << "在原图上画框" << std::endl;
-//    int i = 0;
-    // 画yolo目标检测框
-//    if (!outs.detectResult.empty()) {
-//        // 遍历每张图片
-//        for (auto &out: outs.detectResult) {
-//            if (out.empty()) {
-//                i += 1;
-//                continue;
-//            }
-//            cv::Mat img = cv::imread(imagePaths[i]);
-//            // 遍历一张图片中每个预测框,并画到图片上
-//            for (auto &box: out) {
-//                drawImage(img, box);
-//            }
-//            // 把画好框的图片写入本地
-//            std::string drawName = "draw" + std::to_string(i) + ".jpg";
-//            cv::imwrite(imgOutputDir / drawName, img);
-//            i += 1;
-//        }
-//    }
-    total1=timer->timeCount(t8);
-    printf("right over! %.2f, %.2f,  %.2f\n",inferTime,total1,hua);
+
+    total1 = timer->timeCount(t8);
+    printf("right over! %.2f, %.2f,  %.2f\n", inferTime, total1, hua);
     return 0;
 }
 
