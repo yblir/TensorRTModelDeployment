@@ -9,16 +9,16 @@
 //#include "../algorithm_factory/factory.h"
 #include "../algorithm_factory/infer.h"
 
-// 以下是每个模型具体的参数配置, 每新加一个推理模型,都要在这里新增这个模型独特的参数,并继承通用参数配置
+// 以下是每个模型具体的参数配置, 每新加一个推理模型,都要在这里新增这个模型独特的参数,并继承通用参数配置BaseParam
 //人脸检测配置
-struct YoloFaceParam : public ParamBase {
+struct YoloFaceParam : public BaseParam {
     float scoreThresh = 0.5;   //!> 人脸框检测置信度阈值
     float iouThresh = 0.3;     //!> 人脸框IOU阈值
     bool useRefine = true;     //!> 是否需要图像旋转 true: 使用旋转优化检测 false: 不使用旋转正常检测
 };
 
 // 检测相关
-struct YoloDetectParam : public ParamBase {
+struct YoloDetectParam : public BaseParam {
     int classNums = 80;        //!> 检测类别数量
     float scoreThresh = 0.5;   //!> 得分阈值
     float iouThresh = 0.3;     //!> iou框阈值
@@ -27,7 +27,7 @@ struct YoloDetectParam : public ParamBase {
 //    AlgorithmBase *func = nullptr;
 };
 
-// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@######################$$$$$$$$$$$%%%%%%%%%%%%%%%%%%&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+// ===============================================================================================
 
 // ----------------------------------------------------------
 // 以下三个结构体,从参数,函数到结果,必须一一对应                    |

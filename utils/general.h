@@ -21,7 +21,7 @@ std::tuple<uint8_t, uint8_t, uint8_t> hsv2bgr(float h, float s, float v);
 std::tuple<uint8_t, uint8_t, uint8_t> random_color(int id);
 
 // coco数据集的labels，关于coco：https://cocodataset.org/#home
-static const char *cocolabels[] = {
+static const char *cocoLabels[] = {
         "person", "bicycle", "car", "motorcycle", "airplane",
         "bus", "train", "truck", "boat", "traffic light", "fire hydrant",
         "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse",

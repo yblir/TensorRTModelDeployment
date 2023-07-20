@@ -12,7 +12,7 @@
 //YoloDetect::YoloDetect() = default;
 //YoloDetect::~YoloDetect() = default;
 //
-//int YoloDetect::preProcess(ParamBase &param, cv::Mat &image, float *pinMemoryCurrentIn) {
+//int YoloDetect::preProcess(BaseParam &param, cv::Mat &image, float *pinMemoryCurrentIn) {
 //    float d2i[6];
 //    cv::Mat scaleImage = letterBox(image, 640, 640, d2i);
 //    // 依次存储一个batchSize中图片放射变换参数
@@ -23,7 +23,7 @@
 //    return 0;
 //}
 //
-////cv::Mat YoloDetect::preProcess(ParamBase &param, cv::Mat &image) {
+////cv::Mat YoloDetect::preProcess(BaseParam &param, cv::Mat &image) {
 ////    float d2i[6];
 ////    cv::Mat scaleImage = letterBox(image, 640, 640, d2i);
 ////    // 依次存储一个batchSize中图片放射变换参数
@@ -34,9 +34,9 @@
 ////    return 0;
 ////}
 //
-//int YoloDetect::postProcess(ParamBase &param, float *pinMemoryOut, int singleOutputSize,
+//int YoloDetect::postProcess(BaseParam &param, float *pinMemoryOut, int singleOutputSize,
 //                            int outputNums, std::vector<std::vector<std::vector<float>>> &result) {
-////std::vector<std::vector<std::vector<float>>> YoloDetect::postProcess(ParamBase &param, float *pinMemoryOut, int singleOutputSize, int outputNums, ResultBase &result) {
+////std::vector<std::vector<std::vector<float>>> YoloDetect::postProcess(BaseParam &param, float *pinMemoryOut, int singleOutputSize, int outputNums, ResultBase &result) {
 //    //将父类对象转为子类对象,这样才能调用属于子类的成员变量
 //    auto curParam = reinterpret_cast<YoloDetectParam &>(param);
 ////    auto curResult = reinterpret_cast<YoloDetectResult &>(result);

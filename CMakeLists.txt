@@ -27,6 +27,7 @@ set(CMAKE_BUILD_TYPE "Debug")
 # SYSTEM 指定目录当成系统的搜索目录 使用AFTER或BEFORE选项来指定是添加到列表的前面或者后面
 include_directories(SYSTEM ${CUDA_INCLUDE_DIRS})
 include_directories(/usr/local/TensorRT-8.5.1.7/include)
+link_directories(/usr/local/TensorRT-8.5.1.7/lib)
 include_directories(/usr/local/cuda-11.6/targets/x86_64-linux/include)
 include_directories(/usr/local/include/opencv4)
 # 添加需要链接的库文件路径，注意这里是全路径，要用在add_executable之前

@@ -8,6 +8,7 @@
 #include "Infer.h"
 
 #define checkRuntime(op) check_cuda_runtime((op),#op,__FILE__,__LINE__)
+
 bool check_cuda_runtime(cudaError_t code, const char *op, const char *file, int line);
 
 //通过智能指针管理nv, 内存自动释放,避免泄露.
@@ -46,22 +47,29 @@ struct Out {
 class InferImpl : public Infer {
 public:
     explicit InferImpl(std::vector<int> &memory);
+
     ~InferImpl() override;
 
     // 获得引擎名字, conf: 对应具体实现算法的结构体引用
-    static std::string getEnginePath(const ParamBase &conf);
+    static std::string getEnginePath(const BaseParam &conf);
+
     //构建引擎文件,并保存到硬盘, 所有模型构建引擎文件方法都一样,如果加自定义层,继承算法各自实现
     static bool buildEngine(const std::string &onnxFilePath, const std::string &saveEnginePath, int maxBatch);
+
     //加载引擎到gpu,准备推理.
     static std::vector<unsigned char> loadEngine(const std::string &engineFilePath);
 
     // 创建推理engine
-    static bool getEngineContext(ParamBase &curParam);
+    static bool getEngineContext(BaseParam &curParam);
+
     //加载算法so文件
     static Infer *loadDynamicLibrary(const std::string &soPath);
-    static std::vector<int> setBatchAndInferMemory(ParamBase &curParam);
+
+    static std::vector<int> setBatchAndInferMemory(BaseParam &curParam);
+
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     static unsigned long clcInputLength(const InputData &data);
+
 //    std::shared_future<batchBoxesType> commit(const std::string &imagePath) override;
 //    std::shared_future<batchBoxesType> commit(const cv::Mat &images) override;
 //    std::shared_future<batchBoxesType> commit(const cv::cuda::GpuMat &images) override;
@@ -70,20 +78,20 @@ public:
 //    std::shared_future<batchBoxesType> commit(const std::vector<cv::Mat> &images) override;
 //    std::shared_future<batchBoxesType> commit(const std::vector<cv::cuda::GpuMat> &images) override;
     std::shared_future<batchBoxesType> commit(const InputData &data) override;
-    int preProcess(ParamBase &param, cv::Mat &image, float *pinMemoryCurrentIn) override {};
+    int preProcess(BaseParam &param, cv::Mat &image, float *pinMemoryCurrentIn) override {};
 
-    int postProcess(ParamBase &param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override {};
+    int postProcess(BaseParam &param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override {};
 
-    void inferPre(ParamBase &curParam);
-    void inferTrt(ParamBase &curParam);
-    void inferPost(ParamBase &curParam, Infer *curFunc);
+    void inferPre(BaseParam &curParam, Infer *curFunc);
+    void inferTrt(BaseParam &curParam);
+    void inferPost(BaseParam &curParam, Infer *curFunc);
 
-//    void inferPreBatch(ParamBase &curParam);
-//    void inferTrtBatch(ParamBase &curParam);
-//    void inferPostBatch(ParamBase &curParam, Infer *curFunc);
+//    void inferPreBatch(BaseParam &curParam);
+//    void inferTrtBatch(BaseParam &curParam);
+//    void inferPostBatch(BaseParam &curParam, Infer *curFunc);
 
-    bool startUpThread(ParamBase &curParam, Infer &curFunc);
-//    bool startUpThreadBatch(ParamBase &param, Infer &curFunc);
+    bool startUpThread(BaseParam &curParam, Infer &curFunc);
+//    bool startUpThreadBatch(BaseParam &param, Infer &curFunc);
 private:
     std::mutex lock_;
     std::condition_variable cv_;

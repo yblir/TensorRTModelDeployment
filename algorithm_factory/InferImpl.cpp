@@ -58,7 +58,7 @@ public:
 };
 
 
-std::string InferImpl::getEnginePath(const ParamBase &conf) {
+std::string InferImpl::getEnginePath(const BaseParam &conf) {
     int num;
     // 检查指定编号的显卡是否正常
     cudaError_t cudaStatus = cudaGetDeviceCount(&num);
@@ -132,8 +132,7 @@ bool InferImpl::buildEngine(const std::string &onnxFilePath, const std::string &
     config->addOptimizationProfile(profile);
 
     //5 直接序列化推理引擎
-    std::shared_ptr<nvinfer1::IHostMemory> serializedModel = ptrFree(
-            builder->buildSerializedNetwork(*network, *config));
+    std::shared_ptr<nvinfer1::IHostMemory> serializedModel = ptrFree(builder->buildSerializedNetwork(*network, *config));
     if (nullptr == serializedModel) {
         printf("build engine failed\n");
         return false;
@@ -191,7 +190,7 @@ Infer *InferImpl::loadDynamicLibrary(const std::string &soPath) {
         return nullptr;
     }
     auto tmp = reinterpret_cast<ptrdiff_t> (void_ptr);
-    auto clct = reinterpret_cast< AlgorithmCreate >(tmp);
+    auto clct = reinterpret_cast< CreateAlgorithm >(tmp);
 
     if (nullptr == clct) return nullptr;
 
@@ -199,7 +198,7 @@ Infer *InferImpl::loadDynamicLibrary(const std::string &soPath) {
 }
 
 //使用所有加速算法的初始化部分: 初始化参数,构建engine, 反序列化制作engine
-bool InferImpl::getEngineContext(ParamBase &curParam) {
+bool InferImpl::getEngineContext(BaseParam &curParam) {
     //获取engine绝对路径
     curParam.enginePath = InferImpl::getEnginePath(curParam);
 
@@ -221,7 +220,9 @@ bool InferImpl::getEngineContext(ParamBase &curParam) {
 
     // 创建engine并获得执行上下文context =======================================================================================
     TRTLogger logger;
-    auto runtime = ptrFree(nvinfer1::createInferRuntime(logger));
+//   在最新trt8.6版本中,使用自动释放会出错
+//    auto runtime = ptrFree(nvinfer1::createInferRuntime(logger));
+    auto runtime = nvinfer1::createInferRuntime(logger);
     curParam.engine = ptrFree(runtime->deserializeCudaEngine(engineFile.data(), engineFile.size()));
 
     if (nullptr == curParam.engine) {
@@ -263,14 +264,10 @@ bool InferImpl::getEngineContext(ParamBase &curParam) {
 unsigned long InferImpl::clcInputLength(const InputData &data) {
     unsigned long len = 0;
 
-    if (!data.mat.empty() || !data.imgPath.empty() || !data.gpuMat.empty())
-        len = 1;
-    else if (!data.mats.empty())
-        len = data.mats.size();
-    else if (!data.imgPaths.empty())
-        len = data.imgPaths.size();
-    else if (!data.gpuMats.empty())
-        len = data.gpuMats.size();
+    if (!data.mat.empty() || !data.imgPath.empty() || !data.gpuMat.empty()) len = 1;
+    else if (!data.mats.empty()) len = data.mats.size();
+    else if (!data.imgPaths.empty()) len = data.imgPaths.size();
+    else if (!data.gpuMats.empty()) len = data.gpuMats.size();
 
     return len;
 }
@@ -301,7 +298,7 @@ std::shared_future<batchBoxesType> InferImpl::commit(const InputData &data) {
     return fut;
 }
 
-void InferImpl::inferPre(ParamBase &curParam) {
+void InferImpl::inferPre(BaseParam &curParam, Infer *curFunc) {
     // 记录预处理总耗时
     double totalTime;
     std::chrono::system_clock::time_point preTime;
@@ -343,11 +340,14 @@ void InferImpl::inferPre(ParamBase &curParam) {
         for (auto &curMat: mats) {
             // 记录前处理耗时
             preTime = timer.curTimePoint();
-            cv::Mat scaleImage = letterBox(curMat, curParam.inputWidth, curParam.inputHeight, d2i);
+            curFunc->preProcess(curParam, curMat, pinMemoryIn + countPre * inputSize);
+            job.d2is.push_back({curParam.ind2is[0], curParam.ind2is[1], curParam.ind2is[2], curParam.ind2is[3], curParam.ind2is[4],
+                                curParam.ind2is[5]});
+//            cv::Mat scaleImage = letterBox(curMat, curParam.inputWidth, curParam.inputHeight, d2i);
 
             // 依次存储一个batchSize中图片放射变换参数
-            job.d2is.push_back({d2i[0], d2i[1], d2i[2], d2i[3], d2i[4], d2i[5]});
-            BGR2RGB(scaleImage, pinMemoryIn + countPre * inputSize);
+//            job.d2is.push_back({d2i[0], d2i[1], d2i[2], d2i[3], d2i[4], d2i[5]});
+//            BGR2RGB(scaleImage, pinMemoryIn + countPre * inputSize);
             countPre += 1;
             // 小于一个batch,不再往下继续.
             if (countPre < curParam.batchSize) continue;
@@ -400,7 +400,7 @@ void InferImpl::inferPre(ParamBase &curParam) {
 }
 
 // 适用于模型推理的通用trt流程
-void InferImpl::inferTrt(ParamBase &curParam) {
+void InferImpl::inferTrt(BaseParam &curParam) {
     // 记录推理耗时
     double totalTime;
     auto t = timer.curTimePoint();
@@ -451,14 +451,14 @@ void InferImpl::inferTrt(ParamBase &curParam) {
     printf("infer use time: %.2f ms\n", totalTime);
 }
 
-void InferImpl::inferPost(ParamBase &curParam, Infer *curFunc) {
+void InferImpl::inferPost(BaseParam &curParam, Infer *curFunc) {
     // 记录后处理耗时
     double totalTime;
     auto t = timer.curTimePoint();
 
     unsigned long mallocSize = this->memory[1] * sizeof(float), singleOutputSize = this->memory[1] / curParam.batchSize;
-    batchBoxesType batchBoxes;
-    batchBoxesType boxes;
+    batchBoxesType batchBoxes, boxes;
+//    batchBoxesType boxes;
 
 //    传入图片总数, 已处理图片数量
     int totalNum = 0, countPost = 0;
@@ -506,7 +506,7 @@ void InferImpl::inferPost(ParamBase &curParam, Infer *curFunc) {
 
 }
 
-std::vector<int> InferImpl::setBatchAndInferMemory(ParamBase &curParam) {
+std::vector<int> InferImpl::setBatchAndInferMemory(BaseParam &curParam) {
     //计算输入tensor所占存储空间大小,设置指定的动态batch的大小,之后再重新指定输入tensor形状
     auto inputShape = curParam.engine->getTensorShape(curParam.inputName.c_str());
     inputShape.d[0] = curParam.batchSize;
@@ -527,9 +527,9 @@ std::vector<int> InferImpl::setBatchAndInferMemory(ParamBase &curParam) {
     return memory;
 }
 
-bool InferImpl::startUpThread(ParamBase &curParam, Infer &curFunc) {
+bool InferImpl::startUpThread(BaseParam &curParam, Infer &curFunc) {
     try {
-        preThread = std::make_shared<std::thread>(&InferImpl::inferPre, this, std::ref(curParam));
+        preThread = std::make_shared<std::thread>(&InferImpl::inferPre, this, std::ref(curParam), &curFunc);
         inferThread = std::make_shared<std::thread>(&InferImpl::inferTrt, this, std::ref(curParam));
         postThread = std::make_shared<std::thread>(&InferImpl::inferPost, this, std::ref(curParam), &curFunc);
     } catch (std::string &error) {
@@ -593,10 +593,10 @@ InferImpl::~InferImpl() {
     checkRuntime(cudaStreamDestroy(preStream));
     checkRuntime(cudaStreamDestroy(inferStream));
     checkRuntime(cudaStreamDestroy(postStream));
-    printf("析构函数\n");
+//    printf("析构函数\n");
 }
 
-std::shared_ptr<Infer> createInfer(ParamBase &curParam, const std::string &enginePath, Infer &curFunc) {
+std::shared_ptr<Infer> createInfer(BaseParam &curParam, const std::string &enginePath, Infer &curFunc) {
 //    如果创建引擎不成功就reset
     if (!InferImpl::getEngineContext(curParam)) {
         printf("getEngineContext fail\n");

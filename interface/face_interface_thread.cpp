@@ -43,7 +43,7 @@
 
 
 //// 通用推理接口
-//int trtInferProcess(ParamBase &curParam, AlgorithmBase *curFunc,
+//int trtInferProcess(BaseParam &curParam, AlgorithmBase *curFunc,
 //                    std::vector<std::string> &imgPaths, std::vector<std::vector<std::vector<float>>> &result) {
 //
 //    //0:当前推理模型输入tensor存储空间大小,1:当前推理输出结果存储空间大小
@@ -133,12 +133,12 @@ int initEngine(productParam &param, productFunc &func) {
 //                "/mnt/i/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
         );
         if (!curAlg) printf("error");
-
         func.yoloDetect = createInfer(param.yoloDetectParam, param.yoloDetectParam.enginePath, *curAlg);
     }
 
     return 0;
 }
+
 //// imgPaths图片数量为多少, 就一次性返回多少个输出结果.分批传入图片的逻辑由调用程序控制
 //int inferEngine(productParam &param, productFunc &func, std::vector<std::string> &imgPaths, productResult &out) {
 //    // 以engine是否存在为判定,存在则执行推理

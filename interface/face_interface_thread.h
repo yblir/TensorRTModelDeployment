@@ -26,7 +26,7 @@ using Handle = void *;
 //bool check_cuda_runtime(cudaError_t code, const char *op, const char *file, int line);
 
 // 初始化过程中,各个模型都会用到的通用步骤
-int initCommon(ParamBase &confSpecific, class AlgorithmBase *funcSpecific);
+int initCommon(BaseParam &confSpecific, class AlgorithmBase *funcSpecific);
 
 // 测试重构一下?
 int inferEngine(productParam &param, productFunc &func, std::vector<cv::Mat> &images, int &res_num);

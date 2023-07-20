@@ -17,18 +17,18 @@ extern "C" Infer *MakeAlgorithm(void) {
 YoloDetect::YoloDetect() = default;
 YoloDetect::~YoloDetect() = default;
 
-int YoloDetect::preProcess(ParamBase &param, cv::Mat &image, float *pinMemoryCurrentIn) {
-    float d2i[6];
-    cv::Mat scaleImage = letterBox(image, 640, 640, d2i);
+int YoloDetect::preProcess(BaseParam &param, cv::Mat &image, float *pinMemoryCurrentIn) {
+
+    cv::Mat scaleImage = letterBox(image, param.inputWidth, param.inputHeight, param.ind2is);
     // 依次存储一个batchSize中图片放射变换参数
-    param.d2is.push_back({d2i[0], d2i[1], d2i[2], d2i[3], d2i[4], d2i[5]});
+//    param.d2is.push_back({d2i[0], d2i[1], d2i[2], d2i[3], d2i[4], d2i[5]});
 
     BGR2RGB(scaleImage, pinMemoryCurrentIn);
 
     return 0;
 }
 
-//cv::Mat YoloDetect::preProcess(ParamBase &param, cv::Mat &image) {
+//cv::Mat YoloDetect::preProcess(BaseParam &param, cv::Mat &image) {
 //    float d2i[6];
 //    cv::Mat scaleImage = letterBox(image, 640, 640, d2i);
 //    // 依次存储一个batchSize中图片放射变换参数
@@ -39,7 +39,7 @@ int YoloDetect::preProcess(ParamBase &param, cv::Mat &image, float *pinMemoryCur
 //    return 0;
 //}
 
-int YoloDetect::postProcess(ParamBase &param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) {
+int YoloDetect::postProcess(BaseParam &param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) {
     //将父类对象转为子类对象,这样才能调用属于子类的成员变量
     auto curParam = reinterpret_cast<YoloDetectParam &>(param);
     std::vector<std::vector<float>> boxes, predict;

@@ -195,7 +195,7 @@ cv::Mat drawImage(cv::Mat &image, const std::vector<float> &box) {
     cv::rectangle(image, cv::Point(x1, y1), cv::Point(x2, y2), color, 2);
 
     //写标签
-    auto name = cocolabels[cls];
+    auto name = cocoLabels[cls];
     auto caption = cv::format("%s %.2f", name, confidence);
     int textWidth = cv::getTextSize(caption, 0, 1, 2, nullptr).width + 10;
     //画标签的小框

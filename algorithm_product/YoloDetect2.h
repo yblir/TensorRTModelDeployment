@@ -16,9 +16,9 @@ public:
     ~YoloDetect() override;
 
     // 预处理
-    int preProcess(ParamBase &param, cv::Mat &image, float *pinMemoryCurrentIn) override;
+    int preProcess(BaseParam &param, cv::Mat &image, float *pinMemoryCurrentIn) override;
     // 后处理
-    int postProcess(ParamBase &param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override;
+    int postProcess(BaseParam &param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override;
 
     static std::vector<std::vector<float>> decodeBox(int predictNums, int predictLength,
                                               float *pinOutput, int classNum, float scoreThresh, std::vector<float> d2i);
