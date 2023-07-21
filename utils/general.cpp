@@ -68,6 +68,93 @@ void BGR2RGB(const cv::Mat &image, float *pinInput) {
     }
 }
 
+std::string getEnginePath(const BaseParam &param) {
+    int num;
+    // 检查指定编号的显卡是否正常
+    cudaError_t cudaStatus = cudaGetDeviceCount(&num);
+    if ((cudaSuccess != cudaStatus) || (num == 0) || (param.gpuId > (num - 1))) {
+        printf("infer device id: %d error or no this gpu.\n", param.gpuId);
+        return "";
+    }
+
+    cudaDeviceProp prop{};
+    std::string gpuName, enginePath;
+    // 获取显卡信息
+    cudaStatus = cudaGetDeviceProperties(&prop, param.gpuId);
+
+    if (cudaSuccess == cudaStatus) {
+        gpuName = prop.name;
+        // 删掉显卡名称内的空格
+        gpuName.erase(std::remove_if(gpuName.begin(), gpuName.end(), ::isspace), gpuName.end());
+    } else {
+        printf("get device info error.\n");
+        return "";
+    }
+
+    std::string strFp16 = param.mode == Mode::FP16 ? "FP16" : "FP32";
+
+    // 拼接待构建或加载的引擎路径
+    enginePath = param.onnxPath.substr(0, param.onnxPath.find_last_of('.')) + "_" + gpuName + "_" + strFp16 + ".engine";
+
+    return enginePath;
+}
+
+const char *severity_string(nvinfer1::ILogger::Severity t) {
+    switch (t) {
+        case nvinfer1::ILogger::Severity::kINTERNAL_ERROR:
+            return "internal_error";
+        case nvinfer1::ILogger::Severity::kERROR:
+            return "error";
+        case nvinfer1::ILogger::Severity::kWARNING:
+            return "warning";
+        case nvinfer1::ILogger::Severity::kINFO:
+            return "info";
+        case nvinfer1::ILogger::Severity::kVERBOSE:
+            return "verbose";
+        default:
+            return "unknown";
+    }
+}
+
+void TRTLogger::log(Severity severity, nvinfer1::AsciiChar const *msg) noexcept {
+    if (severity <= Severity::kWARNING) {
+        if (severity == Severity::kWARNING) {
+            printf("\033[33m%s: %s\033[0m\n",
+                   severity_string(severity), msg
+            );
+        } else if (severity <= Severity::kERROR) {
+            printf("\033[31m%s: %s\033[0m\n",
+                   severity_string(severity), msg
+            );
+        } else {
+            printf("%s: %s\n",
+                   severity_string(severity), msg
+            );
+        }
+    }
+}
+
+bool check_cuda_runtime(cudaError_t code, const char *op, const char *file, int line) {
+    if (cudaSuccess != code) {
+        const char *errName = cudaGetErrorName(code);
+        const char *errMsg = cudaGetErrorString(code);
+        printf("runtime error %s:%d  %s failed. \n  code = %s, message = %s\n", file, line, op, errName, errMsg);
+        return false;
+    }
+    return true;
+}
+
+const char *mode_string(Mode type) {
+    switch (type) {
+        case Mode::FP32:
+            return "FP32";
+        case Mode::FP16:
+            return "FP16";
+        default:
+            return "UnknowTRTMode";
+    }
+}
+
 // hsv转bgr 用得到吗?
 std::tuple<uint8_t, uint8_t, uint8_t> hsv2bgr(float h, float s, float v) {
     const int h_i = static_cast<int>(h * 6);

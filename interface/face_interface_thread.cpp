@@ -7,7 +7,7 @@
 
 #include "face_interface_thread.h"
 #include "../utils/box_utils.h"
-#include "../algorithm_factory/InferImpl.h"
+#include "../algorithm_factory/InferImpl_beifen.h"
 
 //// 推理输入
 //struct Job {

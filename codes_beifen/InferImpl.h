@@ -68,7 +68,7 @@ public:
     static std::vector<int> setBatchAndInferMemory(BaseParam &curParam);
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    static unsigned long clcInputLength(const InputData &data);
+    static unsigned long getInputNums(const InputData &data);
 
 //    std::shared_future<batchBoxesType> commit(const std::string &imagePath) override;
 //    std::shared_future<batchBoxesType> commit(const cv::Mat &images) override;

@@ -61,10 +61,11 @@ int main(int argc, char *argv[]) {
 //    std::string path1 = std::string(argv[2]) + "/";
 //    std::string path1="/mnt/f/LearningData/voc_test_100/";
 //    std::string path1 = "/mnt/e/BaiduNetdiskDownload/VOCdevkit/voc_test_10/";
-    std::string path1 = "/mnt/e/BaiduNetdiskDownload/VOCdevkit/voc_test_6000/";
-//    std::string path1 = "/mnt/d/VOCdevkit/voc_test_100/";
+//    std::string path1 = "/mnt/e/BaiduNetdiskDownload/VOCdevkit/voc_test_6000/";
+    std::string path1 = "/mnt/d/Datasets/VOCdevkit/voc_test_300/";
     std::filesystem::path imgInputDir(path1);
     std::filesystem::path imgOutputDir(path1 + "output/");
+
     //检查文件夹路径是否合法, 检查输出文件夹路径是否存在,不存在则创建
     // 输入不是文件夹,或文件不存在抛出异常
     if (!std::filesystem::exists(imgInputDir) || !std::filesystem::is_directory(imgInputDir))
@@ -77,6 +78,7 @@ int main(int argc, char *argv[]) {
     std::vector<std::string> imagePaths;
     // 获取该文件夹下所有图片绝对路径,存储在vector向量中
     getImagePath(imgInputDir, imagePaths);
+
     auto t = timer->curTimePoint();
     std::vector<std::string> batch;
     std::vector<cv::Mat> batchImgs;
@@ -86,6 +88,7 @@ int main(int argc, char *argv[]) {
     double inferTime, total1, hua;
     auto t8 = timer->curTimePoint();
 //    int em=0;
+
     std::map<std::basic_string<char>, std::vector<std::vector<std::vector<float>>>> curResult;
     for (auto &item: imagePaths) {
         batch.emplace_back(item);
@@ -94,13 +97,18 @@ int main(int argc, char *argv[]) {
 
         if (count >= 5) {
             data.mats = batchImgs;
+//            printf("-----------------------------\n");
 //            data.imgPath=item;
 //            data.mat=cv::imread(item);
 //            data.imgPaths=batch;
             auto tt1 = timer->curTimePoint();
+            printf("-----------------------------\n");
             curResult = inferEngine(param, func, data);
+
+            printf("+++++++++++++++++++++++++++++\n");
             inferTime += timer->timeCount(tt1);
             int j = 0;
+
             auto yoloRes = curResult["yoloDetect"];
 //            printf("5555\n");
             auto tb = timer->curTimePoint();
@@ -117,7 +125,7 @@ int main(int argc, char *argv[]) {
                 }
                 // 把画好框的图片写入本地
 //                std::string drawName = "draw" + std::to_string(i++) + ".jpg";
-                cv::imwrite(imgOutputDir / batch[j].substr(batch[j].find_last_of('/')+1), img);
+                cv::imwrite(imgOutputDir / batch[j].substr(batch[j].find_last_of('/') + 1), img);
                 j++;
             }
             hua += timer->timeCount(tb);

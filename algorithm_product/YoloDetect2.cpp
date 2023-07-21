@@ -19,7 +19,7 @@ YoloDetect::~YoloDetect() = default;
 
 int YoloDetect::preProcess(BaseParam &param, cv::Mat &image, float *pinMemoryCurrentIn) {
 
-    cv::Mat scaleImage = letterBox(image, param.inputWidth, param.inputHeight, param.ind2is);
+    cv::Mat scaleImage = letterBox(image, param.inputWidth, param.inputHeight, param.curD2i);
     // 依次存储一个batchSize中图片放射变换参数
 //    param.d2is.push_back({d2i[0], d2i[1], d2i[2], d2i[3], d2i[4], d2i[5]});
 
