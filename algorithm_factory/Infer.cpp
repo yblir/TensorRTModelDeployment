@@ -376,7 +376,7 @@ void InferImpl::inferPost(BaseParam &curParam, Infer *curFunc) {
         //将每次后处理结果合并到输出vector中
         batchBoxes.insert(batchBoxes.end(), boxes.begin(), boxes.end());
         boxes.clear();
-        // 当commit中传入图片处理完时,set value, 返回这批图片的结果. 重新计数, 并返回下一次要输出推理结果的图片数量
+        // 当commit中传入图片处理完时,set_value, 返回这批图片的结果. 重新计数, 并返回下一次要输出推理结果的图片数量
         if (totalNum <= countPost) {
             // 输出解码后的结果,在commit中接收
             fJob.batchResult->set_value(batchBoxes);

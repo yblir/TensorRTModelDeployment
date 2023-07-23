@@ -26,9 +26,9 @@ set(CMAKE_BUILD_TYPE "Debug")
 # 然后在main函数前写上 #include “opencv/cv.h" 即可
 # SYSTEM 指定目录当成系统的搜索目录 使用AFTER或BEFORE选项来指定是添加到列表的前面或者后面
 include_directories(SYSTEM ${CUDA_INCLUDE_DIRS})
-include_directories(/usr/local/TensorRT-8.5.1.7/include)
-link_directories(/usr/local/TensorRT-8.5.1.7/lib)
-include_directories(/usr/local/cuda-11.6/targets/x86_64-linux/include)
+include_directories(/usr/local/TensorRT-8.6.1.6/include)
+link_directories(/usr/local/TensorRT-8.6.1.6/lib)
+include_directories(/usr/local/cuda-12.1/targets/x86_64-linux/include)
 include_directories(/usr/local/include/opencv4)
 # 添加需要链接的库文件路径，注意这里是全路径，要用在add_executable之前
 link_libraries()
@@ -39,10 +39,9 @@ link_libraries()
 include_directories(SYSTEM ${CUDA_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS})
 # 原始的CUDA_LIBRARIES=/usr/local/cuda/lib64/libcudart_static.adl/usr/lib/x86_64-linux-gnu/librt.s， 这是什么东西？
 set(CUDA_LIBRARIES /usr/lib/wsl/lib/libcuda.so)
-set(CUDART_LIBRARIES /usr/local/cuda-11.6/targets/x86_64-linux/lib/libcudart.so)
-set(i1 /usr/local/TensorRT-8.5.1.7/targets/x86_64-linux-gnu/lib/libnvonnxparser.so)
-set(i2 /usr/local/TensorRT-8.5.1.7/targets/x86_64-linux-gnu/lib/libnvinfer.so)
-set(i3 /usr/local/TensorRT-8.5.1.7/targets/x86_64-linux-gnu/lib/libnvinfer_plugin.so.8)
+set(CUDART_LIBRARIES /usr/local/cuda-12.1/targets/x86_64-linux/lib/libcudart.so)
+set(i1 /usr/local/TensorRT-8.6.1.6/targets/x86_64-linux-gnu/lib/libnvonnxparser.so)
+set(i2 /usr/local/TensorRT-8.6.1.6/targets/x86_64-linux-gnu/lib/libnvinfer.so)
 # 去哪里找库文件 .so/.lib/.ddl
 link_directories()
 

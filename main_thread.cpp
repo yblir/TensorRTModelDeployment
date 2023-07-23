@@ -43,6 +43,7 @@ int main(int argc, char *argv[]) {
 //    param.yoloDetectParam.onnxPath = "/mnt/i/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
     param.yoloDetectParam.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
     param.yoloDetectParam.gpuId = int(strtol(argv[1], nullptr, 10));
+//    param.yoloDetectParam.gpuId = int(strtol(argv[1], nullptr, 10));
     param.yoloDetectParam.batchSize = 2;
     param.yoloDetectParam.inputHeight = 640;
     param.yoloDetectParam.inputWidth = 640;
@@ -62,7 +63,8 @@ int main(int argc, char *argv[]) {
 //    std::string path1="/mnt/f/LearningData/voc_test_100/";
 //    std::string path1 = "/mnt/e/BaiduNetdiskDownload/VOCdevkit/voc_test_10/";
 //    std::string path1 = "/mnt/e/BaiduNetdiskDownload/VOCdevkit/voc_test_6000/";
-    std::string path1 = "/mnt/d/Datasets/VOCdevkit/voc_test_300/";
+//    std::string path1 = "/mnt/d/Datasets/VOCdevkit/voc_test_300/";
+    std::string path1="/mnt/e/localDatasets/voc/voc_test_100/";
     std::filesystem::path imgInputDir(path1);
     std::filesystem::path imgOutputDir(path1 + "output/");
 
@@ -102,10 +104,8 @@ int main(int argc, char *argv[]) {
 //            data.mat=cv::imread(item);
 //            data.imgPaths=batch;
             auto tt1 = timer->curTimePoint();
-            printf("-----------------------------\n");
             curResult = inferEngine(param, func, data);
 
-            printf("+++++++++++++++++++++++++++++\n");
             inferTime += timer->timeCount(tt1);
             int j = 0;
 
