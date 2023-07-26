@@ -6,8 +6,6 @@
 #include <filesystem>
 
 #include <opencv2/highgui/highgui.hpp>
-//#include <opencv2/opencv.hpp>
-//#include <dirent.h>
 
 #include "interface/face_interface.h"
 #include "utils/general.h"

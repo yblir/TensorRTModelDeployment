@@ -11,9 +11,9 @@
 //#include "struct_data_type.h"
 //#include "base_interface/ai_img_alg_base.h"
 //#include "../algorithm_product/YoloFace.h"
-//#include "../algorithm_factory/factory.h"
+//#include "../base_infer/factory.h"
 #include "../algorithm_product/product.h"
-#include "../algorithm_factory/InferImpl_beifen.h"
+#include "../codes_beifen/InferImpl_beifen.h"
 
 //#define checkRuntime(op) check_cuda_runtime((op),#op,__FILE__,__LINE__)
 
@@ -22,7 +22,7 @@ using Handle = void *;
 //bool check_cuda_runtime(cudaError_t code, const char *op, const char *file, int line);
 
 // 初始化过程中,各个模型都会用到的通用步骤
-int initCommon(ParamBase &confSpecific, class AlgorithmBase *funcSpecific);
+int initCommon(BaseParam &confSpecific, class AlgorithmBase *funcSpecific);
 
 // 测试重构一下?
 int inferEngine(productParam &param, productFunc &func, std::vector<cv::Mat> &images, int &res_num);

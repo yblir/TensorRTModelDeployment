@@ -2,6 +2,7 @@
 // Created by FH on 2023/1/14.
 //
 #include <iostream>
+#include <dlfcn.h>
 #include "general.h"
 
 //记录当前时间点
@@ -97,6 +98,29 @@ std::string getEnginePath(const BaseParam &param) {
     enginePath = param.onnxPath.substr(0, param.onnxPath.find_last_of('.')) + "_" + gpuName + "_" + strFp16 + ".engine";
 
     return enginePath;
+}
+
+Infer* loadDynamicLibrary(const std::string &soPath) {
+    // todo 这里,要判断soPath是不是合法. 并且是文件名时搜索路径
+    printf("load dynamic lib: %s\n", soPath.c_str());
+    auto soHandle = dlopen(soPath.c_str(), RTLD_NOW);
+    if (!soHandle) {
+        printf("open dll error: %s \n", dlerror());
+        return nullptr;
+    }
+    //找到符号Make_Collector的地址
+    void *void_ptr = dlsym(soHandle, "MakeAlgorithm");
+    char *error = dlerror();
+    if (nullptr != error) {
+        printf("dlsym error:%s\n", error);
+        return nullptr;
+    }
+    auto tmp = reinterpret_cast<ptrdiff_t> (void_ptr);
+    auto clct = reinterpret_cast< CreateAlgorithm >(tmp);
+
+    if (nullptr == clct) return nullptr;
+
+    return clct();
 }
 
 const char *severity_string(nvinfer1::ILogger::Severity t) {

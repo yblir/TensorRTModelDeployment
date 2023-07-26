@@ -5,12 +5,12 @@
 //onnx解释器头文件
 #include <NvOnnxParser.h>
 #include <fstream>
-#include <dlfcn.h>
+
 #include "../utils/general.h"
 #include "../utils/box_utils.h"
 #include "../builder/trt_builder.h"
 
-#include "Infer.h"
+#include "infer.h"
 
 class InferImpl : public Infer {
 public:
@@ -20,8 +20,6 @@ public:
 
     // 创建推理engine
     static bool getEngineContext(BaseParam &curParam);
-    //加载算法so文件
-    static Infer *loadDynamicLibrary(const std::string &soPath);
     static std::vector<int> setBatchAndInferMemory(BaseParam &curParam);
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -35,20 +33,26 @@ public:
 //    std::shared_future<batchBoxesType> commit(const std::vector<std::string> &imagePaths) override;
 //    std::shared_future<batchBoxesType> commit(const std::vector<cv::Mat> &images) override;
 //    std::shared_future<batchBoxesType> commit(const std::vector<cv::cuda::GpuMat> &images) override;
-    std::shared_future<batchBoxesType> commit(const InputData &data) override;
-
+//    空实现,具体实现由实际继承Infer.h的应用完成
     int preProcess(BaseParam &param, cv::Mat &image, float *pinMemoryCurrentIn) override {};
-
+//    具体应用调用commit方法,推理数据传入队列, 直接返回future对象. 数据依次经过trtPre,trtInfer,trtPost三个线程,结果通过future.get()获得
+    std::shared_future<batchBoxesType> commit(const InputData &data) override;
+//    空实现,具体实现由实际继承Infer.h的应用完成
     int postProcess(BaseParam &param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override {};
 
-    void inferPre(BaseParam &curParam, Infer *curFunc);
-    void inferTrt(BaseParam &curParam);
-    void inferPost(BaseParam &curParam, Infer *curFunc);
+//    将待推理数据写入队列1, 会调用上述由具体应用实现的preProcess
+    void trtPre(BaseParam &curParam, Infer *curFunc);
+//    从队列1取数据进行推理,然后将推理结果写入队列2
+    void trtInfer(BaseParam &curParam);
+//    从队列2取数据,进行后处理, 会调用上述由具体应用实现的postProcess
+    void trtPost(BaseParam &curParam, Infer *curFunc);
 
-    bool startUpThread(BaseParam &curParam, Infer &curFunc);
+    bool startThread(BaseParam &curParam, Infer &curFunc);
 
 private:
+//   lock1用于预处理写入+推理时取出
     std::mutex lock1;
+//   lock2用于推理后结果写入+后处理取出
     std::mutex lock2;
     std::condition_variable cv_;
 
@@ -86,29 +90,6 @@ private:
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 Timer timer = Timer();
-
-Infer *InferImpl::loadDynamicLibrary(const std::string &soPath) {
-    // todo 这里,要判断soPath是不是合法. 并且是文件名时搜索路径
-    printf("load dynamic lib: %s\n", soPath.c_str());
-    auto soHandle = dlopen(soPath.c_str(), RTLD_NOW);
-    if (!soHandle) {
-        printf("open dll error: %s \n", dlerror());
-        return nullptr;
-    }
-    //找到符号Make_Collector的地址
-    void *void_ptr = dlsym(soHandle, "MakeAlgorithm");
-    char *error = dlerror();
-    if (nullptr != error) {
-        printf("dlsym error:%s\n", error);
-        return nullptr;
-    }
-    auto tmp = reinterpret_cast<ptrdiff_t> (void_ptr);
-    auto clct = reinterpret_cast< CreateAlgorithm >(tmp);
-
-    if (nullptr == clct) return nullptr;
-
-    return clct();
-}
 
 //使用所有加速算法的初始化部分: 初始化参数,构建engine, 反序列化制作engine
 bool InferImpl::getEngineContext(BaseParam &curParam) {
@@ -158,7 +139,6 @@ std::shared_future<batchBoxesType> InferImpl::commit(const InputData &data) {
     unsigned long len = InferImpl::getInputNums(data);
     if (0 == len) std::thread();
 
-//    futureJob fJob;
     fJob.image = data.mat;
     fJob.images = data.mats;
     fJob.imgPath = data.imgPath;
@@ -199,7 +179,7 @@ void InferImpl::preMatRead(std::vector<cv::Mat> &mats, const futureJob &fJob) {
 //            std::vector<cv::cuda::GpuMat> items = fJob.gpuImages;
 }
 
-void InferImpl::inferPre(BaseParam &curParam, Infer *curFunc) {
+void InferImpl::trtPre(BaseParam &curParam, Infer *curFunc) {
     // 记录预处理总耗时
     double totalTime;
     std::chrono::system_clock::time_point preTime;
@@ -285,7 +265,7 @@ void InferImpl::inferPre(BaseParam &curParam, Infer *curFunc) {
 }
 
 // 适用于模型推理的通用trt流程
-void InferImpl::inferTrt(BaseParam &curParam) {
+void InferImpl::trtInfer(BaseParam &curParam) {
     // 记录推理耗时
     double totalTime;
     auto t = timer.curTimePoint();
@@ -336,7 +316,7 @@ void InferImpl::inferTrt(BaseParam &curParam) {
     printf("infer use time: %.2f ms\n", totalTime);
 }
 
-void InferImpl::inferPost(BaseParam &curParam, Infer *curFunc) {
+void InferImpl::trtPost(BaseParam &curParam, Infer *curFunc) {
     // 记录后处理耗时
     double totalTime;
     auto t = timer.curTimePoint();
@@ -411,17 +391,17 @@ std::vector<int> InferImpl::setBatchAndInferMemory(BaseParam &curParam) {
     return memory;
 }
 
-bool InferImpl::startUpThread(BaseParam &curParam, Infer &curFunc) {
+bool InferImpl::startThread(BaseParam &curParam, Infer &curFunc) {
     try {
-        preThread = std::make_shared<std::thread>(&InferImpl::inferPre, this, std::ref(curParam), &curFunc);
-        inferThread = std::make_shared<std::thread>(&InferImpl::inferTrt, this, std::ref(curParam));
-        postThread = std::make_shared<std::thread>(&InferImpl::inferPost, this, std::ref(curParam), &curFunc);
+        preThread = std::make_shared<std::thread>(&InferImpl::trtPre, this, std::ref(curParam), &curFunc);
+        inferThread = std::make_shared<std::thread>(&InferImpl::trtInfer, this, std::ref(curParam));
+        postThread = std::make_shared<std::thread>(&InferImpl::trtPost, this, std::ref(curParam), &curFunc);
     } catch (std::string &error) {
-        printf("thread start up fail: %s !\n", error.c_str());
+        printf("thread start fail: %s !\n", error.c_str());
         return false;
     }
 
-    printf("thread start up success !\n");
+    printf("thread start success !\n");
     return true;
 }
 
@@ -492,7 +472,7 @@ std::shared_ptr<Infer> createInfer(BaseParam &curParam, const std::string &engin
     std::shared_ptr<InferImpl> instance(new InferImpl(memory));
 
     //若实例化失败 或 若线程启动失败,也返回空实例. 所有的错误信息都在函数内部打印
-    if (!instance || !instance->startUpThread(curParam, curFunc)) {
+    if (!instance || !instance->startThread(curParam, curFunc)) {
         printf("InferImpl instance fail\n");
         instance.reset();
         return instance;

@@ -6,7 +6,7 @@
 #define TENSORRTMODELDEPLOYMENT_TRT_BUILDER_H
 
 #include <iostream>
-#include "../algorithm_factory/selfDataType.hpp"
+#include "../base_infer/selfDataType.hpp"
 
 namespace TRT {
 //    enum class Mode : int {

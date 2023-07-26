@@ -5,9 +5,7 @@
 #ifndef TENSORRT_PRO_PRODUCT_H
 #define TENSORRT_PRO_PRODUCT_H
 
-//#include "../algorithm_factory/struct_data_type.h"
-//#include "../algorithm_factory/factory.h"
-#include "../algorithm_factory/infer.h"
+#include "../base_infer/infer.h"
 
 // 以下是每个模型具体的参数配置, 每新加一个推理模型,都要在这里新增这个模型独特的参数,并继承通用参数配置BaseParam
 //人脸检测配置

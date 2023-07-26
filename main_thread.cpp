@@ -57,14 +57,11 @@ int main(int argc, char *argv[]) {
         return ret;
     std::cout << "init ok !" << std::endl;
     // ============================================================================================
+//  公司
+    std::string path1 = "/mnt/d/Datasets/VOCdevkit/voc_test_300/";
+//    家
+//    std::string path1="/mnt/e/localDatasets/voc/voc_test_100/";
 
-    //创建输出文件夹
-//    std::string path1 = std::string(argv[2]) + "/";
-//    std::string path1="/mnt/f/LearningData/voc_test_100/";
-//    std::string path1 = "/mnt/e/BaiduNetdiskDownload/VOCdevkit/voc_test_10/";
-//    std::string path1 = "/mnt/e/BaiduNetdiskDownload/VOCdevkit/voc_test_6000/";
-//    std::string path1 = "/mnt/d/Datasets/VOCdevkit/voc_test_300/";
-    std::string path1="/mnt/e/localDatasets/voc/voc_test_100/";
     std::filesystem::path imgInputDir(path1);
     std::filesystem::path imgOutputDir(path1 + "output/");
 
@@ -104,7 +101,7 @@ int main(int argc, char *argv[]) {
 //            data.mat=cv::imread(item);
 //            data.imgPaths=batch;
             auto tt1 = timer->curTimePoint();
-            curResult = inferEngine(param, func, data);
+            curResult = inferEngine(func, data);
 
             inferTime += timer->timeCount(tt1);
             int j = 0;
@@ -141,7 +138,8 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-//right over! 6625.20, 10552.86,  2645.14
-//infer use time: 5533.37 ms
-//pre   use time: 711.84 ms
-//post  use time: 49.46 ms
+
+//right over! 2820.93, 10064.53,  5197.22
+//pre   use time: 896.08 ms
+//infer use time: 1868.90 ms
+//post  use time: 105.23 ms

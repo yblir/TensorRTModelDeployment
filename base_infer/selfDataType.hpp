@@ -11,7 +11,6 @@
 
 // tensorrt导入
 #include <NvInfer.h>
-//#include <NvInferRuntime.h>
 
 #include <opencv2/opencv.hpp>
 #include <future>
@@ -31,6 +30,7 @@ struct BaseParam {
     int batchSize = 1;
 
     // 使用fp32或fp16,当前仅支持两种选项,默认fp32
+//    Mode mode = Mode::FP16;
     Mode mode = Mode::FP32;
 
     // 推理时需要指定的输入输出节点名, 生成onnx文件时指定的输入输出名
@@ -69,10 +69,13 @@ struct ResultBase {
 
 // 输入数据类型必是以下中的一个
 struct InputData {
+//    传入推理数据为单张或多张图片路径
     std::string imgPath;
     std::vector<std::string> imgPaths;
+//    传入推理数据为单个或多个图片矩阵
     cv::Mat mat;
     std::vector<cv::Mat> mats;
+//    传入推理数据为单个或多个gpu图片矩阵,如果传入类型是以上两种类型,最后都要转化成GPU上
     cv::cuda::GpuMat gpuMat;
     std::vector<cv::cuda::GpuMat> gpuMats;
 };

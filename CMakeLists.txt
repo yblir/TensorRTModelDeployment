@@ -26,22 +26,19 @@ set(CMAKE_BUILD_TYPE "Debug")
 # 然后在main函数前写上 #include “opencv/cv.h" 即可
 # SYSTEM 指定目录当成系统的搜索目录 使用AFTER或BEFORE选项来指定是添加到列表的前面或者后面
 include_directories(SYSTEM ${CUDA_INCLUDE_DIRS})
-include_directories(/usr/local/TensorRT-8.6.1.6/include)
-link_directories(/usr/local/TensorRT-8.6.1.6/lib)
-include_directories(/usr/local/cuda-12.1/targets/x86_64-linux/include)
+include_directories(/usr/local/TensorRT-8.5.1.7/include)
+link_directories(/usr/local/TensorRT-8.5.1.7/lib)
+include_directories(/usr/local/cuda-11.6/targets/x86_64-linux/include)
 include_directories(/usr/local/include/opencv4)
+
 # 添加需要链接的库文件路径，注意这里是全路径，要用在add_executable之前
-link_libraries()
-
-#link_libraries(/usr/local/cuda-11.3/targets/x86_64-linux/lib/stubs/libcuda.so)
-#link_directories(/usr/local/cuda-11.3/targets/x86_64-linux/lib/libcudart.so)
-
 include_directories(SYSTEM ${CUDA_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS})
 # 原始的CUDA_LIBRARIES=/usr/local/cuda/lib64/libcudart_static.adl/usr/lib/x86_64-linux-gnu/librt.s， 这是什么东西？
 set(CUDA_LIBRARIES /usr/lib/wsl/lib/libcuda.so)
-set(CUDART_LIBRARIES /usr/local/cuda-12.1/targets/x86_64-linux/lib/libcudart.so)
-set(i1 /usr/local/TensorRT-8.6.1.6/targets/x86_64-linux-gnu/lib/libnvonnxparser.so)
-set(i2 /usr/local/TensorRT-8.6.1.6/targets/x86_64-linux-gnu/lib/libnvinfer.so)
+set(CUDART_LIBRARIES /usr/local/cuda-11.6/targets/x86_64-linux/lib/libcudart.so)
+set(i1 /usr/local/TensorRT-8.5.1.7/targets/x86_64-linux-gnu/lib/libnvonnxparser.so)
+set(i2 /usr/local/TensorRT-8.5.1.7/targets/x86_64-linux-gnu/lib/libnvinfer.so)
+
 # 去哪里找库文件 .so/.lib/.ddl
 link_directories()
 
@@ -52,19 +49,26 @@ add_executable(run
 #        main.cpp
         main_thread.cpp
 
-        utils/general.h utils/general.cpp utils/box_utils.h utils/box_utils.cpp
+#        utils/general.h
+        utils/general.cpp
+#        utils/box_utils.h
+        utils/box_utils.cpp
 #        algorithm_product/YoloFace.h algorithm_product/YoloFace.cpp
 #        algorithm_product/YoloDetect.h algorithm_product/YoloDetect.cpp
-        algorithm_product/YoloDetect2.h algorithm_product/YoloDetect2.cpp
-        algorithm_product/product.h
+#        algorithm_product/YoloDetect2.h
+        algorithm_product/YoloDetect.cpp
+#        algorithm_product/product.h
 #
 #        interface/face_interface.h interface/face_interface.cpp
-        interface/face_interface_thread.h interface/face_interface_thread.cpp
+#        interface/face_interface_thread.h
+        interface/face_interface_thread.cpp
 
-        algorithm_factory/infer.h algorithm_factory/Infer.cpp
-#        algorithm_factory/factory.h algorithm_factory/factory.cpp
-        algorithm_factory/selfDataType.hpp
-        builder/trt_builder.cpp builder/trt_builder.h
+#        base_infer/infer.h
+        base_infer/trt_infer.cpp
+#        base_infer/factory.h base_infer/factory.cpp
+        base_infer/selfDataType.hpp
+        builder/trt_builder.cpp
+#        builder/trt_builder.h
         )
 
 # 为库或二进制可执行文件添加库链接，要用在add_executable之后,target是指通

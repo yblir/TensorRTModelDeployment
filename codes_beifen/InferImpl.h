@@ -82,15 +82,15 @@ public:
 
     int postProcess(BaseParam &param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override {};
 
-    void inferPre(BaseParam &curParam, Infer *curFunc);
-    void inferTrt(BaseParam &curParam);
-    void inferPost(BaseParam &curParam, Infer *curFunc);
+    void trtPre(BaseParam &curParam, Infer *curFunc);
+    void trtInfer(BaseParam &curParam);
+    void trtPost(BaseParam &curParam, Infer *curFunc);
 
 //    void inferPreBatch(BaseParam &curParam);
 //    void inferTrtBatch(BaseParam &curParam);
 //    void inferPostBatch(BaseParam &curParam, Infer *curFunc);
 
-    bool startUpThread(BaseParam &curParam, Infer &curFunc);
+    bool startThread(BaseParam &curParam, Infer &curFunc);
 //    bool startUpThreadBatch(BaseParam &param, Infer &curFunc);
 private:
     std::mutex lock_;

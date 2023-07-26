@@ -11,7 +11,8 @@
 #include <filesystem>
 #include <opencv2/opencv.hpp>
 
-#include "../algorithm_factory/selfDataType.hpp"
+#include "../base_infer/infer.h"
+#include "../base_infer/selfDataType.hpp"
 
 //传入输入图片文件夹路径, 和空字符串vector,返回vector,存储文件夹中所有所有图片路径
 void getImageMatFromPath(const std::filesystem::path &imageDirPath, std::vector<cv::Mat> &matVector);
@@ -19,6 +20,9 @@ void getImagePath(const std::filesystem::path &imageDirPath, std::vector<std::st
 
 // 通用函数,所有推理引擎都可使用. 传入基础参数,获得拼接后引擎文件名和输出路径, 与onnx文件在同一目录下
 std::string getEnginePath(const BaseParam &param);
+
+//加载算法so文件
+Infer *loadDynamicLibrary(const std::string &soPath);
 
 //BGR->RGB, 有更简单的opencv函数可供使用,手动的转换有必要吗?
 void BGR2RGB(const cv::Mat &image, float *pinInput);
