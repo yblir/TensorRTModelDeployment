@@ -13,6 +13,7 @@ struct YoloFaceParam : public BaseParam {
     float scoreThresh = 0.5;   //!> 人脸框检测置信度阈值
     float iouThresh = 0.3;     //!> 人脸框IOU阈值
     bool useRefine = true;     //!> 是否需要图像旋转 true: 使用旋转优化检测 false: 不使用旋转正常检测
+    std::shared_ptr<Infer> func;
 };
 
 // 检测相关
@@ -20,7 +21,7 @@ struct YoloDetectParam : public BaseParam {
     int classNums = 80;        //!> 检测类别数量
     float scoreThresh = 0.5;   //!> 得分阈值
     float iouThresh = 0.3;     //!> iou框阈值
-
+    std::shared_ptr<Infer> func;
 //    // 将解析的算法配置也当做参数指针呢?
 //    AlgorithmBase *func = nullptr;
 };
@@ -35,6 +36,11 @@ struct YoloDetectParam : public BaseParam {
 struct productParam {
     YoloFaceParam yoloFaceParam;
     YoloDetectParam yoloDetectParam;
+
+    ~productParam() {
+        printf("productParam 执行析构\n");
+    };
+
 };
 
 // todo 现在还不能把so解析处理的方法放到上面parm中. 如果放在子对象YoloDetectParm中,父类方法无法调用,需要强转类型,这样就不能
@@ -44,10 +50,17 @@ struct productParam {
 //    AlgorithmBase *yoloFace;
 //    AlgorithmBase *yoloDetect;
 //};
-struct productFunc {
-    std::shared_ptr<Infer> yoloFace;
-    std::shared_ptr<Infer> yoloDetect;
-};
+//struct productFunc {
+//    std::shared_ptr<Infer> func;
+//    std::shared_ptr<Infer> func;
+//
+//    ~productFunc() {
+//        printf("释放productFunc\n");
+//    }
+//
+//
+//};
+
 // 提取各个模型推理结果, 所有模型推理结果都可存储在三维vector.
 struct productResult : public ResultBase {
 //  一张图片中每个预测项std::vector<float>存储, 一张图片所有预测项std::vector<std::vector<float>>, 最外层vector代表多张图片

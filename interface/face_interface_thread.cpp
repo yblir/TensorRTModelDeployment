@@ -6,9 +6,12 @@
 
 #include "face_interface_thread.h"
 #include "../utils/box_utils.h"
-#include "../utils/general.h"
+//#include "../utils/general.h"
 
-int initEngine(productParam &param, productFunc &func) {
+
+
+//int initEngine(productParam &param, productFunc &func) {
+int initEngine(productParam &param) {
     //人脸检测模型初始化
 //    if (nullptr == func.yoloFace) {
 //        AlgorithmBase *curAlg = AlgorithmBase::loadDynamicLibrary(
@@ -26,14 +29,14 @@ int initEngine(productParam &param, productFunc &func) {
 //    }
 
     // 其他检测模型初始化
-    if (nullptr == func.yoloDetect) {
+    if (nullptr == param.yoloDetectParam.func) {
         Infer *curAlg = loadDynamicLibrary(
                 "/mnt/e/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
 //                "/mnt/e/GitHub/TensorRTModelDeployment/cmake-build-debug-wsl/dist/lib/libTrtYoloDetect.so"
 //                "/mnt/i/GitHub/TensorRTModelDeployment/cmake-build-debug/dist/lib/libTrtYoloDetect.so"
         );
         if (!curAlg) printf("error");
-        func.yoloDetect = createInfer(param.yoloDetectParam, param.yoloDetectParam.enginePath, *curAlg);
+        param.yoloDetectParam.func= createInfer(param.yoloDetectParam, *curAlg);
     }
 
     return 0;
@@ -56,13 +59,13 @@ int initEngine(productParam &param, productFunc &func) {
 //}
 // productParam &param, productFunc &func, std::vector<std::string> &imgPaths
 // imgPaths图片数量为多少, 就一次性返回多少个输出结果.分批传入图片的逻辑由调用程序控制
-
-std::map<std::string, batchBoxesType> inferEngine(productFunc &func, const InputData &data) {
+//std::map<std::string, batchBoxesType> inferEngine(productFunc &func, const InputData &data) {
+std::map<std::string, batchBoxesType> inferEngine(productParam &param,const InputData &data) {
 //    有可能多个返回结果,或多个返回依次调用,在此使用字典类型格式
     std::map<std::string, batchBoxesType> result;
 
     // 返回目标检测结果
-    auto detectRes = func.yoloDetect->commit(data);
+    auto detectRes = param.yoloDetectParam.func->commit(data);
     result["yoloDetect"] = detectRes.get();
 
 //    InputData data1;
@@ -84,4 +87,8 @@ std::map<std::string, batchBoxesType> inferEngine(productFunc &func, const Input
 ////    if (nullptr != param.yoloDetectParm.engine)
 ////        trtInferProcess(param.yoloDetectParm, func.yoloDetect, mats, out.detectResult);
 //    return 0;
+//}
+
+//int releaseEngine() {
+//    ~productFunc();
 //}

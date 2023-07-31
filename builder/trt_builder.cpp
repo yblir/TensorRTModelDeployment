@@ -18,7 +18,7 @@ bool TRT::compile(
 ) {
     //检查待转换的onnx文件是否存在
     if (!std::filesystem::exists(onnxFilePath)) {
-        std::cout << "path not exist: " << onnxFilePath << std::endl;
+        std::cout << "onnx path not exist: " << onnxFilePath << std::endl;
         return false;
     }
 
@@ -86,7 +86,7 @@ bool TRT::compile(
 std::vector<unsigned char> TRT::loadEngine(const std::string &enginePath) {
     //检查engine文件是否存在
     if (!std::filesystem::exists(enginePath)) {
-        std::cout << "path not exist: " << enginePath << std::endl;
+        std::cout << "engine path not exist: " << enginePath << std::endl;
         return {};
     }
 

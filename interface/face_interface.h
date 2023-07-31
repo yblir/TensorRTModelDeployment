@@ -10,7 +10,7 @@
 #include <opencv2/opencv.hpp>
 //#include "struct_data_type.h"
 //#include "base_interface/ai_img_alg_base.h"
-//#include "../algorithm_product/YoloFace.h"
+//#include "../product/YoloFace.h"
 //#include "../base_infer/factory.h"
 #include "../algorithm_product/product.h"
 #include "../codes_beifen/InferImpl_beifen.h"

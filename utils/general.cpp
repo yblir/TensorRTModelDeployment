@@ -22,9 +22,14 @@ double Timer::timeCount() {
 }
 
 //统计当前时间点与之前任一时间点差值
-double Timer::timeCount(const std::chrono::system_clock::time_point &t1) {
+double Timer::timeCountMs(const std::chrono::system_clock::time_point &t1) {
     useTime = std::chrono::system_clock::now() - t1;
     return useTime.count() * 1000;
+}
+
+double Timer::timeCountS(const std::chrono::system_clock::time_point &t1) {
+    useTime = std::chrono::system_clock::now() - t1;
+    return useTime.count();
 }
 
 //遍历文件夹,返回图片矩阵vector
@@ -74,7 +79,7 @@ std::string getEnginePath(const BaseParam &param) {
     // 检查指定编号的显卡是否正常
     cudaError_t cudaStatus = cudaGetDeviceCount(&num);
     if ((cudaSuccess != cudaStatus) || (num == 0) || (param.gpuId > (num - 1))) {
-        printf("infer device id: %d error or no this gpu.\n", param.gpuId);
+        printf("infer device id:%d, error or no this gpu.\n", param.gpuId);
         return "";
     }
 
@@ -92,15 +97,15 @@ std::string getEnginePath(const BaseParam &param) {
         return "";
     }
 
-    std::string strFp16 = param.mode == Mode::FP16 ? "FP16" : "FP32";
+    std::string mode = param.mode == Mode::FP16 ? "FP16" : "FP32";
 
     // 拼接待构建或加载的引擎路径
-    enginePath = param.onnxPath.substr(0, param.onnxPath.find_last_of('.')) + "_" + gpuName + "_" + strFp16 + ".engine";
+    enginePath = param.onnxPath.substr(0, param.onnxPath.find_last_of('.')) + "_" + gpuName + "_" + mode + ".engine";
 
     return enginePath;
 }
 
-Infer* loadDynamicLibrary(const std::string &soPath) {
+Infer *loadDynamicLibrary(const std::string &soPath) {
     // todo 这里,要判断soPath是不是合法. 并且是文件名时搜索路径
     printf("load dynamic lib: %s\n", soPath.c_str());
     auto soHandle = dlopen(soPath.c_str(), RTLD_NOW);

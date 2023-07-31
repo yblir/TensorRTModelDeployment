@@ -22,7 +22,6 @@ int main(int argc, char *argv[]) {
     */
     // 判断参数个数, 若不为3,终止程序
     auto timer = new Timer();
-    double total;
     if (argc != 3) {
         std::cout << " the number of param is incorrect, must be 3, but now is " << argc << std::endl;
         std::cout << "param format is ./AiSdkDemo gpu_id img_dir_path" << std::endl;
@@ -33,7 +32,7 @@ int main(int argc, char *argv[]) {
     // 外接传入的配置文件,和使用过程中生成的各种路径等
     struct productParam param;
     // 加{},说明创建的对象为nullptr, 存储从动态库解析出来的算法函数和类
-    struct productFunc func{};
+//    struct productFunc func{};
     struct productResult outs;
 //    Handle engine;
 
@@ -52,15 +51,16 @@ int main(int argc, char *argv[]) {
     param.yoloDetectParam.iouThresh = 0.5;
     param.yoloDetectParam.scoreThresh = 0.5;
 
-    int ret = initEngine(param, func);
+//    int ret = initEngine(param, func);
+    int ret = initEngine(param);
     if (ret != 0)
         return ret;
     std::cout << "init ok !" << std::endl;
     // ============================================================================================
 //  公司
-    std::string path1 = "/mnt/d/Datasets/VOCdevkit/voc_test_300/";
+//    std::string path1 = "/mnt/d/Datasets/VOCdevkit/voc_test_300/";
 //    家
-//    std::string path1="/mnt/e/localDatasets/voc/voc_test_100/";
+    std::string path1="/mnt/e/localDatasets/voc/voc_test_100/";
 
     std::filesystem::path imgInputDir(path1);
     std::filesystem::path imgOutputDir(path1 + "output/");
@@ -96,18 +96,13 @@ int main(int argc, char *argv[]) {
 
         if (count >= 5) {
             data.mats = batchImgs;
-//            printf("-----------------------------\n");
-//            data.imgPath=item;
-//            data.mat=cv::imread(item);
-//            data.imgPaths=batch;
             auto tt1 = timer->curTimePoint();
-            curResult = inferEngine(func, data);
-
-            inferTime += timer->timeCount(tt1);
+//            curResult = inferEngine(func, data);
+            curResult = inferEngine(param,data);
+            inferTime += timer->timeCountS(tt1);
             int j = 0;
 
             auto yoloRes = curResult["yoloDetect"];
-//            printf("5555\n");
             auto tb = timer->curTimePoint();
             for (auto &out: yoloRes) {
                 if (out.empty()) {
@@ -121,11 +116,10 @@ int main(int argc, char *argv[]) {
                     drawImage(img, box);
                 }
                 // 把画好框的图片写入本地
-//                std::string drawName = "draw" + std::to_string(i++) + ".jpg";
                 cv::imwrite(imgOutputDir / batch[j].substr(batch[j].find_last_of('/') + 1), img);
                 j++;
             }
-            hua += timer->timeCount(tb);
+            hua += timer->timeCountS(tb);
             batch.clear();
             batchImgs.clear();
             count = 0;
@@ -133,8 +127,8 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    total1 = timer->timeCount(t8);
-    printf("right over! %.2f, %.2f,  %.2f\n", inferTime, total1, hua);
+    total1 = timer->timeCountS(t8);
+    printf("right over! %.3f s, %.3f s,  %.3f s\n", inferTime, total1, hua);
     return 0;
 }
 

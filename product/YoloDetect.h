@@ -8,6 +8,7 @@
 #include "../base_infer/infer.h"
 #include "../utils/box_utils.h"
 #include "../utils/general.h"
+#include "product.h"
 
 class YoloDetect : public Infer {
 public:

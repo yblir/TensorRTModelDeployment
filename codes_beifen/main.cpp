@@ -17,7 +17,7 @@
 #include "interface/face_interface.h"
 //#include "file_base.h"
 #include "algorithm_factory/struct_data_type.h"
-//#include "algorithm_product/product.h"
+//#include "product/product.h"
 #include "utils/general.h"
 #include "utils/box_utils.h"
 

@@ -3,7 +3,7 @@
 //
 
 #include "YoloDetect.h"
-#include "product.h"
+//#include "product.h"
 
 //extern "C" AlgorithmBase *MakeAlgorithm(void) {
 //    AlgorithmBase *curProduct = new YoloDetect;

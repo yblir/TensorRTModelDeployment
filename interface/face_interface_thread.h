@@ -13,7 +13,7 @@
 #include "opencv2/cudawarping.hpp"
 #include "opencv2/cudaarithm.hpp"
 
-#include "../algorithm_product/product.h"
+#include "../product/product.h"
 #include "../base_infer/infer.h"
 
 //#define checkRuntime(op) check_cuda_runtime((op),#op,__FILE__,__LINE__)
@@ -22,17 +22,20 @@ using Handle = void *;
 
 //bool check_cuda_runtime(cudaError_t code, const char *op, const char *file, int line);
 
+// 加{},说明创建的对象为nullptr, 存储从动态库解析出来的算法函数和类
 // 初始化过程中,各个模型都会用到的通用步骤
 //int initCommon(BaseParam &confSpecific, class AlgorithmBase *funcSpecific);
 
 // 测试重构一下?
-int inferEngine(productParam &param, productFunc &func, std::vector<cv::Mat> &images, int &res_num);
-int initEngine(productParam &param, productFunc &func);
+//int inferEngine(productParam &param, productFunc &func, std::vector<cv::Mat> &images, int &res_num);
+//int initEngine(productParam &param, productFunc &func);
+extern "C" int initEngine(productParam &param);
 //int inferEngine(productParam &param, productFunc &func, std::vector<cv::Mat> &mats, productResult &out);
 //int inferEngine(productParam &param, productFunc &func, std::vector<cv::cuda::GpuMat> &matVector, productResult out);
 //int inferEngine(productParam &param, productFunc &func, std::vector<std::string> &imgPaths, productResult &out);
 
-std::map<std::string, batchBoxesType> inferEngine(productFunc &func, const InputData &data);
+extern "C" std::map<std::string, batchBoxesType> inferEngine(productParam &param, const InputData &data);
+//std::map<std::string, batchBoxesType> inferEngine(const InputData &data);
 
 //std::map<std::string, batchBoxesType> inferEngine(productParam &param, productFunc &func, std::string &imgPath);
 //std::map<std::string, batchBoxesType> inferEngine(productParam &param, productFunc &func, std::vector<std::string> &imgPaths);

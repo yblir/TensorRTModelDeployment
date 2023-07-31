@@ -218,7 +218,7 @@ void InferImpl::trtPre(BaseParam &curParam, Infer *curFunc) {
             // 小于一个batch,不再往下继续.
             if (countPre < curParam.batchSize) continue;
 
-            totalTime += timer.timeCount(preTime);
+            totalTime += timer.timeCountS(preTime);
             //若全部在gpu上操作,不需要这句复制
             checkRuntime(cudaMemcpyAsync(gpuIn[index], pinMemoryIn, mallocSize, cudaMemcpyHostToDevice, preStream));
             job.inputTensor = gpuIn[index];
@@ -243,7 +243,7 @@ void InferImpl::trtPre(BaseParam &curParam, Infer *curFunc) {
 
         // 所有图片处理完,处理不满足一个batchSize的情况
         if (countPre != 0 && countPre < curParam.batchSize) {
-            totalTime += timer.timeCount(preTime);
+            totalTime += timer.timeCountS(preTime);
             checkRuntime(cudaMemcpy(gpuIn[index], pinMemoryIn, countPre * inputSize * sizeof(float), cudaMemcpyHostToDevice));
             job.inputTensor = gpuIn[index];
             job.inferNum = countPre;
@@ -261,7 +261,8 @@ void InferImpl::trtPre(BaseParam &curParam, Infer *curFunc) {
     preFinish = true;
     // 唤醒trt线程,告知预处理线程已结束
     cv_.notify_all();
-    printf("pre   use time: %.2f ms\n", totalTime);
+//    printf("pre   use time: %.2f ms\n", totalTime);
+    printf("pre   use time: %.3f s\n", totalTime);
 }
 
 // 适用于模型推理的通用trt流程
@@ -284,7 +285,7 @@ void InferImpl::trtInfer(BaseParam &curParam) {
             job = qJobs.front();
             qJobs.pop();
         }
-        // 消费掉一个元素,通知队列跳出等待,继续生产
+        // 消费掉一个元素,通知队列跳出等待,向qJob继续写入一个batch的待推理数据
         cv_.notify_all();
 
         auto qT1 = timer.curTimePoint();
@@ -299,7 +300,7 @@ void InferImpl::trtInfer(BaseParam &curParam) {
         index2 = index2 >= 1 ? 0 : index2 + 1;
 
         cudaStreamSynchronize(inferStream);
-        totalTime += timer.timeCount(qT1);
+        totalTime += timer.timeCountS(qT1);
 
         // 流同步后,获取该batchSize推理结果
         {
@@ -310,10 +311,12 @@ void InferImpl::trtInfer(BaseParam &curParam) {
         }
         cv_.notify_all();
     }
+    // 在post后处理线程中判断,所有推理流程是否结束,然后决定是否结束后处理线程
     inferFinish = true;
-    //告知post线程,推理线程已结束
+    //告知post后处理线程,推理线程已结束
     cv_.notify_all();
-    printf("infer use time: %.2f ms\n", totalTime);
+//    printf("infer use time: %.2f ms\n", totalTime);
+    printf("infer use time: %.3f s\n", totalTime);
 }
 
 void InferImpl::trtPost(BaseParam &curParam, Infer *curFunc) {
@@ -364,9 +367,10 @@ void InferImpl::trtPost(BaseParam &curParam, Infer *curFunc) {
             flag = true;
             batchBoxes.clear();
         }
-        totalTime += timer.timeCount(qT1);
+        totalTime += timer.timeCountS(qT1);
     }
-    printf("post  use time: %.2f ms\n", totalTime);
+//    printf("post  use time: %.2f ms\n", totalTime);
+    printf("post  use time: %.3f s\n", totalTime);
 
 }
 
@@ -460,7 +464,7 @@ InferImpl::~InferImpl() {
 //    printf("析构函数\n");
 }
 
-std::shared_ptr<Infer> createInfer(BaseParam &curParam, const std::string &enginePath, Infer &curFunc) {
+std::shared_ptr<Infer> createInfer(BaseParam &curParam, Infer &curFunc) {
 //    如果创建引擎不成功就reset
     if (!InferImpl::getEngineContext(curParam)) {
         printf("getEngineContext fail\n");
