@@ -15,11 +15,13 @@
 
 #include "../product/product.h"
 #include "../base_infer/infer.h"
-
+#include "../product/YoloDetect.h"
 //#define checkRuntime(op) check_cuda_runtime((op),#op,__FILE__,__LINE__)
 
 using Handle = void *;
 
+// 定义全局变量
+//extern productParam param;
 //bool check_cuda_runtime(cudaError_t code, const char *op, const char *file, int line);
 
 // 加{},说明创建的对象为nullptr, 存储从动态库解析出来的算法函数和类
@@ -29,12 +31,15 @@ using Handle = void *;
 // 测试重构一下?
 //int inferEngine(productParam &param, productFunc &func, std::vector<cv::Mat> &images, int &res_num);
 //int initEngine(productParam &param, productFunc &func);
-extern "C" int initEngine(productParam &param);
+//extern "C" int initEngine(productParam &param);
+extern "C" int initEngine(Handle &engine, externalParam &inputParam);
+//extern "C" int initEngine(externalParam &param);
 //int inferEngine(productParam &param, productFunc &func, std::vector<cv::Mat> &mats, productResult &out);
 //int inferEngine(productParam &param, productFunc &func, std::vector<cv::cuda::GpuMat> &matVector, productResult out);
 //int inferEngine(productParam &param, productFunc &func, std::vector<std::string> &imgPaths, productResult &out);
 
-extern "C" std::map<std::string, batchBoxesType> inferEngine(productParam &param, const InputData &data);
+//extern "C" std::map<std::string, batchBoxesType> inferEngine(productParam &param, const InputData &data);
+extern "C" int  inferEngine(Handle &engine, const InputData &data);
 //std::map<std::string, batchBoxesType> inferEngine(const InputData &data);
 
 //std::map<std::string, batchBoxesType> inferEngine(productParam &param, productFunc &func, std::string &imgPath);
@@ -44,7 +49,7 @@ extern "C" std::map<std::string, batchBoxesType> inferEngine(productParam &param
 //std::map<std::string, batchBoxesType> inferEngine(productParam &param, productFunc &func, cv::cuda::GpuMat &gpuMat);
 //std::map<std::string, batchBoxesType> inferEngine(productParam &param, productFunc &func, std::vector<cv::cuda::GpuMat> &gpuMats);
 
-int releaseEngine(Handle engine);
+extern "C" int releaseEngine(Handle &engine);
 
 int getResult(productParam &param, productResult &out);
 

@@ -23,36 +23,47 @@ int main(int argc, char *argv[]) {
     // 判断参数个数, 若不为3,终止程序
     auto timer = new Timer();
     if (argc != 3) {
-        std::cout << " the number of param is incorrect, must be 3, but now is " << argc << std::endl;
-        std::cout << "param format is ./AiSdkDemo gpu_id img_dir_path" << std::endl;
+        std::cout << " the number of engine is incorrect, must be 3, but now is " << argc << std::endl;
+        std::cout << "engine format is ./AiSdkDemo gpu_id img_dir_path" << std::endl;
         return -1;
     }
 
     // =====================================================================
     // 外接传入的配置文件,和使用过程中生成的各种路径等
-    struct productParam param;
+//    struct productParam engine;
     // 加{},说明创建的对象为nullptr, 存储从动态库解析出来的算法函数和类
 //    struct productFunc func{};
     struct productResult outs;
 //    Handle engine;
-
+    struct externalParam inputParam;
 //    conf.yoloConfig.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/face_detect_v0.5_b17e5c7577192da3d3eb6b4bb850f8e_1out.onnx";
 //    conf.yoloConfig.gpuId = int(strtol(argv[1], nullptr, 10));
 
-//    param.yoloDetectParam.onnxPath = "/mnt/i/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
-    param.yoloDetectParam.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
-    param.yoloDetectParam.gpuId = int(strtol(argv[1], nullptr, 10));
-//    param.yoloDetectParam.gpuId = int(strtol(argv[1], nullptr, 10));
-    param.yoloDetectParam.batchSize = 2;
-    param.yoloDetectParam.inputHeight = 640;
-    param.yoloDetectParam.inputWidth = 640;
-    param.yoloDetectParam.inputName = "images";
-    param.yoloDetectParam.outputName = "output";
-    param.yoloDetectParam.iouThresh = 0.5;
-    param.yoloDetectParam.scoreThresh = 0.5;
+//    engine.yoloDetectParam.onnxPath = "/mnt/i/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
 
-//    int ret = initEngine(param, func);
-    int ret = initEngine(param);
+//    engine.yoloDetectParam.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
+    std::string p1 = "/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
+    strcpy(inputParam.onnxPath, p1.c_str());
+    inputParam.gpuId = 0;
+//    engine.yoloDetectParam.gpuId = int(strtol(argv[1], nullptr, 10));
+////    engine.yoloDetectParam.gpuId = int(strtol(argv[1], nullptr, 10));
+    inputParam.batchSize = 2;
+    inputParam.inputHeight = 640;
+    inputParam.inputWidth = 640;
+    std::string n1 = "images";
+    strcpy(inputParam.inputName, n1.c_str());
+//    engine.yoloDetectParam.inputName = "images";
+    std::string n2 = "output";
+    strcpy(inputParam.outputName, n2.c_str());
+//    engine.yoloDetectParam.outputName = "output";
+    inputParam.iouThresh = 0.5;
+    inputParam.scoreThresh = 0.5;
+
+//    int ret = initEngine(engine, func);
+//    int ret = initEngine(engine);
+    Handle engine;
+    int ret = initEngine(engine, inputParam);
+//    int ret = initEngine(input_param);
     if (ret != 0)
         return ret;
     std::cout << "init ok !" << std::endl;
@@ -98,7 +109,9 @@ int main(int argc, char *argv[]) {
             data.mats = batchImgs;
             auto tt1 = timer->curTimePoint();
 //            curResult = inferEngine(func, data);
-            curResult = inferEngine(param,data);
+//            curResult = inferEngine(engine,data);
+//            todo 在inferEngine中加入存储结果的结构体,获取结果
+            int a = inferEngine(engine, data);
             inferTime += timer->timeCountS(tt1);
             int j = 0;
 
@@ -129,6 +142,7 @@ int main(int argc, char *argv[]) {
 
     total1 = timer->timeCountS(t8);
     printf("right over! %.3f s, %.3f s,  %.3f s\n", inferTime, total1, hua);
+    releaseEngine(engine);
     return 0;
 }
 

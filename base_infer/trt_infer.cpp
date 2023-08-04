@@ -126,7 +126,7 @@ bool InferImpl::getEngineContext(BaseParam &curParam) {
 unsigned long InferImpl::getInputNums(const InputData &data) {
     unsigned long len = 0;
 
-    if (!data.mat.empty() || !data.imgPath.empty() || !data.gpuMat.empty()) len = 1;
+    if (!data.mat.empty() || !std::string(data.imgPath).empty() || !data.gpuMat.empty()) len = 1;
     else if (!data.mats.empty()) len = data.mats.size();
     else if (!data.imgPaths.empty()) len = data.imgPaths.size();
     else if (!data.gpuMats.empty()) len = data.gpuMats.size();

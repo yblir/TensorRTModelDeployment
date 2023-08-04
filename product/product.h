@@ -80,4 +80,25 @@ struct MemoryStorage {
     float *gpuMemoryOut = nullptr;
 };
 
+// 从ctypes中传入的参数
+struct externalParam{
+    int classNums = 80;        //!> 检测类别数量
+    float scoreThresh = 0.5;   //!> 得分阈值
+    float iouThresh = 0.3;     //!> iou框阈值
+    int gpuId = 0;
+    int batchSize = 1;
+
+    // 指定推理/模型输入高宽
+    int inputHeight{};
+    int inputWidth{};
+
+//    std::string onnxPath;
+//    // 推理时需要指定的输入输出节点名, 生成onnx文件时指定的输入输出名
+//    std::string inputName;
+//    std::string outputName;
+
+    char onnxPath[256]{};
+    char inputName[256]{};
+    char outputName[256]{};
+};
 #endif //TENSORRT_PRO_PRODUCT_H

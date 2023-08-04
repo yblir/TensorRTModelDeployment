@@ -71,6 +71,7 @@ struct ResultBase {
 struct InputData {
 //    传入推理数据为单张或多张图片路径
     std::string imgPath;
+//    char imgPath[256];
     std::vector<std::string> imgPaths;
 //    传入推理数据为单个或多个图片矩阵
     cv::Mat mat;
