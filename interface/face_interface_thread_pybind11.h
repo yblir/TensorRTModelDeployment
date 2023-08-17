@@ -15,6 +15,7 @@
 #include "opencv2/cudaarithm.hpp"
 
 #include "pybind11/pybind11.h"
+#include "pybind11/numpy.h"
 
 #include "../product/product.h"
 #include "../base_infer/infer.h"
@@ -28,10 +29,14 @@ class Engine {
 public:
     int initEngine(ManualParam &inputParam);
 
-    std::map<std::string, batchBoxesType> inferEngine(const InputData &data);
+//    std::map<std::string, batchBoxesType> inferEngine(const InputData &data);
 
-    std::map<std::string, batchBoxesType> inferEngine(const std::string &imagePath);
-    std::map<std::string, batchBoxesType> inferEngine(const std::vector<std::string> &imagePaths);
+    std::map<std::string, batchBoxesType> inferEngine(const std::string &imgPath);
+    std::map<std::string, batchBoxesType> inferEngine(const std::vector<std::string> &imgPaths);
+
+    std::map<std::string, batchBoxesType> inferEngine(const pybind11::array &img);
+    std::map<std::string, batchBoxesType> inferEngine(const std::vector<pybind11::array> &imgs);
+
     std::map<std::string, batchBoxesType> inferEngine(const cv::Mat &mat);
     std::map<std::string, batchBoxesType> inferEngine(const std::vector<cv::Mat> &mats);
 

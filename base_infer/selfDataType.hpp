@@ -94,8 +94,6 @@ struct futureJob {
     //取得是后处理后的结果
     std::shared_ptr<std::promise<batchBoxesType>> batchResult;
 
-    std::string imgPath;
-    std::vector<std::string> imgPaths;
     cv::Mat image;
     std::vector<cv::Mat> images;
     cv::cuda::GpuMat gpuImage;
