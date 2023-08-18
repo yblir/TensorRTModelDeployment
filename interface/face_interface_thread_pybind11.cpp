@@ -45,56 +45,42 @@ int Engine::initEngine(ManualParam &inputParam) {
     return 0;
 }
 
-
-//std::map<std::string, batchBoxesType> Engine::inferEngine(const InputData &data) {
-//
-////    有可能多个返回结果,或多个返回依次调用,在此使用字典类型格式
-//    std::map<std::string, batchBoxesType> result;
-//
-//    // 返回目标检测结果
-//    auto detectRes = param->yoloDetectParam.func->commit(data);
-//    result["yolo"] = detectRes.get();
-//
-////    InputData data1;
-////    data1.gpuMats = detectRes;
-////
-////    auto faceRes = func.yoloFace->commit(data1);
-////    result["yoloFace"] = faceRes;
-//
-//
-//    return result;
-//}
-
 std::map<std::string, batchBoxesType> Engine::inferEngine(const std::string &imgPath) {
-    cv::Mat mat = cv::imread(imgPath);
 //    有可能多个返回结果, 或多个返回依次调用, 在此使用字典类型格式
     std::map<std::string, batchBoxesType> result;
-    result = inferEngine(mat);
+    std::vector<cv::Mat> mats;
+    mats.emplace_back(cv::imread(imgPath));
+
+    result = inferEngine(mats);
     return result;
 }
 
 std::map<std::string, batchBoxesType> Engine::inferEngine(const std::vector<std::string> &imgPaths) {
+//    有可能多个返回结果, 或多个返回依次调用, 在此使用字典类型格式
+    std::map<std::string, batchBoxesType> result;
 //    将读入的所有图片路径转为cv::Mat格式
     std::vector<cv::Mat> mats;
+
     for (auto &imgPath: imgPaths) {
         mats.emplace_back(cv::imread(imgPath));
     }
 
-//    有可能多个返回结果, 或多个返回依次调用, 在此使用字典类型格式
-    std::map<std::string, batchBoxesType> result;
     result = inferEngine(mats);
+
     return result;
 }
 
 std::map<std::string, batchBoxesType> Engine::inferEngine(const pybind11::array &img) {
-//    array转成cv::Mat格式
-    cv::Mat mat(img.shape(0), img.shape(1), CV_8UC3, (unsigned char *) img.data(0));
 //    有可能多个返回结果, 或多个返回依次调用, 在此使用字典类型格式
     std::map<std::string, batchBoxesType> result;
     std::vector<cv::Mat> mats;
+
+//    array转成cv::Mat格式
+    cv::Mat mat(img.shape(0), img.shape(1), CV_8UC3, (unsigned char *) img.data(0));
     mats.emplace_back(mat);
 
     result = inferEngine(mats);
+
     return result;
 }
 
@@ -110,27 +96,13 @@ std::map<std::string, batchBoxesType> Engine::inferEngine(const std::vector<pybi
     return result;
 }
 
-//std::map<std::string, batchBoxesType> Engine::inferEngine(const cv::Mat &mat) {
-////    有可能多个返回结果, 或多个返回依次调用, 在此使用字典类型格式
-//    std::map<std::string, batchBoxesType> result;
-////    返回目标检测结果
-//    auto detectRes = param->yoloDetectParam.func->commit(mat);
-//    result["yolo"] = detectRes.get();
-//
-////    InputData data1;
-////    data1.gpuMats = detectRes;
-////
-////    auto faceRes = func.yoloFace->commit(data1);
-////    result["yoloFace"] = faceRes;
-//    return result;
-//}
-
 std::map<std::string, batchBoxesType> Engine::inferEngine(const std::vector<cv::Mat> &mats) {
 //    有可能多个返回结果, 或多个返回依次调用, 在此使用字典类型格式
     std::map<std::string, batchBoxesType> result;
+    data.mats=mats;
 //    返回目标检测结果
-    auto detectRes = param->yoloDetectParam.func->commit(mats);
-    result["yolo"] = detectRes.get();
+    auto futureResult = param->yoloDetectParam.func->commit(data);
+    result["yolo"] = futureResult;
 
 //    InputData data1;
 //    data1.gpuMats = detectRes;

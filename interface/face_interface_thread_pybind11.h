@@ -37,13 +37,14 @@ public:
     std::map<std::string, batchBoxesType> inferEngine(const pybind11::array &img);
     std::map<std::string, batchBoxesType> inferEngine(const std::vector<pybind11::array> &imgs);
 
-    std::map<std::string, batchBoxesType> inferEngine(const cv::Mat &mat);
+//    std::map<std::string, batchBoxesType> inferEngine(const cv::Mat &mat);
     std::map<std::string, batchBoxesType> inferEngine(const std::vector<cv::Mat> &mats);
 
     int releaseEngine();
 
 private:
     productParam *param;
+    InputData data;
 };
 
 #endif //FACEFEATUREDETECTOR_REBUILD_FACE_INTERFACE_H

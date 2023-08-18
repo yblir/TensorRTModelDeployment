@@ -3,12 +3,7 @@
 //
 
 #include "YoloDetect.h"
-//#include "product.h"
 
-//extern "C" AlgorithmBase *MakeAlgorithm(void) {
-//    AlgorithmBase *curProduct = new YoloDetect;
-//    return curProduct;
-//}
 extern "C" Infer *MakeAlgorithm(void) {
     Infer *curProduct = new YoloDetect;
     return curProduct;
