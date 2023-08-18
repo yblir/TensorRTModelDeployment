@@ -9,12 +9,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # 工程名tensorRT_Pro, 支持语言是cuda和c++
 project(TensorRTModelDeployment)
 
-add_subdirectory(extern/pybind11)
-pybind11_add_module(TensorRTModelDeployment main_thread.cpp)
+add_subdirectory(pybind11)
 
 # -O0:编译时不优化代码 -fPIC:产生的代码中，没有绝对地址，全部使用相对地址
 # std=c++11 -Wall: 编译后显示所有警告 -g: 使用gcc生成调试信息 -pthrad: 
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -O0 -fPIC -pthread -g -std=c++11")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -O0 -fPIC -pthread -g -std=c++11")
 # 有Debug,Release两个选择. Release 有多一些优化?
 #set(CMAKE_BUILD_TYPE "Debug")
 
@@ -48,10 +47,17 @@ set(i1 /usr/local/TensorRT-8.6.1.6/targets/x86_64-linux-gnu/lib/libnvonnxparser.
 set(i2 /usr/local/TensorRT-8.6.1.6/targets/x86_64-linux-gnu/lib/libnvinfer.so)
 
 # 去哪里找库文件 .so/.lib/.ddl
-link_directories()
+#link_directories()
 
-#add_subdirectory(product)
-#add_subdirectory(extern/pybind11)
+add_subdirectory(product)
+
+pybind11_add_module(deployment interface/face_interface_thread_pybind11.cpp
+#        ${DEP_LIBS}
+        ${CUDA_LIBRARIES}
+        ${CUDART_LIBRARIES} ${OpenCV_LIBRARIES} ${i1} ${i2} ${CMAKE_DL_LIBS}
+#        opencv_core opencv_imgcodecs opencv_imgproc opencv_videoio
+#        opencv_cudaarithm opencv_cudawarping opencv_cudaimgproc opencv_highgui
+        )
 #pybind11_add_module(tryPybind main_thread.cpp)
 
 ## 定义了这个工程会生成一个文件名为run 的可执行文件，相关的源文件是mian.cpp

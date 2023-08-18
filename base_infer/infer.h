@@ -29,7 +29,7 @@ public:
 //    virtual std::shared_future<batchBoxesType> commit(const std::vector<cv::Mat> &mats) {};
 //    virtual std::shared_future<batchBoxesType> commit(const std::vector<cv::cuda::GpuMat> &mats) {};
 
-    virtual std::shared_future<batchBoxesType> commit(const InputData &data) {};
+    virtual std::shared_future<batchBoxesType> commit(const InputData *data) {};
 
     virtual int preProcess(BaseParam &param, cv::Mat &image, float *pinMemoryCurrentIn) = 0;
     virtual int postProcess(BaseParam &param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) = 0;

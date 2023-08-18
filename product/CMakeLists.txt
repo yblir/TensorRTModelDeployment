@@ -20,7 +20,7 @@ ADD_LIBRARY(TrtYoloDetect SHARED ${DIR_LIB_SRCS}
         ../base_infer/trt_infer.cpp
         ../utils/general.h ../utils/general.cpp ../utils/box_utils.h ../utils/box_utils.cpp
         ../base_infer/selfDataType.hpp
-        ../interface/face_interface.h ../interface/face_interface_thread.cpp
+#        ../interface/face_interface.h ../interface/face_interface_thread.cpp
         ../builder/trt_builder.cpp ../builder/trt_builder.h
         )
 #TARGET_LINK_LIBRARIES(TrtFaceYolo

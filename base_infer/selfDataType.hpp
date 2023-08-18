@@ -16,6 +16,7 @@
 #include <future>
 
 using batchBoxesType = std::vector <std::vector<std::vector < float>>>;
+using futureBoxes = std::shared_future<std::vector<std::vector<std::vector<float>>>>;
 
 enum class Mode : int {
     FP32,
@@ -82,8 +83,8 @@ struct futureJob {
     //取得是后处理后的结果
     std::shared_ptr <std::promise<batchBoxesType>> batchResult;
 
-    std::vector <cv::Mat> images;
-    std::vector <cv::cuda::GpuMat> gpuImages;
+    std::vector <cv::Mat> mats;
+    std::vector <cv::cuda::GpuMat> gpuMats;
 };
 
 // 推理输出

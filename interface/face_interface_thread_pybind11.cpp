@@ -45,9 +45,9 @@ int Engine::initEngine(ManualParam &inputParam) {
     return 0;
 }
 
-std::map<std::string, batchBoxesType> Engine::inferEngine(const std::string &imgPath) {
+std::map<std::string, futureBoxes> Engine::inferEngine(const std::string &imgPath) {
 //    有可能多个返回结果, 或多个返回依次调用, 在此使用字典类型格式
-    std::map<std::string, batchBoxesType> result;
+    std::map<std::string, futureBoxes> result;
     std::vector<cv::Mat> mats;
     mats.emplace_back(cv::imread(imgPath));
 
@@ -55,9 +55,9 @@ std::map<std::string, batchBoxesType> Engine::inferEngine(const std::string &img
     return result;
 }
 
-std::map<std::string, batchBoxesType> Engine::inferEngine(const std::vector<std::string> &imgPaths) {
+std::map<std::string, futureBoxes> Engine::inferEngine(const std::vector<std::string> &imgPaths) {
 //    有可能多个返回结果, 或多个返回依次调用, 在此使用字典类型格式
-    std::map<std::string, batchBoxesType> result;
+    std::map<std::string, futureBoxes> result;
 //    将读入的所有图片路径转为cv::Mat格式
     std::vector<cv::Mat> mats;
 
@@ -70,9 +70,9 @@ std::map<std::string, batchBoxesType> Engine::inferEngine(const std::vector<std:
     return result;
 }
 
-std::map<std::string, batchBoxesType> Engine::inferEngine(const pybind11::array &img) {
+std::map<std::string, futureBoxes> Engine::inferEngine(const pybind11::array &img) {
 //    有可能多个返回结果, 或多个返回依次调用, 在此使用字典类型格式
-    std::map<std::string, batchBoxesType> result;
+    std::map<std::string, futureBoxes> result;
     std::vector<cv::Mat> mats;
 
 //    array转成cv::Mat格式
@@ -84,9 +84,9 @@ std::map<std::string, batchBoxesType> Engine::inferEngine(const pybind11::array 
     return result;
 }
 
-std::map<std::string, batchBoxesType> Engine::inferEngine(const std::vector<pybind11::array> &imgs) {
+std::map<std::string, futureBoxes> Engine::inferEngine(const std::vector<pybind11::array> &imgs) {
 //    有可能多个返回结果, 或多个返回依次调用, 在此使用字典类型格式
-    std::map<std::string, batchBoxesType> result;
+    std::map<std::string, futureBoxes> result;
 //    将读入的所有图片路径转为cv::Mat格式
     std::vector<cv::Mat> mats;
     for (auto &img: imgs)
@@ -96,12 +96,13 @@ std::map<std::string, batchBoxesType> Engine::inferEngine(const std::vector<pybi
     return result;
 }
 
-std::map<std::string, batchBoxesType> Engine::inferEngine(const std::vector<cv::Mat> &mats) {
+std::map<std::string, futureBoxes> Engine::inferEngine(const std::vector<cv::Mat> &mats) {
 //    有可能多个返回结果, 或多个返回依次调用, 在此使用字典类型格式
-    std::map<std::string, batchBoxesType> result;
-    data.mats=mats;
+    std::map<std::string, futureBoxes> result;
+    data->mats=mats;
 //    返回目标检测结果
     auto futureResult = param->yoloDetectParam.func->commit(data);
+    // 对返回的结果进行.get()操作,可获得结果
     result["yolo"] = futureResult;
 
 //    InputData data1;
@@ -114,6 +115,7 @@ std::map<std::string, batchBoxesType> Engine::inferEngine(const std::vector<cv::
 
 int Engine::releaseEngine() {
     delete param;
+    delete data;
 }
 
 PYBIND11_MODULE(deployment, m) {

@@ -61,15 +61,15 @@ struct productParam {
 //
 //};
 
-// 提取各个模型推理结果, 所有模型推理结果都可存储在三维vector.
-struct productResult : public ResultBase {
-//  一张图片中每个预测项std::vector<float>存储, 一张图片所有预测项std::vector<std::vector<float>>, 最外层vector代表多张图片
-    // yolo通用检测结果
-    std::vector<std::vector<std::vector<float>>> detectResult;
-    // yolo人脸检测结果
-    std::vector<std::vector<std::vector<float>>> faceResult;
-
-};
+//// 提取各个模型推理结果, 所有模型推理结果都可存储在三维vector.
+//struct productResult : public ResultBase {
+////  一张图片中每个预测项std::vector<float>存储, 一张图片所有预测项std::vector<std::vector<float>>, 最外层vector代表多张图片
+//    // yolo通用检测结果
+//    std::vector<std::vector<std::vector<float>>> detectResult;
+//    // yolo人脸检测结果
+//    std::vector<std::vector<std::vector<float>>> faceResult;
+//
+//};
 
 // 该字段只在face_interface.cpp中使用, 在初始化阶段initEngine记录开辟的推理/后处理空间
 struct MemoryStorage {
