@@ -36,7 +36,8 @@ public:
 };
 
 
-extern "C" std::shared_ptr<Infer> createInfer(BaseParam &param, Infer &curFunc);
+//extern "C" std::shared_ptr<Infer> createInfer(BaseParam &param, Infer &curFunc);
+std::shared_ptr<Infer> createInfer(BaseParam &param, Infer &curFunc);
 
 typedef Infer *(*CreateAlgorithm)();
 

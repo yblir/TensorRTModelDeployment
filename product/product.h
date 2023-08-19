@@ -100,5 +100,8 @@ struct ManualParam{
 //    char onnxPath[256]{};
 //    char inputName[256]{};
 //    char outputName[256]{};
+//    char *onnxPath{};
+//    char *inputName{};
+//    char *outputName{};
 };
 #endif //TENSORRT_PRO_PRODUCT_H

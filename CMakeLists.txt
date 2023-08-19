@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # 工程名tensorRT_Pro, 支持语言是cuda和c++
-project(TensorRTModelDeployment)
+project(deployment)
 
 add_subdirectory(pybind11)
 
@@ -21,8 +21,16 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -O0 -fPIC -pthread -g -std=c++11")
 # QUIET,查找失败,不会提示,程序继续向下走. REQUIRED,一定要找到,找不到就停止
 # COMPONENTS 一定要找到的组件,找不到就停止
 # find_package(xxx ),会自动生成xxx_FOUND,xxx_DIR,xxx_INCLUDE_DIR,xxx_LIB(链接库路径)等变量
- find_package(CUDA REQUIRED)
- find_package(OpenCV 4.0 QUIET COMPONENTS core imgproc imgcodecs)
+# find_package(CUDA REQUIRED)
+# find_package(OpenCV 4.0 QUIET COMPONENTS core imgproc imgcodecs)
+
+find_package(pybind11 CONFIG)
+find_package(OpenCV REQUIRED)
+
+include_directories(include
+        ${OpenCV_INCLUDE_DIRS}
+        ${pybind11_INCLUDE_DIRS}
+        )
 
 # 指定第三方库所在路径. 官方不建议使用了,建议用find_package()  find_library()
 # 使用三方库三部曲: find_package,include_directories,target_link_libraries
@@ -33,31 +41,53 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -O0 -fPIC -pthread -g -std=c++11")
 # 然后在main函数前写上 #include “opencv/cv.h" 即可
 # SYSTEM 指定目录当成系统的搜索目录 使用AFTER或BEFORE选项来指定是添加到列表的前面或者后面
 include_directories(SYSTEM ${CUDA_INCLUDE_DIRS})
-include_directories(/usr/local/TensorRT-8.6.1.6/include)
-link_directories(/usr/local/TensorRT-8.6.1.6/lib)
-include_directories(/usr/local/cuda-12.1/targets/x86_64-linux/include)
+include_directories(/usr/local/TensorRT-8.5.1.7/include)
+link_directories(/usr/local/TensorRT-8.5.1.7/lib)
+include_directories(/usr/local/cuda-11.6/targets/x86_64-linux/include)
 include_directories(/usr/local/include/opencv4)
 
 # 添加需要链接的库文件路径，注意这里是全路径，要用在add_executable之前
 include_directories(SYSTEM ${CUDA_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS})
+
 # 原始的CUDA_LIBRARIES=/usr/local/cuda/lib64/libcudart_static.adl/usr/lib/x86_64-linux-gnu/librt.s， 这是什么东西？
 set(CUDA_LIBRARIES /usr/lib/wsl/lib/libcuda.so)
-set(CUDART_LIBRARIES /usr/local/cuda-12.1/targets/x86_64-linux/lib/libcudart.so)
-set(i1 /usr/local/TensorRT-8.6.1.6/targets/x86_64-linux-gnu/lib/libnvonnxparser.so)
-set(i2 /usr/local/TensorRT-8.6.1.6/targets/x86_64-linux-gnu/lib/libnvinfer.so)
+set(CUDART_LIBRARIES /usr/local/cuda-11.6/targets/x86_64-linux/lib/libcudart.so)
+set(i1 /usr/local/TensorRT-8.5.1.7/targets/x86_64-linux-gnu/lib/libnvonnxparser.so)
+set(i2 /usr/local/TensorRT-8.5.1.7/targets/x86_64-linux-gnu/lib/libnvinfer.so)
+#set(i3 /usr/local/TensorRT-8.5.1.7/targets/x86_64-linux-gnu/lib)
 
 # 去哪里找库文件 .so/.lib/.ddl
 #link_directories()
 
-add_subdirectory(product)
+#add_subdirectory(product)
+link_directories(/usr/local/TensorRT-8.5.1.7/lib)
 
 pybind11_add_module(deployment interface/face_interface_thread_pybind11.cpp
+        product/YoloDetect.cpp
+        utils/box_utils.cpp
+        utils/general.cpp
+        base_infer/trt_infer.cpp
+        builder/trt_builder.cpp
+#        ${OpenCV_LIBRARIES}
 #        ${DEP_LIBS}
-        ${CUDA_LIBRARIES}
-        ${CUDART_LIBRARIES} ${OpenCV_LIBRARIES} ${i1} ${i2} ${CMAKE_DL_LIBS}
+#        ${CUDA_LIBRARIES}
+#        ${CUDART_LIBRARIES} ${OpenCV_LIBRARIES} ${i1} ${i2} ${CMAKE_DL_LIBS}
 #        opencv_core opencv_imgcodecs opencv_imgproc opencv_videoio
 #        opencv_cudaarithm opencv_cudawarping opencv_cudaimgproc opencv_highgui
         )
+target_link_libraries(deployment PRIVATE pybind11::module
+        ${OpenCV_LIBRARIES} ${pybind11_LIBRARIES}
+        ${CUDA_LIBRARIES} ${CUDART_LIBRARIES}
+        ${i1} ${i2}
+        ${CMAKE_DL_LIBS}
+        opencv_core opencv_imgcodecs opencv_imgproc opencv_videoio
+        opencv_cudaarithm opencv_cudawarping opencv_cudaimgproc opencv_highgui
+        )
+#target_link_libraries(${PROJECT_NAME} PRIVATE
+#        ${OpenCV_LIBRARIES}
+#        pybind11::pybind11
+#        )
+
 #pybind11_add_module(tryPybind main_thread.cpp)
 
 ## 定义了这个工程会生成一个文件名为run 的可执行文件，相关的源文件是mian.cpp
@@ -94,7 +124,11 @@ pybind11_add_module(deployment interface/face_interface_thread_pybind11.cpp
 #        opencv_core opencv_imgcodecs opencv_imgproc opencv_videoio
 #        opencv_cudaarithm opencv_cudawarping opencv_cudaimgproc opencv_highgui
 #        )
-#
+#link_libraries(${DEP_LIBS} ${CUDA_LIBRARIES}
+#        ${CUDART_LIBRARIES} ${OpenCV_LIBRARIES} ${i1} ${i2} ${i3} ${CMAKE_DL_LIBS}
+#        opencv_core opencv_imgcodecs opencv_imgproc opencv_videoio
+#        opencv_cudaarithm opencv_cudawarping opencv_cudaimgproc opencv_highgui
+#        )
 #set(CMAKE_INSTALL_PREFIX ${PROJECT_BINARY_DIR}/dist)
 #
 #INSTALL(TARGETS run RUNTIME DESTINATION .)
