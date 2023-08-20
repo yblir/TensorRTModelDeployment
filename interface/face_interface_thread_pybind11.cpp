@@ -6,40 +6,27 @@
 #include "../product/product.h"
 #include "face_interface_thread_pybind11.h"
 
+#include <iostream>
 
 int Engine::initEngine(ManualParam &inputParam) {
     param = new productParam;
+    data = new InputData;
+
 //    inputParam结构体参数从python中传入
-    printf("0000\n");
-    std::cout << inputParam.iouThresh << std::endl;
-    std::cout << inputParam.scoreThresh << std::endl;
+    param->yoloDetectParam.classNums = inputParam.classNums;
+    param->yoloDetectParam.scoreThresh = inputParam.scoreThresh;
+    param->yoloDetectParam.iouThresh = inputParam.iouThresh;
 
-    printf("0000\n");
-    float a = inputParam.iouThresh;
-    std::cout << a << " = " << a << std::endl;
-    float b = inputParam.scoreThresh;
-    std::cout << b << " = " << b << std::endl;
-    printf("-------------\n");
-
-    param->yoloDetectParam.iouThresh = a;
-    printf("0000\n");
-    param->yoloDetectParam.scoreThresh = b;
-    printf("1111\n");
-    std::string s = inputParam.onnxPath;
-    std::cout << s << "=" << s << std::endl;
-    printf("=============\n");
-    param->yoloDetectParam.onnxPath = inputParam.onnxPath;
-//    strcpy(param->yoloDetectParam.onnxPath, inputParam.onnxPath);
-    printf("22222\n");
     param->yoloDetectParam.gpuId = inputParam.gpuId;
     param->yoloDetectParam.batchSize = inputParam.batchSize;
-    printf("33333\n");
+
     param->yoloDetectParam.inputHeight = inputParam.inputHeight;
     param->yoloDetectParam.inputWidth = inputParam.inputWidth;
+
+    param->yoloDetectParam.onnxPath = inputParam.onnxPath;
     param->yoloDetectParam.inputName = inputParam.inputName;
-    printf("4444\n");
     param->yoloDetectParam.outputName = inputParam.outputName;
-    printf("5555\n");
+
     //人脸检测模型初始化
 //    if (nullptr == func.yoloFace) {
 //        AlgorithmBase *curAlg = AlgorithmBase::loadDynamicLibrary(
@@ -66,9 +53,9 @@ int Engine::initEngine(ManualParam &inputParam) {
     return 0;
 }
 
-std::map<std::string, futureBoxes> Engine::inferEngine(const std::string &imgPath) {
+futureBoxes Engine::inferEngine(const std::string &imgPath) {
 //    有可能多个返回结果, 或多个返回依次调用, 在此使用字典类型格式
-    std::map<std::string, futureBoxes> result;
+    futureBoxes result;
     std::vector<cv::Mat> mats;
     mats.emplace_back(cv::imread(imgPath));
 
@@ -76,9 +63,9 @@ std::map<std::string, futureBoxes> Engine::inferEngine(const std::string &imgPat
     return result;
 }
 
-std::map<std::string, futureBoxes> Engine::inferEngine(const std::vector<std::string> &imgPaths) {
+futureBoxes Engine::inferEngine(const std::vector<std::string> &imgPaths) {
 //    有可能多个返回结果, 或多个返回依次调用, 在此使用字典类型格式
-    std::map<std::string, futureBoxes> result;
+    futureBoxes result;
 //    将读入的所有图片路径转为cv::Mat格式
     std::vector<cv::Mat> mats;
 
@@ -91,9 +78,9 @@ std::map<std::string, futureBoxes> Engine::inferEngine(const std::vector<std::st
     return result;
 }
 
-std::map<std::string, futureBoxes> Engine::inferEngine(const pybind11::array &img) {
+futureBoxes Engine::inferEngine(const pybind11::array &img) {
 //    有可能多个返回结果, 或多个返回依次调用, 在此使用字典类型格式
-    std::map<std::string, futureBoxes> result;
+    futureBoxes result;
     std::vector<cv::Mat> mats;
 
 //    array转成cv::Mat格式
@@ -105,9 +92,9 @@ std::map<std::string, futureBoxes> Engine::inferEngine(const pybind11::array &im
     return result;
 }
 
-std::map<std::string, futureBoxes> Engine::inferEngine(const std::vector<pybind11::array> &imgs) {
+futureBoxes Engine::inferEngine(const std::vector<pybind11::array> &imgs) {
 //    有可能多个返回结果, 或多个返回依次调用, 在此使用字典类型格式
-    std::map<std::string, futureBoxes> result;
+    futureBoxes result;
 //    将读入的所有图片路径转为cv::Mat格式
     std::vector<cv::Mat> mats;
     for (auto &img: imgs)
@@ -117,21 +104,26 @@ std::map<std::string, futureBoxes> Engine::inferEngine(const std::vector<pybind1
     return result;
 }
 
-std::map<std::string, futureBoxes> Engine::inferEngine(const std::vector<cv::Mat> &mats) {
+futureBoxes Engine::inferEngine(const std::vector<cv::Mat> &mats) {
 //    有可能多个返回结果, 或多个返回依次调用, 在此使用字典类型格式
-    std::map<std::string, futureBoxes> result;
+    futureBoxes result;
     data->mats = mats;
 //    返回目标检测结果
     auto futureResult = param->yoloDetectParam.func->commit(data);
+//    printf("==================\n");
+//    std::cout << futureResult.get() << std::endl;
     // 对返回的结果进行.get()操作,可获得结果
-    result["yolo"] = futureResult;
-
+//    std::cout << futureResult.get() << std::endl;
+//    for (auto &t: futureResult.get())
+//        std::cout << t[0][0] << " " << t[0][1] << " " << t[0][2] << " " << t[0][3] << " "<<t[0][4] << std::endl;
+////    result["yolo"] = futureResult;
+//    printf("++++++++++++++\n");
 //    InputData data1;
 //    data1.gpuMats = detectRes;
 //
 //    auto faceRes = func.yoloFace->commit(data1);
 //    result["yoloFace"] = faceRes;
-    return result;
+    return futureResult;
 }
 
 int Engine::releaseEngine() {
@@ -140,7 +132,7 @@ int Engine::releaseEngine() {
 }
 
 PYBIND11_MODULE(deployment, m) {
-    //    配置手动输入参数
+//    配置手动输入参数
     pybind11::class_<ManualParam>(m, "ManualParam")
             .def(pybind11::init<>())
             .def_readwrite("gpuId", &ManualParam::gpuId)
@@ -156,6 +148,10 @@ PYBIND11_MODULE(deployment, m) {
             .def_readwrite("onnxPath", &ManualParam::onnxPath)
             .def_readwrite("inputName", &ManualParam::inputName)
             .def_readwrite("outputName", &ManualParam::outputName);
+
+//    注册返回到python中的future数据类型,并定义get方法. 不然inferEngine返回的结果类型会出错
+    pybind11::class_<futureBoxes>(m, "SharedFutureObject")
+            .def("get", &futureBoxes::get);
 
 //    暴露的推理接口
     pybind11::class_<Engine>(m, "Engine")

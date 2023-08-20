@@ -15,7 +15,7 @@
 #include <opencv2/opencv.hpp>
 #include <future>
 
-using batchBoxesType = std::vector <std::vector<std::vector < float>>>;
+using batchBoxesType = std::vector<std::vector<std::vector<float>>>;
 using futureBoxes = std::shared_future<std::vector<std::vector<std::vector<float>>>>;
 
 enum class Mode : int {
@@ -51,46 +51,46 @@ struct BaseParam {
     int predictLength;
 
     // 存储一个batchSize的仿射变换参数, 用于还原letterbox前的图片
-    std::vector <std::vector<float>> d2is;
+    std::vector<std::vector<float>> d2is;
     //当前正传处理图片的仿射变换参数
     float d2i[6];
     // 在代码运行时给出引擎文件路径,因为刚开始可能没有引擎文件
     std::string enginePath;
 
     // TensorRT 构建的引擎
-    std::shared_ptr <nvinfer1::ICudaEngine> engine = nullptr;
+    std::shared_ptr<nvinfer1::ICudaEngine> engine = nullptr;
     // 从engine生成的上下文管理器
-    std::shared_ptr <nvinfer1::IExecutionContext> context = nullptr;
+    std::shared_ptr<nvinfer1::IExecutionContext> context = nullptr;
 };
 
 // commit输入数据类型必是以下中的一个
 struct InputData {
-    std::vector <cv::Mat> mats;
+    std::vector<cv::Mat> mats;
 //    传入推理数据为单个或多个gpu图片矩阵,如果传入类型是以上两种类型,最后都要转化成GPU上
-    std::vector <cv::cuda::GpuMat> gpuMats;
+    std::vector<cv::cuda::GpuMat> gpuMats;
 };
 
 
 // 推理输入
 struct Job {
     float *inputTensor;
-    std::vector <std::vector<float>> d2is;
+    std::vector<std::vector<float>> d2is;
     int inferNum{};
 };
 
 // 推理输入图片路径+最终输出结果, 字段兼容各种输入类型. 不同输入类型对应传入对应字段中
 struct futureJob {
     //取得是后处理后的结果
-    std::shared_ptr <std::promise<batchBoxesType>> batchResult;
+    std::shared_ptr<std::promise<batchBoxesType>> batchResult;
 
-    std::vector <cv::Mat> mats;
-    std::vector <cv::cuda::GpuMat> gpuMats;
+    std::vector<cv::Mat> mats;
+    std::vector<cv::cuda::GpuMat> gpuMats;
 };
 
 // 推理输出
 struct Out {
     float *inferOut;
-    std::vector <std::vector<float>> d2is;
+    std::vector<std::vector<float>> d2is;
     int inferNum{};
 };
 

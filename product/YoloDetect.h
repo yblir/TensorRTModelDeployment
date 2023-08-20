@@ -21,7 +21,7 @@ public:
     int postProcess(BaseParam &param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override;
 
     static std::vector<std::vector<float>> decodeBox(int predictNums, int predictLength,
-                                              float *pinOutput, int classNum, float scoreThresh, std::vector<float> d2i);
+                                                     float *pinOutput, int classNum, float scoreThresh, std::vector<float> d2i);
 
 private:
     // 各具体算法定义自己的输出数据结构,并在getCurResult方法中返回.

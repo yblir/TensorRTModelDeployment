@@ -24,13 +24,13 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -O0 -fPIC -pthread -g -std=c++11")
 # find_package(CUDA REQUIRED)
 # find_package(OpenCV 4.0 QUIET COMPONENTS core imgproc imgcodecs)
 
-find_package(pybind11 CONFIG)
-find_package(OpenCV REQUIRED)
-
-include_directories(include
-        ${OpenCV_INCLUDE_DIRS}
-        ${pybind11_INCLUDE_DIRS}
-        )
+#find_package(pybind11 CONFIG)
+#find_package(OpenCV REQUIRED)
+#
+#include_directories(include
+#        ${OpenCV_INCLUDE_DIRS}
+#        ${pybind11_INCLUDE_DIRS}
+#        )
 
 # 指定第三方库所在路径. 官方不建议使用了,建议用find_package()  find_library()
 # 使用三方库三部曲: find_package,include_directories,target_link_libraries
@@ -41,9 +41,9 @@ include_directories(include
 # 然后在main函数前写上 #include “opencv/cv.h" 即可
 # SYSTEM 指定目录当成系统的搜索目录 使用AFTER或BEFORE选项来指定是添加到列表的前面或者后面
 include_directories(SYSTEM ${CUDA_INCLUDE_DIRS})
-include_directories(/usr/local/TensorRT-8.5.1.7/include)
-link_directories(/usr/local/TensorRT-8.5.1.7/lib)
-include_directories(/usr/local/cuda-11.6/targets/x86_64-linux/include)
+include_directories(/usr/local/TensorRT-8.6.1.6/include)
+link_directories(/usr/local/TensorRT-8.6.1.6/lib)
+include_directories(/usr/local/cuda-12.1/targets/x86_64-linux/include)
 include_directories(/usr/local/include/opencv4)
 
 # 添加需要链接的库文件路径，注意这里是全路径，要用在add_executable之前
@@ -51,16 +51,19 @@ include_directories(SYSTEM ${CUDA_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS})
 
 # 原始的CUDA_LIBRARIES=/usr/local/cuda/lib64/libcudart_static.adl/usr/lib/x86_64-linux-gnu/librt.s， 这是什么东西？
 set(CUDA_LIBRARIES /usr/lib/wsl/lib/libcuda.so)
-set(CUDART_LIBRARIES /usr/local/cuda-11.6/targets/x86_64-linux/lib/libcudart.so)
-set(i1 /usr/local/TensorRT-8.5.1.7/targets/x86_64-linux-gnu/lib/libnvonnxparser.so)
-set(i2 /usr/local/TensorRT-8.5.1.7/targets/x86_64-linux-gnu/lib/libnvinfer.so)
-#set(i3 /usr/local/TensorRT-8.5.1.7/targets/x86_64-linux-gnu/lib)
+set(CUDART_LIBRARIES /usr/local/cuda-12.1/targets/x86_64-linux/lib/libcudart.so)
+set(i1 /usr/local/TensorRT-8.6.1.6/targets/x86_64-linux-gnu/lib/libnvonnxparser.so)
+set(i2 /usr/local/TensorRT-8.6.1.6/targets/x86_64-linux-gnu/lib/libnvinfer.so)
+#set(i3 /usr/local/TensorRT-8.6.1.6/targets/x86_64-linux-gnu/lib)
 
 # 去哪里找库文件 .so/.lib/.ddl
 #link_directories()
 
 #add_subdirectory(product)
-link_directories(/usr/local/TensorRT-8.5.1.7/lib)
+#add_subdirectory(utils)
+#add_subdirectory(base_infer)
+#add_subdirectory(builder)
+#link_directories(/usr/local/TensorRT-8.6.1.6/lib)
 
 pybind11_add_module(deployment interface/face_interface_thread_pybind11.cpp
         product/YoloDetect.cpp
@@ -68,12 +71,6 @@ pybind11_add_module(deployment interface/face_interface_thread_pybind11.cpp
         utils/general.cpp
         base_infer/trt_infer.cpp
         builder/trt_builder.cpp
-#        ${OpenCV_LIBRARIES}
-#        ${DEP_LIBS}
-#        ${CUDA_LIBRARIES}
-#        ${CUDART_LIBRARIES} ${OpenCV_LIBRARIES} ${i1} ${i2} ${CMAKE_DL_LIBS}
-#        opencv_core opencv_imgcodecs opencv_imgproc opencv_videoio
-#        opencv_cudaarithm opencv_cudawarping opencv_cudaimgproc opencv_highgui
         )
 target_link_libraries(deployment PRIVATE pybind11::module
         ${OpenCV_LIBRARIES} ${pybind11_LIBRARIES}

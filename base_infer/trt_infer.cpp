@@ -114,15 +114,15 @@ bool InferImpl::getEngineContext(BaseParam &curParam) {
 std::shared_future<batchBoxesType> InferImpl::commit(const InputData *data) {
 //std::shared_future <batchBoxesType> InferImpl::commit(const std::vector <cv::Mat> &images) {
     // 将传入的多张或一张图片,一次性传入队列总
-//    unsigned long len = InferImpl::getInputNums(data);
-//    unsigned long len = !data.mats.empty() ? data.mats.size() : data.gpuMats.size();
     unsigned long len = !data->mats.empty() ? data->mats.size() : data->gpuMats.size();
     if (0 == len) std::thread();
 
     fJob.mats = data->mats;
     fJob.gpuMats = data->gpuMats;
+//    两种方法都可以实现初始化,make_shared更好?
+    fJob.batchResult = std::make_shared<std::promise<batchBoxesType>>();
+//    fJob.batchResult.reset(new std::promise<batchBoxesType>());
 
-    fJob.batchResult.reset(new std::promise<batchBoxesType>());
     // 创建share_future变量,一次性取回传入的所有图片结果, 不能直接返回xx.get_future(),会报错
     std::shared_future<batchBoxesType> future = fJob.batchResult->get_future();
     {
@@ -306,6 +306,7 @@ void InferImpl::trtPost(BaseParam &curParam, Infer *curFunc) {
         boxes.clear();
         // 当commit中传入图片处理完时,通过set_value返回所有图片结果. 重新计数, 并返回下一次要输出推理结果的图片数量
         if (totalNum <= countPost) {
+//            fJob.batchResult = std::make_shared<std::promise<batchBoxesType>>();
             // 输出解码后的结果,在commit中接收
             fJob.batchResult->set_value(batchBoxes);
             countPost = 0;

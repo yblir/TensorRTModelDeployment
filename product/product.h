@@ -81,10 +81,11 @@ struct MemoryStorage {
 };
 
 // 从ctypes中传入的参数
-struct ManualParam{
+struct ManualParam {
     int classNums = 80;        //!> 检测类别数量
     float scoreThresh = 0.5;   //!> 得分阈值
     float iouThresh = 0.3;     //!> iou框阈值
+
     int gpuId = 0;
     int batchSize = 1;
 

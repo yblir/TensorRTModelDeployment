@@ -3,6 +3,7 @@
 //
 #ifndef FACEFEATUREDETECTOR_REBUILD_FACE_INTERFACE_H
 #define FACEFEATUREDETECTOR_REBUILD_FACE_INTERFACE_H
+
 #include <tuple>
 
 #include <NvInferRuntime.h>
@@ -39,7 +40,7 @@ extern "C" int initEngine(Handle &engine, ManualParam &inputParam);
 //int inferEngine(productParam &param, productFunc &func, std::vector<std::string> &imgPaths, productResult &out);
 
 //extern "C" std::map<std::string, batchBoxesType> inferEngine(productParam &param, const InputData &data);
-extern "C" int  inferEngine(Handle &engine, const InputData &data);
+extern "C" int inferEngine(Handle &engine, const InputData &data);
 //std::map<std::string, batchBoxesType> inferEngine(const InputData &data);
 
 //std::map<std::string, batchBoxesType> inferEngine(productParam &param, productFunc &func, std::string &imgPath);
