@@ -79,7 +79,7 @@ std::string getEnginePath(const BaseParam &param) {
     // 检查指定编号的显卡是否正常
     cudaError_t cudaStatus = cudaGetDeviceCount(&num);
     if ((cudaSuccess != cudaStatus) || (num == 0) || (param.gpuId > (num - 1))) {
-        printf("infer device id:%d, error or no this gpu.\n", param.gpuId);
+        logError("infer device id:%d, error or no this gpu", param.gpuId);
         return "";
     }
 
@@ -93,7 +93,7 @@ std::string getEnginePath(const BaseParam &param) {
         // 删掉显卡名称内的空格
         gpuName.erase(std::remove_if(gpuName.begin(), gpuName.end(), ::isspace), gpuName.end());
     } else {
-        printf("get device info error.\n");
+        logError("get device info error.\n");
         return "";
     }
 

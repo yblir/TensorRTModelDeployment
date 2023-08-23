@@ -7,7 +7,7 @@
 
 #include <opencv2/highgui/highgui.hpp>
 
-#include "interface/face_interface.h"
+#include "interface/interface.h"
 #include "utils/general.h"
 #include "utils/box_utils.h"
 

@@ -65,12 +65,14 @@ set(i2 /usr/local/TensorRT-8.6.1.6/targets/x86_64-linux-gnu/lib/libnvinfer.so)
 #add_subdirectory(builder)
 #link_directories(/usr/local/TensorRT-8.6.1.6/lib)
 
-pybind11_add_module(deployment interface/face_interface_thread_pybind11.cpp
+pybind11_add_module(deployment interface/interface_py11.cpp
         product/YoloDetect.cpp
         utils/box_utils.cpp
         utils/general.cpp
+        utils/loguru.cpp
         base_infer/trt_infer.cpp
         builder/trt_builder.cpp
+
         )
 target_link_libraries(deployment PRIVATE pybind11::module
         ${OpenCV_LIBRARIES} ${pybind11_LIBRARIES}

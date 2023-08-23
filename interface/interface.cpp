@@ -4,7 +4,7 @@
 #include <cuda_runtime.h>
 #include <NvInfer.h>
 #include "../utils/general.h"
-#include "face_interface.h"
+#include "interface.h"
 
 
 //bool check_cuda_runtime(cudaError_t code, const char *op, const char *file, int line) {

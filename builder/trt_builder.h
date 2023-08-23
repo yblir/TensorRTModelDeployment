@@ -23,7 +23,7 @@ namespace TRT {
     );
 
     std::vector<unsigned char> loadEngine(const std::string &enginePath);
-    std::vector<unsigned char> getEngine(const std::string &enginePath, const BaseParam &param);
+    std::vector<unsigned char> getEngine(BaseParam &param);
 };
 
 #endif //TENSORRTMODELDEPLOYMENT_TRT_BUILDER_H

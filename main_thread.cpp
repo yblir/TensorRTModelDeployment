@@ -9,7 +9,7 @@
 //#include <opencv2/opencv.hpp>
 //#include <dirent.h>
 
-#include "interface/face_interface_thread.h"
+#include "interface/interface2.h"
 //#include "interface/face_interface.h"
 #include "utils/general.h"
 #include "utils/box_utils.h"

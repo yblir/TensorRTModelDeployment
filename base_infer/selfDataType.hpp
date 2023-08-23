@@ -14,9 +14,14 @@
 
 #include <opencv2/opencv.hpp>
 #include <future>
+#include "../utils/loguru.hpp"
 
 using batchBoxesType = std::vector<std::vector<std::vector<float>>>;
 using futureBoxes = std::shared_future<std::vector<std::vector<std::vector<float>>>>;
+
+#define logInfo(...)    LOG_F(INFO, __VA_ARGS__)
+#define logSuccess(...) LOG_F(SUCCESS, __VA_ARGS__)
+#define logError(...)   LOG_F(ERROR, __VA_ARGS__)
 
 enum class Mode : int {
     FP32,

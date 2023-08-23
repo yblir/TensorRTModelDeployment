@@ -16,12 +16,6 @@ bool TRT::compile(
         const std::string &saveEnginePath,
         size_t maxWorkspaceSize // 256M
 ) {
-    //检查待转换的onnx文件是否存在
-    if (!std::filesystem::exists(onnxFilePath)) {
-        std::cout << "onnx path not exist: " << onnxFilePath << std::endl;
-        return false;
-    }
-
     TRTLogger logger;
     uint32_t flag = 1U << static_cast<uint32_t> (nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
 
@@ -33,8 +27,7 @@ bool TRT::compile(
 //    在config中配置化fp16
     if (mode == Mode::FP16) {
         if (!builder->platformHasFastFp16()) {
-//            INFOW("Platform not have fast fp16 support");
-            printf("Platform not have fast fp16 support");
+            logInfo("Platform not have fast fp16 support");
         }
         config->setFlag(nvinfer1::BuilderFlag::kFP16);
     }
@@ -42,12 +35,12 @@ bool TRT::compile(
     //2 通过onnxparser解析器的结果,填充到network中,类似addconv的方式添加进去
     auto parser = ptrFree(nvonnxparser::createParser(*network, logger));
     if (!parser->parseFromFile(onnxFilePath.c_str(), 1)) {
-        printf("failed to parse onnx file\n");
+        logError("failed to parse onnx file");
         return false;
     }
 
     //3 设置最大工作缓存
-    printf("Workspace Size = %.2f MB\n", float(maxWorkspaceSize) / 1024.0f / 1024.0f);
+    logInfo("Workspace Size = %.2f MB", float(maxWorkspaceSize) / 1024.0f / 1024.0f);
     config->setMemoryPoolLimit(nvinfer1::MemoryPoolType::kWORKSPACE, maxWorkspaceSize);
 
 
@@ -68,7 +61,7 @@ bool TRT::compile(
     //5 直接序列化推理引擎
     std::shared_ptr<nvinfer1::IHostMemory> serializedModel = ptrFree(builder->buildSerializedNetwork(*network, *config));
     if (nullptr == serializedModel) {
-        printf("build engine failed\n");
+        logError("build engine failed");
         return false;
     }
 
@@ -77,18 +70,18 @@ bool TRT::compile(
     fwrite(serializedModel->data(), 1, serializedModel->size(), f);
     fclose(f);
 
-    printf("build and save engine success \n");
+    logSuccess("build and save engine success");
 
     return true;
 }
 
 //从硬盘加载引擎文件到内存
 std::vector<unsigned char> TRT::loadEngine(const std::string &enginePath) {
-    //检查engine文件是否存在
-    if (!std::filesystem::exists(enginePath)) {
-        std::cout << "engine path not exist: " << enginePath << std::endl;
-        return {};
-    }
+//    //检查engine文件是否存在
+//    if (!std::filesystem::exists(enginePath)) {
+//        std::cout << "engine path not exist: " << enginePath << std::endl;
+//        return {};
+//    }
 
     std::ifstream in(enginePath, std::ios::in | std::ios::binary);
     if (!in.is_open()) { return {}; }
@@ -109,17 +102,31 @@ std::vector<unsigned char> TRT::loadEngine(const std::string &enginePath) {
 }
 
 
-std::vector<unsigned char> TRT::getEngine(const std::string &enginePath, const BaseParam &param) {
+std::vector<unsigned char> TRT::getEngine(BaseParam &param) {
     std::vector<unsigned char> engine;
 
-    // 判断引擎文件是否存在,如果不存在,要先构建engine
-    if (std::filesystem::exists(enginePath))
+    // 判断从外部传入的引擎文件路径是否存在,如果不存在,要先构建engine
+    if (std::filesystem::exists(param.enginePath))
         // engine存在,直接加载engine文件,反序列化引擎文件到内存
-        engine = loadEngine(enginePath);
+        engine = loadEngine(param.enginePath);
     else {
+        //检查待转换的onnx文件是否存在
+        if (!std::filesystem::exists(param.onnxPath)) {
+            logError("onnx file path is not exist");
+            return {};
+        }
+        // 拼接engine文件名,并把保存路径设置在onnx文件同级目录下
+        param.enginePath = getEnginePath(param);
+        // 再次查看拼接后engine路径是否存在, 因为第一次运行时生成的engine文件会保存在onnx同级目录下, 这个engine有实体指向
+        if (std::filesystem::exists(param.enginePath)) {
+            engine = loadEngine(param.enginePath);
+            return engine;
+        }
+
         //engine不存在,先build,序列化engine到硬盘, 再执行反序列化操作
-        if (compile(param.mode, param.batchSize, param.onnxPath, param.enginePath, 1 << 28)) // 256M
-            engine = loadEngine(enginePath);
+        if (compile(param.mode, param.batchSize, param.onnxPath, param.enginePath, 1 << 28)) { // 256M
+            engine = loadEngine(param.enginePath);
+        }
     }
     return engine;
 }

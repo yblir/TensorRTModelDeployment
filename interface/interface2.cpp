@@ -4,7 +4,7 @@
 #include <mutex>
 #include <condition_variable>
 
-#include "face_interface_thread.h"
+#include "interface2.h"
 #include "../utils/box_utils.h"
 //#include "../utils/general.h"
 //#include "../product/YoloDetect.h"

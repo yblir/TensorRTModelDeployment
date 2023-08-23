@@ -1,12 +1,11 @@
 //
 // Created by Administrator on 2023/1/9.
 //
-#include <mutex>
-#include <condition_variable>
-#include "../product/product.h"
-#include "face_interface_thread_pybind11.h"
+//#include <mutex>
+//#include <condition_variable>
+//#include "../product/product.h"
+#include "interface_py11.h"
 
-#include <iostream>
 
 int Engine::initEngine(ManualParam &inputParam) {
     param = new productParam;
@@ -24,6 +23,8 @@ int Engine::initEngine(ManualParam &inputParam) {
     param->yoloDetectParam.inputWidth = inputParam.inputWidth;
 
     param->yoloDetectParam.onnxPath = inputParam.onnxPath;
+    param->yoloDetectParam.enginePath = inputParam.enginePath;
+
     param->yoloDetectParam.inputName = inputParam.inputName;
     param->yoloDetectParam.outputName = inputParam.outputName;
 
@@ -44,28 +45,29 @@ int Engine::initEngine(ManualParam &inputParam) {
 //    }
 
     // 其他检测模型初始化
+
+    Infer *curAlg = new YoloDetect();
+    param->yoloDetectParam.func = createInfer(param->yoloDetectParam, *curAlg);
     if (nullptr == param->yoloDetectParam.func) {
-        Infer *curAlg = new YoloDetect();
-        param->yoloDetectParam.func = createInfer(param->yoloDetectParam, *curAlg);
+        return -1;
     }
-//    将收集好的参数转成void类型,返回到外部. 在python代码中, 传递到inferEngine中进行推理. 要转成void类型,因为
-//    midParam在python代码中传递, ctypes只有c_void类型才能接收.
+
     return 0;
 }
 
 futureBoxes Engine::inferEngine(const std::string &imgPath) {
 //    有可能多个返回结果, 或多个返回依次调用, 在此使用字典类型格式
-    futureBoxes result;
+//    futureBoxes result;
     std::vector<cv::Mat> mats;
     mats.emplace_back(cv::imread(imgPath));
 
-    result = inferEngine(mats);
-    return result;
+//    result = inferEngine(mats);
+    return inferEngine(mats);
 }
 
 futureBoxes Engine::inferEngine(const std::vector<std::string> &imgPaths) {
 //    有可能多个返回结果, 或多个返回依次调用, 在此使用字典类型格式
-    futureBoxes result;
+//    futureBoxes result;
 //    将读入的所有图片路径转为cv::Mat格式
     std::vector<cv::Mat> mats;
 
@@ -73,62 +75,49 @@ futureBoxes Engine::inferEngine(const std::vector<std::string> &imgPaths) {
         mats.emplace_back(cv::imread(imgPath));
     }
 
-    result = inferEngine(mats);
+//    result = inferEngine(mats);
 
-    return result;
+    return inferEngine(mats);
 }
 
 futureBoxes Engine::inferEngine(const pybind11::array &img) {
-//    有可能多个返回结果, 或多个返回依次调用, 在此使用字典类型格式
-    futureBoxes result;
     std::vector<cv::Mat> mats;
 
 //    array转成cv::Mat格式
     cv::Mat mat(img.shape(0), img.shape(1), CV_8UC3, (unsigned char *) img.data(0));
     mats.emplace_back(mat);
 
-    result = inferEngine(mats);
+//    result = inferEngine(mats);
 
-    return result;
+    return inferEngine(mats);
 }
 
 futureBoxes Engine::inferEngine(const std::vector<pybind11::array> &imgs) {
 //    有可能多个返回结果, 或多个返回依次调用, 在此使用字典类型格式
-    futureBoxes result;
+//    futureBoxes result;
 //    将读入的所有图片路径转为cv::Mat格式
     std::vector<cv::Mat> mats;
     for (auto &img: imgs)
         mats.emplace_back(img.shape(0), img.shape(1), CV_8UC3, (unsigned char *) img.data(0));
 
-    result = inferEngine(mats);
-    return result;
+//    result = inferEngine(mats);
+    return inferEngine(mats);
 }
 
 futureBoxes Engine::inferEngine(const std::vector<cv::Mat> &mats) {
 //    有可能多个返回结果, 或多个返回依次调用, 在此使用字典类型格式
-    futureBoxes result;
+//    futureBoxes result;
     data->mats = mats;
 //    返回目标检测结果
-    auto futureResult = param->yoloDetectParam.func->commit(data);
-//    printf("==================\n");
-//    std::cout << futureResult.get() << std::endl;
-    // 对返回的结果进行.get()操作,可获得结果
-//    std::cout << futureResult.get() << std::endl;
-//    for (auto &t: futureResult.get())
-//        std::cout << t[0][0] << " " << t[0][1] << " " << t[0][2] << " " << t[0][3] << " "<<t[0][4] << std::endl;
-////    result["yolo"] = futureResult;
-//    printf("++++++++++++++\n");
-//    InputData data1;
-//    data1.gpuMats = detectRes;
-//
-//    auto faceRes = func.yoloFace->commit(data1);
-//    result["yoloFace"] = faceRes;
-    return futureResult;
+//    auto futureResult = param->yoloDetectParam.func->commit(data);
+
+    return param->yoloDetectParam.func->commit(data);
 }
 
 int Engine::releaseEngine() {
     delete param;
     delete data;
+    logSuccess("Release engine success");
 }
 
 PYBIND11_MODULE(deployment, m) {

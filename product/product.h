@@ -37,9 +37,9 @@ struct productParam {
     YoloFaceParam yoloFaceParam;
     YoloDetectParam yoloDetectParam;
 
-    ~productParam() {
-        printf("productParam 执行析构\n");
-    };
+//    ~productParam() {
+//        printf("productParam 执行析构\n");
+//    };
 
 };
 
@@ -71,15 +71,6 @@ struct productParam {
 //
 //};
 
-// 该字段只在face_interface.cpp中使用, 在初始化阶段initEngine记录开辟的推理/后处理空间
-struct MemoryStorage {
-    std::vector<int> memory;
-    float *pinMemoryIn = nullptr;
-    float *pinMemoryOut = nullptr;
-    float *gpuMemoryIn = nullptr;
-    float *gpuMemoryOut = nullptr;
-};
-
 // 从ctypes中传入的参数
 struct ManualParam {
     int classNums = 80;        //!> 检测类别数量
@@ -94,6 +85,8 @@ struct ManualParam {
     int inputWidth{};
 
     std::string onnxPath;
+    std::string enginePath;
+
     // 推理时需要指定的输入输出节点名, 生成onnx文件时指定的输入输出名
     std::string inputName;
     std::string outputName;

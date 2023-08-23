@@ -23,10 +23,6 @@ public:
     static std::vector<int> setBatchAndInferMemory(BaseParam &curParam);
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    static unsigned long getInputNums(const InputData &data);
-    // 从队列中获得用于处理的图片数据
-    void preMatRead(std::vector<cv::Mat> &mats, const futureJob &fJob);
-
 //    preProcess,postProcess空实现,具体实现由实际继承Infer.h的应用完成
     int preProcess(BaseParam &param, cv::Mat &image, float *pinMemoryCurrentIn) override {};
 
@@ -61,6 +57,7 @@ private:
     cv::Mat mat;
 
     std::queue<Job> qPreJobs;
+
 // 存储每个batch的推理结果,统一后处理
     std::queue<Out> qPostJobs;
     futureJob fJob;
@@ -80,14 +77,11 @@ Timer timer = Timer();
 
 //使用所有加速算法的初始化部分: 初始化参数,构建engine, 反序列化制作engine
 bool InferImpl::getEngineContext(BaseParam &curParam) {
-    //获取engine绝对路径
-    curParam.enginePath = getEnginePath(curParam);
-    std::vector<unsigned char> engine = TRT::getEngine(curParam.enginePath, curParam);
+    std::vector<unsigned char> engine = TRT::getEngine(curParam);
     if (engine.empty()) return false;
 
 //   也可以直接从字符串提取名字 curParam.enginePath.substr(curParam.enginePath.find_last_of("/"),-1)
-    std::cout << "start create engine: " << std::filesystem::path(curParam.enginePath).filename() << std::endl;
-
+    logInfo("start create engine: %s", std::filesystem::path(curParam.enginePath).filename().c_str());
     // 创建engine并获得执行上下文context =======================================================================================
     TRTLogger logger;
 //   在trt8.6版本中,使用自动释放会出错
@@ -96,17 +90,17 @@ bool InferImpl::getEngineContext(BaseParam &curParam) {
     curParam.engine = ptrFree(runtime->deserializeCudaEngine(engine.data(), engine.size()));
 
     if (nullptr == curParam.engine) {
-        printf("deserialize cuda engine failed.\n");
+        logError("deserialize cuda engine failed.\n");
         return false;
     }
 //    是因为有1个是输入.剩下的才是输出
     if (2 != curParam.engine->getNbIOTensors()) {
-        printf("create engine failed: onnx导出有问题,必须是1个输入和1个输出,当前有%d个输出\n", curParam.engine->getNbIOTensors() - 1);
+        logError("create engine failed: onnx导出有问题,必须是1个输入和1个输出,当前有%d个输出", curParam.engine->getNbIOTensors() - 1);
         return false;
     }
 
     curParam.context = ptrFree(curParam.engine->createExecutionContext());
-    std::cout << "create engine and context success: " << std::filesystem::path(curParam.enginePath).filename() << std::endl;
+    logSuccess("Create engine and context success: %s", std::filesystem::path(curParam.enginePath).filename().c_str());
     return true;
 }
 
@@ -115,7 +109,6 @@ std::shared_future<batchBoxesType> InferImpl::commit(const InputData *data) {
 //std::shared_future <batchBoxesType> InferImpl::commit(const std::vector <cv::Mat> &images) {
     // 将传入的多张或一张图片,一次性传入队列总
     unsigned long len = !data->mats.empty() ? data->mats.size() : data->gpuMats.size();
-    if (0 == len) std::thread();
 
     fJob.mats = data->mats;
     fJob.gpuMats = data->gpuMats;
@@ -141,7 +134,7 @@ void InferImpl::trtPre(BaseParam &curParam, Infer *curFunc) {
     // 记录预处理总耗时
     double totalTime;
     std::chrono::system_clock::time_point preTime;
-    auto t = timer.curTimePoint();
+//    auto t = timer.curTimePoint();
 
     unsigned long mallocSize = this->memory[0] * sizeof(float);
     // count统计推理图片数量,最后一次,可能小于batchSize.imgNums统计预处理图片数量,index是gpuIn的索引,两个显存轮换使用
@@ -203,14 +196,14 @@ void InferImpl::trtPre(BaseParam &curParam, Infer *curFunc) {
     // 唤醒trt线程,告知预处理线程已结束
     cv_.notify_all();
 //    printf("pre   use time: %.2f ms\n", totalTime);
-    printf("pre   use time: %.3f s\n", totalTime);
+    logInfo("pre   use time: %.3f s", totalTime);
 }
 
 // 适用于模型推理的通用trt流程
 void InferImpl::trtInfer(BaseParam &curParam) {
     // 记录推理耗时
     double totalTime;
-    auto t = timer.curTimePoint();
+//    auto t = timer.curTimePoint();
     int index2 = 0;
 
     const char *inferInputName = curParam.inputName.c_str();
@@ -261,13 +254,13 @@ void InferImpl::trtInfer(BaseParam &curParam) {
     //告知post后处理线程,推理线程已结束
     cv_.notify_all();
 //    printf("infer use time: %.2f ms\n", totalTime);
-    printf("infer use time: %.3f s\n", totalTime);
+    logInfo("infer use time: %.3f s", totalTime);
 }
 
 void InferImpl::trtPost(BaseParam &curParam, Infer *curFunc) {
     // 记录后处理耗时
     double totalTime;
-    auto t = timer.curTimePoint();
+//    auto t = timer.curTimePoint();
 
     unsigned long mallocSize = this->memory[1] * sizeof(float), singleOutputSize = this->memory[1] / curParam.batchSize;
     batchBoxesType batchBoxes, boxes;
@@ -316,7 +309,7 @@ void InferImpl::trtPost(BaseParam &curParam, Infer *curFunc) {
         totalTime += timer.timeCountS(qT1);
     }
 //    printf("post  use time: %.2f ms\n", totalTime);
-    printf("post  use time: %.3f s\n", totalTime);
+    logInfo("post  use time: %.3f s", totalTime);
 
 }
 
@@ -347,11 +340,11 @@ bool InferImpl::startThread(BaseParam &curParam, Infer &curFunc) {
         inferThread = std::make_shared<std::thread>(&InferImpl::trtInfer, this, std::ref(curParam));
         postThread = std::make_shared<std::thread>(&InferImpl::trtPost, this, std::ref(curParam), &curFunc);
     } catch (std::string &error) {
-        printf("thread start fail: %s !\n", error.c_str());
+        logError("thread start fail: %s !", error.c_str());
         return false;
     }
 
-    printf("thread start success !\n");
+    logSuccess("thread start success !");
     return true;
 }
 
@@ -413,19 +406,24 @@ InferImpl::~InferImpl() {
 std::shared_ptr<Infer> createInfer(BaseParam &curParam, Infer &curFunc) {
 //    如果创建引擎不成功就reset
     if (!InferImpl::getEngineContext(curParam)) {
-        printf("getEngineContext fail\n");
+//        logError("getEngineContext Fail");
         return nullptr;
     }
-
-    std::vector<int> memory = InferImpl::setBatchAndInferMemory(curParam);
+    std::vector<int> memory;
+    try {
+        memory = InferImpl::setBatchAndInferMemory(curParam);
+    } catch (std::string &error) {
+        logError("setBatchAndInferMemory Fail: %s !", error.c_str());
+        return nullptr;
+    }
     // 实例化一个推理器的实现类（inferImpl），以指针形式返回
     std::shared_ptr<InferImpl> instance(new InferImpl(memory));
 
     //若实例化失败 或 若线程启动失败,也返回空实例. 所有的错误信息都在函数内部打印
     if (!instance || !instance->startThread(curParam, curFunc)) {
-        printf("InferImpl instance fail\n");
+//        logError("InferImpl instance Fail");
         instance.reset();
-        return instance;
+        return nullptr;
     }
 
     return instance;
