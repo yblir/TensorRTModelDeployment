@@ -73,6 +73,7 @@ struct productParam {
 
 // 从ctypes中传入的参数
 struct ManualParam {
+    bool fp16 = false;
     int classNums = 80;        //!> 检测类别数量
     float scoreThresh = 0.5;   //!> 得分阈值
     float iouThresh = 0.3;     //!> iou框阈值

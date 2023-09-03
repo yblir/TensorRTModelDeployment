@@ -22,6 +22,8 @@ int Engine::initEngine(ManualParam &inputParam) {
     param->yoloDetectParam.inputHeight = inputParam.inputHeight;
     param->yoloDetectParam.inputWidth = inputParam.inputWidth;
 
+    param->yoloDetectParam.mode = inputParam.fp16 ? Mode::FP16 : Mode::FP32;
+
     param->yoloDetectParam.onnxPath = inputParam.onnxPath;
     param->yoloDetectParam.enginePath = inputParam.enginePath;
 
@@ -124,6 +126,7 @@ PYBIND11_MODULE(deployment, m) {
 //    配置手动输入参数
     pybind11::class_<ManualParam>(m, "ManualParam")
             .def(pybind11::init<>())
+            .def_readwrite("fp16", &ManualParam::fp16)
             .def_readwrite("gpuId", &ManualParam::gpuId)
             .def_readwrite("batchSize", &ManualParam::batchSize)
 
@@ -135,6 +138,8 @@ PYBIND11_MODULE(deployment, m) {
             .def_readwrite("inputWidth", &ManualParam::inputWidth)
 
             .def_readwrite("onnxPath", &ManualParam::onnxPath)
+            .def_readwrite("enginePath", &ManualParam::enginePath)
+
             .def_readwrite("inputName", &ManualParam::inputName)
             .def_readwrite("outputName", &ManualParam::outputName);
 
@@ -149,8 +154,8 @@ PYBIND11_MODULE(deployment, m) {
 
             .def("inferEngine", pybind11::overload_cast<const std::string &>(&Engine::inferEngine))
             .def("inferEngine", pybind11::overload_cast<const std::vector<std::string> &>(&Engine::inferEngine))
-            .def("inferEngine", pybind11::overload_cast<const pybind11::array &>(&Engine::inferEngine))
-            .def("inferEngine", pybind11::overload_cast<const std::vector<pybind11::array> &>(&Engine::inferEngine))
+            .def("inferEngine", pybind11::overload_cast<const pybind11::array &>(&Engine::inferEngine), pybind11::arg("img"))
+            .def("inferEngine", pybind11::overload_cast<const std::vector<pybind11::array> &>(&Engine::inferEngine), pybind11::arg("imgs"))
 
             .def("releaseEngine", &Engine::releaseEngine);
 }

@@ -106,10 +106,12 @@ std::vector<unsigned char> TRT::getEngine(BaseParam &param) {
     std::vector<unsigned char> engine;
 
     // 判断从外部传入的引擎文件路径是否存在,如果不存在,要先构建engine
-    if (std::filesystem::exists(param.enginePath))
+    if (std::filesystem::exists(param.enginePath)) {
         // engine存在,直接加载engine文件,反序列化引擎文件到内存
+        logInfo("engine file is exist, load engine from disk");
         engine = loadEngine(param.enginePath);
-    else {
+    } else {
+        logInfo("engine file is not exist, build engine from onnx file ...");
         //检查待转换的onnx文件是否存在
         if (!std::filesystem::exists(param.onnxPath)) {
             logError("onnx file path is not exist");
