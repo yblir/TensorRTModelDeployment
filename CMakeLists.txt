@@ -43,7 +43,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -O0 -fPIC -pthread -g -std=c++11")
 include_directories(SYSTEM ${CUDA_INCLUDE_DIRS})
 include_directories(/usr/local/TensorRT-8.6.1.6/include)
 link_directories(/usr/local/TensorRT-8.6.1.6/lib)
-include_directories(/usr/local/cuda-12.1/targets/x86_64-linux/include)
+include_directories(/usr/local/cuda/targets/x86_64-linux/include)
 include_directories(/usr/local/include/opencv4)
 
 # 添加需要链接的库文件路径，注意这里是全路径，要用在add_executable之前
@@ -51,7 +51,7 @@ include_directories(SYSTEM ${CUDA_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS})
 
 # 原始的CUDA_LIBRARIES=/usr/local/cuda/lib64/libcudart_static.adl/usr/lib/x86_64-linux-gnu/librt.s， 这是什么东西？
 set(CUDA_LIBRARIES /usr/lib/wsl/lib/libcuda.so)
-set(CUDART_LIBRARIES /usr/local/cuda-12.1/targets/x86_64-linux/lib/libcudart.so)
+set(CUDART_LIBRARIES /usr/local/cuda/targets/x86_64-linux/lib/libcudart.so)
 set(i1 /usr/local/TensorRT-8.6.1.6/targets/x86_64-linux-gnu/lib/libnvonnxparser.so)
 set(i2 /usr/local/TensorRT-8.6.1.6/targets/x86_64-linux-gnu/lib/libnvinfer.so)
 #set(i3 /usr/local/TensorRT-8.6.1.6/targets/x86_64-linux-gnu/lib)
@@ -86,7 +86,7 @@ target_link_libraries(deployment PRIVATE pybind11::module
 #        ${OpenCV_LIBRARIES}
 #        pybind11::pybind11
 #        )
-
+# -DPYTHON_EXECUTABLE=/usr/miniconda3/bin/python
 #pybind11_add_module(tryPybind main_thread.cpp)
 
 ## 定义了这个工程会生成一个文件名为run 的可执行文件，相关的源文件是mian.cpp
