@@ -12,6 +12,14 @@ extern "C" Infer *MakeAlgorithm(void) {
 YoloDetect::YoloDetect() = default;
 YoloDetect::~YoloDetect() = default;
 
+//int YoloDetect::preProcess(BaseParam &param, pybind11::array &image, float *pinMemoryCurrentIn) {
+//    return 0;
+//}
+//
+//int YoloDetect::preProcess(BaseParam &param, std::vector<pybind11::array> &image, float *pinMemoryCurrentIn) {
+//    return 0;
+//}
+
 int YoloDetect::preProcess(BaseParam &param, cv::Mat &image, float *pinMemoryCurrentIn) {
 
     cv::Mat scaleImage = letterBox(image, param.inputWidth, param.inputHeight, param.d2i);
@@ -22,7 +30,6 @@ int YoloDetect::preProcess(BaseParam &param, cv::Mat &image, float *pinMemoryCur
 
     return 0;
 }
-
 
 int YoloDetect::postProcess(BaseParam &param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) {
     //将父类对象转为子类对象,这样才能调用属于子类的成员变量
@@ -75,3 +82,5 @@ std::vector<std::vector<float>> YoloDetect::decodeBox(int predictNums, int predi
 
     return boxes;
 }
+
+

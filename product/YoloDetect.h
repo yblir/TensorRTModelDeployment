@@ -17,6 +17,8 @@ public:
 
     // 预处理
     int preProcess(BaseParam &param, cv::Mat &image, float *pinMemoryCurrentIn) override;
+//    int preProcess(BaseParam &param, pybind11::array &image, float *pinMemoryCurrentIn) override;
+//    int preProcess(BaseParam &param, std::vector<pybind11::array> &image, float *pinMemoryCurrentIn) override;
     // 后处理
     int postProcess(BaseParam &param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override;
 

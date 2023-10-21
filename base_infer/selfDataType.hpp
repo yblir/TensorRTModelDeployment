@@ -17,7 +17,7 @@
 #include "../utils/loguru.hpp"
 
 using batchBoxesType = std::vector<std::vector<std::vector<float>>>;
-using futureBoxes = std::shared_future<std::vector<std::vector<std::vector<float>>>>;
+using futureBoxes = std::shared_future<batchBoxesType>;
 
 #define logInfo(...)    LOG_F(INFO, __VA_ARGS__)
 #define logSuccess(...) LOG_F(SUCCESS, __VA_ARGS__)

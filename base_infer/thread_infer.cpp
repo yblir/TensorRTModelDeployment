@@ -425,6 +425,7 @@ std::shared_ptr<Infer> createInfer(BaseParam &curParam, Infer &curFunc) {
 //        logError("getEngineContext Fail");
         return nullptr;
     }
+
     std::vector<int> memory;
     try {
         memory = InferImpl::setBatchAndInferMemory(curParam);
@@ -432,9 +433,9 @@ std::shared_ptr<Infer> createInfer(BaseParam &curParam, Infer &curFunc) {
         logError("setBatchAndInferMemory failure: %s !", error.c_str());
         return nullptr;
     }
+
     // 实例化一个推理器的实现类（inferImpl），以指针形式返回
     std::shared_ptr<InferImpl> instance(new InferImpl(memory));
-
     //若实例化失败 或 若线程启动失败,也返回空实例. 所有的错误信息都在函数内部打印
     if (!instance || !instance->startThread(curParam, curFunc)) {
 //        logError("InferImpl instance Fail");
