@@ -9,8 +9,8 @@
 //#include <opencv2/opencv.hpp>
 //#include <dirent.h>
 
+//#include "interface/interface_thread.h"
 #include "interface/interface_single.h"
-//#include "interface/face_interface.h"
 #include "utils/general.h"
 #include "utils/box_utils.h"
 
@@ -29,41 +29,23 @@ int main(int argc, char *argv[]) {
     }
 
     // =====================================================================
-    // 外接传入的配置文件,和使用过程中生成的各种路径等
-//    struct productParam engine;
-    // 加{},说明创建的对象为nullptr, 存储从动态库解析出来的算法函数和类
-//    struct productFunc func{};
-    struct productResult outs;
-//    Handle engine;
     struct ManualParam inputParam;
-//    conf.yoloConfig.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/face_detect_v0.5_b17e5c7577192da3d3eb6b4bb850f8e_1out.onnx";
-//    conf.yoloConfig.gpuId = int(strtol(argv[1], nullptr, 10));
 
-//    engine.yoloDetectParam.onnxPath = "/mnt/i/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
-
-//    engine.yoloDetectParam.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
-    std::string p1 = "/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
-    strcpy(inputParam.onnxPath, p1.c_str());
+    inputParam.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
+    inputParam.enginePath = "/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s_NVIDIAGeForceGTX1080_FP32.engine";
     inputParam.gpuId = 0;
-//    engine.yoloDetectParam.gpuId = int(strtol(argv[1], nullptr, 10));
-////    engine.yoloDetectParam.gpuId = int(strtol(argv[1], nullptr, 10));
-    inputParam.batchSize = 2;
+    inputParam.batchSize = 1;
     inputParam.inputHeight = 640;
     inputParam.inputWidth = 640;
-    std::string n1 = "images";
-    strcpy(inputParam.inputName, n1.c_str());
-//    engine.yoloDetectParam.inputName = "images";
-    std::string n2 = "output";
-    strcpy(inputParam.outputName, n2.c_str());
-//    engine.yoloDetectParam.outputName = "output";
+
+    inputParam.inputName = "images";
+    inputParam.outputName = "output";
+
     inputParam.iouThresh = 0.5;
     inputParam.scoreThresh = 0.5;
 
-//    int ret = initEngine(engine, func);
-//    int ret = initEngine(engine);
-    Handle engine;
-    int ret = initEngine(engine, inputParam);
-//    int ret = initEngine(input_param);
+    auto engine = Engine();
+    int ret = engine.initEngine(inputParam);
     if (ret != 0)
         return ret;
     std::cout << "init ok !" << std::endl;
@@ -71,8 +53,8 @@ int main(int argc, char *argv[]) {
 //  公司
 //    std::string path1 = "/mnt/d/Datasets/VOCdevkit/voc_test_300/";
 //    家
-    std::string path1="/mnt/e/localDatasets/voc/voc_test_100/";
-
+//    std::string path1 = "/mnt/e/localDatasets/voc/voc_test_100/";
+    std::string path1 = "/mnt/e/GitHub/TensorRTModelDeployment/imgs/";
     std::filesystem::path imgInputDir(path1);
     std::filesystem::path imgOutputDir(path1 + "output/");
 
@@ -88,38 +70,33 @@ int main(int argc, char *argv[]) {
     std::vector<std::string> imagePaths;
     // 获取该文件夹下所有图片绝对路径,存储在vector向量中
     getImagePath(imgInputDir, imagePaths);
-
     auto t = timer->curTimePoint();
     std::vector<std::string> batch;
     std::vector<cv::Mat> batchImgs;
-    InputData data;
+//    InputData data;
     int count = 0;
-    int i = 0;
+
     double inferTime, total1, hua;
     auto t8 = timer->curTimePoint();
 //    int em=0;
 
-    std::map<std::basic_string<char>, std::vector<std::vector<std::vector<float>>>> curResult;
+//    std::map<std::basic_string<char>, std::vector<std::vector<std::vector<float>>>> curResult;
     for (auto &item: imagePaths) {
         batch.emplace_back(item);
         batchImgs.emplace_back(cv::imread(item));
         count += 1;
 
-        if (count >= 5) {
-            data.mats = batchImgs;
+        if (count >= 2) {
+//            data.mats = batchImgs;
             auto tt1 = timer->curTimePoint();
-//            curResult = inferEngine(func, data);
-//            curResult = inferEngine(engine,data);
-//            todo 在inferEngine中加入存储结果的结构体,获取结果
-            int a = inferEngine(engine, data);
+
+            auto yoloRes = engine.inferEngine(batchImgs);
             inferTime += timer->timeCountS(tt1);
             int j = 0;
 
-            auto yoloRes = curResult["yoloDetect"];
             auto tb = timer->curTimePoint();
             for (auto &out: yoloRes) {
                 if (out.empty()) {
-                    i += 1;
                     j += 1;
                     continue;
                 }
@@ -142,12 +119,14 @@ int main(int argc, char *argv[]) {
 
     total1 = timer->timeCountS(t8);
     printf("right over! %.3f s, %.3f s,  %.3f s\n", inferTime, total1, hua);
-    releaseEngine(engine);
+    engine.releaseEngine();
     return 0;
 }
 
 
-//right over! 2820.93, 10064.53,  5197.22
-//pre   use time: 896.08 ms
-//infer use time: 1868.90 ms
-//post  use time: 105.23 ms
+//right over! 0.004 s, 11.560 s,  6.411 s
+//2023-10-21 17:15:51   thread_infer.cpp:398  INFO| start executing destructor ...
+//2023-10-21 17:15:51   thread_infer.cpp:269  INFO| infer use time: 1.863 s
+//2023-10-21 17:15:51   thread_infer.cpp:211  INFO| pre   use time: 0.893 s
+//2023-10-21 17:15:51   thread_infer.cpp:328  INFO| post  use time: 0.117 s
+//2023-10-21 17:15:51interface_thread.cp:122  SUCC| Release engine success

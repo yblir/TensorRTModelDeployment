@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# @File: py_11.py
+# @File: thread_py11.py
 # @Author: yblir
 # @Time: 2023/8/12 10:19
 # @Explain: 
@@ -17,7 +17,7 @@ cdll.LoadLibrary('/usr/local/TensorRT-8.6.1.6/targets/x86_64-linux-gnu/lib/libnv
 cdll.LoadLibrary('/usr/local/TensorRT-8.6.1.6/targets/x86_64-linux-gnu/lib/libnvinfer_builder_resource.so.8.6.1')
 cdll.LoadLibrary('/usr/local/TensorRT-8.6.1.6/targets/x86_64-linux-gnu/lib/libnvinfer_plugin.so')
 cdll.LoadLibrary('/usr/local/TensorRT-8.6.1.6/targets/x86_64-linux-gnu/lib/libnvonnxparser.so')
-
+sys.path.append('../cmake-build-debug')
 import deployment as dp
 
 param = dp.ManualParam()
@@ -44,7 +44,7 @@ img1 = cv2.imread('../imgs/2007_000925.jpg')
 img2 = cv2.imread('../imgs/2007_001311.jpg')
 
 res = engine.inferEngine(img1)
-print(res.get())
+print(type(res.get()))
 # print('\n==============================')
 # res2 = engine.inferEngine(img2)
 # print(res2.get())

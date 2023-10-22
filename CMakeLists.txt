@@ -37,56 +37,66 @@ set(i2 /usr/local/TensorRT-8.6.1.6/targets/x86_64-linux-gnu/lib/libnvinfer.so)
 
 # ============================================================================================
 # 对外封装时, 解除pybind11_add_module,target_link_libraries注释
-#pybind11_add_module(deployment interface/interface_thread.cpp
-#        product/YoloDetect.cpp
-#        utils/box_utils.cpp
-#        utils/general.cpp
-#        utils/loguru.cpp
-#        base_infer/trt_thread_infer.cpp
-#        builder/trt_builder.cpp
+
+pybind11_add_module(deployment
+#        interface/interface_thread.cpp
+#        base_infer/thread_infer.cpp
+
+        interface/interface_single.cpp
+        base_infer/single_infer.cpp
+
+        product/YoloDetect.cpp
+        utils/box_utils.cpp
+        utils/general.cpp
+        utils/loguru.cpp
+
+        builder/trt_builder.cpp
+
+        )
+target_link_libraries(deployment PRIVATE pybind11::module
+        ${OpenCV_LIBRARIES} ${pybind11_LIBRARIES}
+        ${CUDA_LIBRARIES} ${CUDART_LIBRARIES}
+        ${i1} ${i2}
+        ${CMAKE_DL_LIBS}
+        opencv_core opencv_imgcodecs opencv_imgproc opencv_videoio
+        opencv_cudaarithm opencv_cudawarping opencv_cudaimgproc opencv_highgui
+        )
+
+# ===========================================================================================
+# 调试时, 解除以下所有模块注释, 运行main_thread或main_single. 会爆出pybind11错误, 注释所有pybind11报错,调试完再解注释回来
+
+#add_executable(run
+#        main_single.cpp
+#        interface/interface_single.cpp
+#        base_infer/single_infer.cpp
 #
+##        main_thread.cpp
+##        interface/interface_thread.cpp
+##        base_infer/thread_infer.cpp
+#
+#        utils/loguru.cpp
+#        utils/general.cpp
+#
+#        utils/box_utils.cpp
+#        product/YoloDetect.cpp
+#
+#
+#        base_infer/selfDataType.hpp
+#        builder/trt_builder.cpp
 #        )
-#target_link_libraries(deployment PRIVATE pybind11::module
-#        ${OpenCV_LIBRARIES} ${pybind11_LIBRARIES}
-#        ${CUDA_LIBRARIES} ${CUDART_LIBRARIES}
-#        ${i1} ${i2}
-#        ${CMAKE_DL_LIBS}
+#
+## 为库或二进制可执行文件添加库链接，要用在add_executable之后,target是指通
+## 过add_executable()和add_library()指令生成已经创建的目标文件run
+#target_link_libraries(run ${DEP_LIBS} ${CUDA_LIBRARIES}
+#        ${CUDART_LIBRARIES} ${OpenCV_LIBRARIES} ${i1} ${i2} ${i3} ${CMAKE_DL_LIBS}
 #        opencv_core opencv_imgcodecs opencv_imgproc opencv_videoio
 #        opencv_cudaarithm opencv_cudawarping opencv_cudaimgproc opencv_highgui
 #        )
-
-# ===========================================================================================
-# 调试时, 解除以下所有模块注释, 运行main_thread或main_single
-add_executable(run
-#        main.cpp
-        main_thread.cpp
-
-        utils/loguru.cpp
-        utils/general.cpp
-#        utils/box_utils.h
-        utils/box_utils.cpp
-        product/YoloDetect.cpp
-#        product/product.h
-
-        interface/interface_thread.cpp
-
-        base_infer/thread_infer.cpp
-        base_infer/selfDataType.hpp
-        builder/trt_builder.cpp
-        )
-
-# 为库或二进制可执行文件添加库链接，要用在add_executable之后,target是指通
-# 过add_executable()和add_library()指令生成已经创建的目标文件run
-target_link_libraries(run ${DEP_LIBS} ${CUDA_LIBRARIES}
-        ${CUDART_LIBRARIES} ${OpenCV_LIBRARIES} ${i1} ${i2} ${i3} ${CMAKE_DL_LIBS}
-        opencv_core opencv_imgcodecs opencv_imgproc opencv_videoio
-        opencv_cudaarithm opencv_cudawarping opencv_cudaimgproc opencv_highgui
-        )
-link_libraries(${DEP_LIBS} ${CUDA_LIBRARIES}
-        ${CUDART_LIBRARIES} ${OpenCV_LIBRARIES} ${i1} ${i2} ${i3} ${CMAKE_DL_LIBS}
-        opencv_core opencv_imgcodecs opencv_imgproc opencv_videoio
-        opencv_cudaarithm opencv_cudawarping opencv_cudaimgproc opencv_highgui
-        )
-set(CMAKE_INSTALL_PREFIX ${PROJECT_BINARY_DIR}/dist)
-
-INSTALL(TARGETS run RUNTIME DESTINATION .)
+#link_libraries(${DEP_LIBS} ${CUDA_LIBRARIES}
+#        ${CUDART_LIBRARIES} ${OpenCV_LIBRARIES} ${i1} ${i2} ${i3} ${CMAKE_DL_LIBS}
+#        opencv_core opencv_imgcodecs opencv_imgproc opencv_videoio
+#        opencv_cudaarithm opencv_cudawarping opencv_cudaimgproc opencv_highgui
+#        )
+#set(CMAKE_INSTALL_PREFIX ${PROJECT_BINARY_DIR}/dist)
+#
+#INSTALL(TARGETS run RUNTIME DESTINATION .)

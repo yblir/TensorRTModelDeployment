@@ -48,7 +48,7 @@ std::vector<std::vector<float>> nms(std::vector<std::vector<float>> &boxes, cons
 }
 
 // 在原始图片上添加灰度条并缩放输入尺寸(640,640),
-cv::Mat letterBox(cv::Mat &image, const int &width, const int &height, float d2i[]) {
+cv::Mat letterBox(const cv::Mat &image, const int &width, const int &height, float d2i[]) {
 //    // 通过双线性插值对图像进行resize
 //    float scaleX = width / image.cols;
 //    float scaleY = height / image.rows;

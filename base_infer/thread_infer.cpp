@@ -21,8 +21,14 @@ public:
     static std::vector<int> setBatchAndInferMemory(BaseParam &curParam);
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    std::vector<int> getMemory() override {};
+
 //    preProcess,postProcess空实现,具体实现由实际继承Infer.h的应用完成
-    int preProcess(BaseParam &param, cv::Mat &image, float *pinMemoryCurrentIn) override {};
+    int preProcess(BaseParam &param, const cv::Mat &image, float *pinMemoryCurrentIn) override {};
+
+    int preProcess(BaseParam &param, const pybind11::array &image, float *pinMemoryCurrentIn) override {};
+
+    int preProcess(BaseParam &param, const std::vector<pybind11::array> &images, float *pinMemoryCurrentIn) override {};
 
     int postProcess(BaseParam &param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override {};
 
@@ -140,7 +146,7 @@ std::shared_future<batchBoxesType> InferImpl::commit(const InputData *data) {
 
 void InferImpl::trtPre(BaseParam &curParam, Infer *curFunc) {
     // 记录预处理总耗时
-    double totalTime;
+//    double totalTime;
     std::chrono::system_clock::time_point preTime;
 //    auto t = timer.curTimePoint();
 //    计算1个batchSize的数据所需的空间大小
@@ -179,7 +185,7 @@ void InferImpl::trtPre(BaseParam &curParam, Infer *curFunc) {
             // 若是最后一个元素,记录当前需要推理图片数量(可能小于一个batchSize)
             if (&curMat == lastElement) job.inferNum = countPre;
 
-            totalTime += timer.timeCountS(preTime);
+//            totalTime += timer.timeCountS(preTime);
             //若全部在gpu上操作,不需要这句复制
             checkRuntime(cudaMemcpyAsync(gpuIn[index], pinMemoryIn, mallocSize, cudaMemcpyHostToDevice, preStream));
             job.inputTensor = gpuIn[index];
@@ -207,14 +213,14 @@ void InferImpl::trtPre(BaseParam &curParam, Infer *curFunc) {
     preFinish = true;
     // 唤醒trt线程,告知预处理线程已结束
     cv_.notify_all();
-//    printf("pre   use time: %.2f ms\n", totalTime);
-    logInfo("pre   use time: %.3f s", totalTime);
+
+//    logInfo("pre   use time: %.3f s", totalTime);
 }
 
 // 适用于模型推理的通用trt流程
 void InferImpl::trtInfer(BaseParam &curParam) {
     // 记录推理耗时
-    double totalTime;
+//    double totalTime;
 //    auto t = timer.curTimePoint();
     int index2 = 0;
 //    engine输入输出节点名字, 是把model编译为onnx文件时,在onnx中手动写的输入输出节点名
@@ -250,7 +256,7 @@ void InferImpl::trtInfer(BaseParam &curParam) {
         index2 = index2 >= 1 ? 0 : index2 + 1;
 
         cudaStreamSynchronize(inferStream);
-        totalTime += timer.timeCountS(qT1);
+//        totalTime += timer.timeCountS(qT1);
 
         // 流同步后,获取该batchSize推理结果
         {
@@ -265,13 +271,13 @@ void InferImpl::trtInfer(BaseParam &curParam) {
     inferFinish = true;
     //告知post后处理线程,推理线程已结束
     cv_.notify_all();
-//    printf("infer use time: %.2f ms\n", totalTime);
-    logInfo("infer use time: %.3f s", totalTime);
+
+//    logInfo("infer use time: %.3f s", totalTime);
 }
 
 void InferImpl::trtPost(BaseParam &curParam, Infer *curFunc) {
     // 记录后处理耗时
-    double totalTime;
+//    double totalTime;
 //    auto t = timer.curTimePoint();
 //    将推理后数据从从显存拷贝到内存中,计算所需内存大小,ps:其实与占用显存大小一致
     unsigned long mallocSize = this->memory[1] * sizeof(float), singleOutputSize = this->memory[1] / curParam.batchSize;
@@ -322,10 +328,10 @@ void InferImpl::trtPost(BaseParam &curParam, Infer *curFunc) {
             flag = true;
             batchBoxes.clear();
         }
-        totalTime += timer.timeCountS(qT1);
+//        totalTime += timer.timeCountS(qT1);
     }
-//    printf("post  use time: %.2f ms\n", totalTime);
-    logInfo("post  use time: %.3f s", totalTime);
+
+//    logInfo("post  use time: %.3f s", totalTime);
 
 }
 

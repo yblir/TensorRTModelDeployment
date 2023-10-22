@@ -4,23 +4,23 @@
 
 #include "YoloDetect.h"
 
-extern "C" Infer *MakeAlgorithm(void) {
-    Infer *curProduct = new YoloDetect;
-    return curProduct;
-}
+//extern "C" Infer *MakeAlgorithm(void) {
+//    Infer *curProduct = new YoloDetect;
+//    return curProduct;
+//}
 
 YoloDetect::YoloDetect() = default;
 YoloDetect::~YoloDetect() = default;
 
-//int YoloDetect::preProcess(BaseParam &param, pybind11::array &image, float *pinMemoryCurrentIn) {
-//    return 0;
-//}
-//
-//int YoloDetect::preProcess(BaseParam &param, std::vector<pybind11::array> &image, float *pinMemoryCurrentIn) {
-//    return 0;
-//}
+int YoloDetect::preProcess(BaseParam &param, const pybind11::array &image, float *pinMemoryCurrentIn) {
+    return 0;
+}
 
-int YoloDetect::preProcess(BaseParam &param, cv::Mat &image, float *pinMemoryCurrentIn) {
+int YoloDetect::preProcess(BaseParam &param, const std::vector<pybind11::array> &image, float *pinMemoryCurrentIn) {
+    return 0;
+}
+
+int YoloDetect::preProcess(BaseParam &param, const cv::Mat &image, float *pinMemoryCurrentIn) {
 
     cv::Mat scaleImage = letterBox(image, param.inputWidth, param.inputHeight, param.d2i);
     // 依次存储一个batchSize中图片放射变换参数
@@ -79,7 +79,7 @@ std::vector<std::vector<float>> YoloDetect::decodeBox(int predictNums, int predi
 
         boxes.push_back({new_x1, new_y1, new_x2, new_y2, (float) label, score});
     }
-
+    std::cout<<"boxes="<<boxes.size()<<std::endl;
     return boxes;
 }
 

@@ -16,6 +16,7 @@
 #include <future>
 #include "../utils/loguru.hpp"
 
+//batch->image->box
 using batchBoxesType = std::vector<std::vector<std::vector<float>>>;
 using futureBoxes = std::shared_future<batchBoxesType>;
 
@@ -31,6 +32,8 @@ enum class Mode : int {
 //配置文件基类,自定义配置文件
 struct BaseParam {
     // 1 从外部配置文件传入 ========================================================
+//    maxBatch指build trt引擎时的batch, 以后推理时batchSize不能大于maxBatch
+    int maxBatch = 16;
     int gpuId = 0;
     std::string onnxPath;
     int batchSize = 1;

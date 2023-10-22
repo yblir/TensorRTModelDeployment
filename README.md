@@ -19,7 +19,7 @@ python py_11.py
 ```
 ```python
 使用python调用打印的log日志:\
-(base) root@wsl:/mnt/e/PyCharm/temp_project/test1/py11# python py_11.py
+(base) root@wsl:/mnt/e/PyCharm/temp_project/test1/py11# python thread_py11.py
 2023-09-03 10:11:06    trt_builder.cpp:114  INFO| engine file is not exist, build engine from onnx file ...
 2023-09-03 10:11:06      trt_infer.cpp:85   SUCC| load engine success: yolov5s_NVIDIAGeForceRTX4090_FP16.engine
 2023-09-03 10:11:07      trt_infer.cpp:104  SUCC| deserialize cuda engine success

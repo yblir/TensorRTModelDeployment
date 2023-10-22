@@ -21,7 +21,7 @@ float iou(const std::vector<float> &a, const std::vector<float> &b);
 std::vector<std::vector<float>> nms(std::vector<std::vector<float>> &boxes, const float &nmsThreshold);
 
 //传入原始图片,返回被修改的图片. 放射变换的方法需要额外传入变量,靠谱吗?
-cv::Mat letterBox(cv::Mat &image, const int &width, const int &height, float d2i[]);
+cv::Mat letterBox(const cv::Mat &image, const int &width, const int &height, float d2i[]);
 cv::Mat letterBox(const cv::Mat &img, int inputHeight, int inputWidth);
 
 //画框

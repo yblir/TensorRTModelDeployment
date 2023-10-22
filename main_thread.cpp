@@ -34,7 +34,7 @@ int main(int argc, char *argv[]) {
     inputParam.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
     inputParam.enginePath = "/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s_NVIDIAGeForceGTX1080_FP32.engine";
     inputParam.gpuId = 0;
-    inputParam.batchSize = 2;
+    inputParam.batchSize = 5;
     inputParam.inputHeight = 640;
     inputParam.inputWidth = 640;
 
@@ -52,9 +52,9 @@ int main(int argc, char *argv[]) {
     std::cout << "init ok !" << std::endl;
     // ============================================================================================
 //  公司
-    std::string path1 = "/mnt/d/Datasets/VOCdevkit/voc_test_300/";
+//    std::string path1 = "/mnt/d/Datasets/VOCdevkit/voc_test_300/";
 //    家
-//    std::string path1 = "/mnt/e/localDatasets/voc/voc_test_100/";
+    std::string path1 = "/mnt/e/localDatasets/voc/voc_test_100/";
 
     std::filesystem::path imgInputDir(path1);
     std::filesystem::path imgOutputDir(path1 + "output/");
@@ -92,11 +92,11 @@ int main(int argc, char *argv[]) {
             auto tt1 = timer->curTimePoint();
 
             auto futureRes = engine.inferEngine(data.mats);
-            inferTime += timer->timeCountS(tt1);
-            int j = 0;
 
+            int j = 0;
 //            auto yoloRes = curResult["yoloDetect"];
             auto yoloRes = futureRes.get();
+            inferTime += timer->timeCountS(tt1);
             auto tb = timer->curTimePoint();
             for (auto &out: yoloRes) {
                 if (out.empty()) {
@@ -133,3 +133,9 @@ int main(int argc, char *argv[]) {
 //2023-10-21 17:15:51   thread_infer.cpp:211  INFO| pre   use time: 0.893 s
 //2023-10-21 17:15:51   thread_infer.cpp:328  INFO| post  use time: 0.117 s
 //2023-10-21 17:15:51interface_thread.cp:122  SUCC| Release engine success
+
+//right over! 0.001 s, 2.489 s,  1.308 s
+//2023-10-22 19:52:58   thread_infer.cpp:398  INFO| start executing destructor ...
+//2023-10-22 19:52:58   thread_infer.cpp:211  INFO| pre   use time: 0.232 s
+//2023-10-22 19:52:58   thread_infer.cpp:269  INFO| infer use time: 0.115 s
+//2023-10-22 19:52:58   thread_infer.cpp:328  INFO| post  use time: 0.018 s

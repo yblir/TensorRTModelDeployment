@@ -126,7 +126,7 @@ std::vector<unsigned char> TRT::getEngine(BaseParam &param) {
         }
 
         //engine不存在,先build,序列化engine到硬盘, 再执行反序列化操作
-        if (compile(param.mode, param.batchSize, param.onnxPath, param.enginePath, 1 << 28)) { // 256M
+        if (compile(param.mode, param.maxBatch, param.onnxPath, param.enginePath, 1 << 28)) { // 256M
             engine = loadEngine(param.enginePath);
         }
     }
