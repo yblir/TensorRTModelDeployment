@@ -39,11 +39,11 @@ set(i2 /usr/local/TensorRT-8.6.1.6/targets/x86_64-linux-gnu/lib/libnvinfer.so)
 # 对外封装时, 解除pybind11_add_module,target_link_libraries注释
 
 pybind11_add_module(deployment
-#        interface/interface_thread.cpp
-#        base_infer/thread_infer.cpp
+        interface/interface_thread.cpp
+        base_infer/thread_infer.cpp
 
-        interface/interface_single.cpp
-        base_infer/single_infer.cpp
+#        interface/interface_single.cpp
+#        base_infer/single_infer.cpp
 
         product/YoloDetect.cpp
         utils/box_utils.cpp

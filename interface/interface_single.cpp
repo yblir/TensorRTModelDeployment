@@ -59,7 +59,7 @@ batchBoxesType Engine::inferEngine(const pybind11::array &image) {
 //    全部以多图情况处理
     pybind11::gil_scoped_release release;
     std::vector<cv::Mat> mats;
-    cv::Mat mat(image.shape(1), image.shape(2), CV_8UC3, (unsigned char *) image.data(0));
+    cv::Mat mat(image.shape(0), image.shape(1), CV_8UC3, (unsigned char *) image.data(0));
     mats.emplace_back(mat);
 
     return inferEngine(mats);
@@ -68,12 +68,10 @@ batchBoxesType Engine::inferEngine(const pybind11::array &image) {
 batchBoxesType Engine::inferEngine(const std::vector<pybind11::array> &images) {
     pybind11::gil_scoped_release release;
     std::vector<cv::Mat> mats;
-    std::cout<<"1"<<std::endl;
     for (auto &image: images) {
 //      1. 预处理
-        cv::Mat mat(image.shape(1), image.shape(2), CV_8UC3, (unsigned char *) image.data(0));
+        cv::Mat mat(image.shape(0), image.shape(1), CV_8UC3, (unsigned char *) image.data(0));
         mats.emplace_back(mat);
-        std::cout<<"11"<<std::endl;
     }
     return inferEngine(mats);
 }
@@ -93,16 +91,12 @@ batchBoxesType Engine::inferEngine(const std::vector<cv::Mat> &images) {
 
     for (auto &image: images) {
 //      1. 预处理
-//        cv::Mat mat(image.shape(1), image.shape(2), CV_8UC3, (unsigned char *) image.data(0));
-        std::cout<<"2"<<std::endl;
         curAlg->preProcess(param->yoloDetectParam, image, pinMemoryIn + countPre * singleInputSize);
         param->yoloDetectParam.d2is.push_back(
                 {param->yoloDetectParam.d2i[0], param->yoloDetectParam.d2i[1], param->yoloDetectParam.d2i[2],
                  param->yoloDetectParam.d2i[3], param->yoloDetectParam.d2i[4], param->yoloDetectParam.d2i[5]}
         );
-        for (int i = 0; i < 6; ++i) {
-            std::cout<<param->yoloDetectParam.d2i[i]<<" ";
-        }
+
         countPre += 1;
 //      2. 判断推理数量
         // 不是最后一个元素且数量小于batchSize,继续循环,向pinMemoryIn写入预处理后数据

@@ -44,7 +44,7 @@ img1 = cv2.imread('../imgs/2007_000925.jpg')
 img2 = cv2.imread('../imgs/2007_001311.jpg')
 
 res = engine.inferEngine(img1)
-print(type(res.get()))
+pprint(res.get())
 # print('\n==============================')
 # res2 = engine.inferEngine(img2)
 # print(res2.get())
