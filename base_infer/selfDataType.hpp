@@ -16,8 +16,16 @@
 #include <future>
 #include "../utils/loguru.hpp"
 
-//batch->image->box
+// 根据不同输出形式, 选择对应输出结果类型
+//batch->image->box, [[[1,1,1,1],[2,2,2,2]],[[1,1,1,1]],...]
 using batchBoxesType = std::vector<std::vector<std::vector<float>>>;
+
+//输出[0.1, 0.3, 0.22, -0.5, ...]
+//using batchBoxesType = std::vector<float>;
+
+//输出[[0.3,0.1], [0.22,0.3], [-0.26,0.22], [-0.5,4] ...]
+//using batchBoxesType = std::vector<std::vector<float>>;
+
 using futureBoxes = std::shared_future<batchBoxesType>;
 
 #define logInfo(...)    LOG_F(INFO, __VA_ARGS__)

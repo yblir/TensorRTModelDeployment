@@ -21,9 +21,9 @@ struct YoloDetectParam : public BaseParam {
     int classNums = 80;        //!> 检测类别数量
     float scoreThresh = 0.5;   //!> 得分阈值
     float iouThresh = 0.3;     //!> iou框阈值
-    std::shared_ptr<Infer> func;
+    std::shared_ptr<Infer> trt;
 //    // 将解析的算法配置也当做参数指针呢?
-//    AlgorithmBase *func = nullptr;
+//    AlgorithmBase *trt = nullptr;
 };
 
 // ===============================================================================================
@@ -32,6 +32,7 @@ struct YoloDetectParam : public BaseParam {
 // 以下三个结构体,从参数,函数到结果,必须一一对应                    |
 // ----------------------------------------------------------
 
+// todo 越来越发现, productParam的存在很多余, 并没有减少多少代码量,反而增加了代码的可理解性
 // 接受从外部传入的配置参数,并传递给算法
 struct productParam {
     YoloFaceParam yoloFaceParam;
@@ -51,8 +52,8 @@ struct productParam {
 //    AlgorithmBase *yoloDetect;
 //};
 //struct productFunc {
-//    std::shared_ptr<Infer> func;
-//    std::shared_ptr<Infer> func;
+//    std::shared_ptr<Infer> trt;
+//    std::shared_ptr<Infer> trt;
 //
 //    ~productFunc() {
 //        printf("释放productFunc\n");
@@ -71,7 +72,7 @@ struct productParam {
 //
 //};
 
-// 从ctypes中传入的参数
+// 从python代码中传入的参数
 struct ManualParam {
     bool fp16 = false;
     int classNums = 80;        //!> 检测类别数量

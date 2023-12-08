@@ -82,11 +82,34 @@ int main(int argc, char *argv[]) {
 
 //    std::map<std::basic_string<char>, std::vector<std::vector<std::vector<float>>>> curResult;
     for (auto &item: imagePaths) {
+
+        auto img=cv::imread(item);
+        auto yoloRes=engine.inferEngine(img);
+        int j = 0;
+        for (auto &out: yoloRes) {
+            std::cout<<'res='<<std::endl;
+            if (out.empty()) {
+                j += 1;
+                continue;
+            }
+            std::cout<<'res='<<std::endl;
+            cv::Mat img = cv::imread(batch[j]);
+            // 遍历一张图片中每个预测框,并画到图片上
+            for (auto &box: out) {
+                drawImage(img, box);
+            }
+            // 把画好框的图片写入本地
+            cv::imwrite(imgOutputDir / batch[j].substr(batch[j].find_last_of('/') + 1), img);
+            j++;
+        }
+
+
+//        std::cout<<'res='<<std::endl;
         batch.emplace_back(item);
         batchImgs.emplace_back(cv::imread(item));
         count += 1;
 
-        if (count >= 2) {
+        if (count >= 1) {
 //            data.mats = batchImgs;
             auto tt1 = timer->curTimePoint();
 

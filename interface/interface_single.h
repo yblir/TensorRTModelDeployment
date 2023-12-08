@@ -9,9 +9,9 @@
 #include <NvInferRuntime.h>
 #include <opencv2/opencv.hpp>
 
-#include "pybind11/pybind11.h"
-#include "pybind11/stl.h"
-#include "pybind11/numpy.h"
+//#include "pybind11/pybind11.h"
+//#include "pybind11/stl.h"
+//#include "pybind11/numpy.h"
 
 #include "../base_infer/infer.h"
 #include "../product/product.h"
@@ -21,8 +21,8 @@ class Engine {
 public:
     int initEngine(ManualParam &inputParam);
     ~Engine();
-    batchBoxesType inferEngine(const pybind11::array &image);
-    batchBoxesType inferEngine(const std::vector<pybind11::array> &images);
+//    batchBoxesType inferEngine(const pybind11::array &image);
+//    batchBoxesType inferEngine(const std::vector<pybind11::array> &images);
 
     batchBoxesType inferEngine(const cv::Mat &mat);
     batchBoxesType inferEngine(const std::vector<cv::Mat> &mats);
@@ -30,14 +30,15 @@ public:
     int releaseEngine();
 
 private:
-    productParam *param;
-//    InputData *data;
+//    productParam *curAlgParam;
+    YoloDetectParam *curAlgParam;
+//    BaseParam *curAlgParam;
 
     Infer *curAlg;
 //    记录trt 输入输出需要内存大小
     float *gpuIn = nullptr, *pinMemoryIn = nullptr;
     float *gpuOut = nullptr, *pinMemoryOut = nullptr;
-    unsigned long trtInSize = 0, trtOutSize = 0;
+    unsigned long trtInMemorySize = 0, trtOutMemorySize = 0;
     batchBoxesType batchBox, batchBoxes;
 
     int singleInputSize, singleOutputSize;

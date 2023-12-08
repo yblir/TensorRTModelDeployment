@@ -10,11 +10,9 @@
 #include <future>
 
 #include <opencv2/opencv.hpp>
-#include <pybind11/numpy.h>
+//#include <pybind11/numpy.h>
 
 #include "selfDataType.hpp"
-
-using batchBoxesType = std::vector<std::vector<std::vector<float>>>;
 
 
 class Infer {
@@ -38,19 +36,19 @@ public:
 
     virtual batchBoxesType commit(BaseParam *param, const InputData *data) {};
 
-    virtual batchBoxesType commit(BaseParam *param, const pybind11::array &image) {};
+//    virtual batchBoxesType commit(BaseParam *param, const pybind11::array &image) {};
 
-    virtual batchBoxesType commit(BaseParam *param, std::vector<pybind11::array> &images) {};
+//    virtual batchBoxesType commit(BaseParam *param, std::vector<pybind11::array> &images) {};
 
     virtual int preProcess(BaseParam &param, const cv::Mat &image, float *pinMemoryCurrentIn) = 0;
-    virtual int preProcess(BaseParam &param, const pybind11::array &image, float *pinMemoryCurrentIn) = 0;
-    virtual int preProcess(BaseParam &param, const std::vector<pybind11::array> &images, float *pinMemoryCurrentIn) = 0;
+//    virtual int preProcess(BaseParam &param, const pybind11::array &image, float *pinMemoryCurrentIn) = 0;
+//    virtual int preProcess(BaseParam &param, const std::vector<pybind11::array> &images, float *pinMemoryCurrentIn) = 0;
     virtual int postProcess(BaseParam &param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) = 0;
 };
 
 
 //extern "C" std::shared_ptr<Infer> createInfer(BaseParam &param, Infer &curFunc);
-std::shared_ptr<Infer> createInfer(BaseParam &param, Infer &curFunc);
+std::shared_ptr<Infer> createInfer(Infer &curFunc, BaseParam &param);
 
 typedef Infer *(*CreateAlgorithm)();
 
