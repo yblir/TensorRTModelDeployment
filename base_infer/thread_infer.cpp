@@ -26,33 +26,43 @@ public:
 //    preProcess,postProcess空实现,具体实现由实际继承Infer.h的应用完成
     int preProcess(BaseParam &param, const cv::Mat &image, float *pinMemoryCurrentIn) override {};
 
-    int preProcess(BaseParam &param, const pybind11::array &image, float *pinMemoryCurrentIn) override {};
-
-    int preProcess(BaseParam &param, const std::vector<pybind11::array> &images, float *pinMemoryCurrentIn) override {};
+    int preProcess(BaseParam *param, const cv::Mat &image, float *pinMemoryCurrentIn) override {};
 
     int postProcess(BaseParam &param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override {};
 
-//    具体应用调用commit方法,推理数据传入队列, 直接返回future对象. 数据依次经过trtPre,trtInfer,trtPost三个线程,结果通过future.get()获得
+    int postProcess(BaseParam *param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override {};
+
+//    int preProcess(BaseParam &param, const pybind11::array &image, float *pinMemoryCurrentIn) override {};
+//
+//    int preProcess(BaseParam *param, const pybind11::array &image, float *pinMemoryCurrentIn) override {};
+//
+//    int preProcess(BaseParam &param, const std::vector<pybind11::array> &images, float *pinMemoryCurrentIn) override {};
+//
+//    int preProcess(BaseParam *param, const std::vector<pybind11::array> &images, float *pinMemoryCurrentIn) override {};
+
+
+//    具体应用调用commit方法,推理数据传入队列, 直接返回future对象. 数据依次经过trtPre,trtInfer,trtPost三个线程,结果在python代码中通过future.get()获得
     std::shared_future<batchBoxesType> commit(const InputData *data) override;
 
 //    将待推理数据写入队列1, 会调用上述由具体应用实现的preProcess
-    void trtPre(BaseParam &curParam, Infer *curFunc);
+    void trtPre(Infer *curFunc, BaseParam &curParam);
 //    从队列1取数据进行推理,然后将推理结果写入队列2
     void trtInfer(BaseParam &curParam);
 //    从队列2取数据,进行后处理, 会调用上述由具体应用实现的postProcess
-    void trtPost(BaseParam &curParam, Infer *curFunc);
+    void trtPost(Infer *curFunc, BaseParam &curParam);
 
     bool startThread(BaseParam &curParam, Infer &curFunc);
 
 private:
 //   lock1用于预处理写入+推理时取出
-    std::mutex lock1;
+    std::mutex lock1, lockPre, lockTrt, lockPost;
 //   lock2用于推理后结果写入+后处理取出
-    std::mutex lock2;
+//    std::mutex lock2;
     std::condition_variable cv_;
     float *gpuMemoryIn0 = nullptr, *gpuMemoryIn1 = nullptr, *pinMemoryIn = nullptr;
     float *gpuMemoryOut0 = nullptr, *gpuMemoryOut1 = nullptr, *pinMemoryOut = nullptr;
     float *gpuIn[2]{}, *gpuOut[2]{};
+
     std::vector<int> memory;
     // 读取从路径读入的图片矩阵
     cv::Mat mat;
@@ -123,19 +133,21 @@ bool InferImpl::getEngineContext(BaseParam &curParam) {
 std::shared_future<batchBoxesType> InferImpl::commit(const InputData *data) {
 //std::shared_future <batchBoxesType> InferImpl::commit(const std::vector <cv::Mat> &images) {
     // 将传入的多张或一张图片,一次性传入队列总
-    unsigned long len = !data->mats.empty() ? data->mats.size() : data->gpuMats.size();
+    unsigned long data_length = !data->mats.empty() ? data->mats.size() : data->gpuMats.size();
 
     fJob.mats = data->mats;
     fJob.gpuMats = data->gpuMats;
+//    fJob.pyMats = data->pyMats;
+
 //    两种方法都可以实现初始化,make_shared更好?
     fJob.batchResult = std::make_shared<std::promise<batchBoxesType>>();
 //    fJob.batchResult.reset(new std::promise<batchBoxesType>());
-
+//    todo qfJobLength多余,想办法改掉!
     // 创建share_future变量,一次性取回传入的所有图片结果, 不能直接返回xx.get_future(),会报错
     std::shared_future<batchBoxesType> future = fJob.batchResult->get_future();
     {
         std::lock_guard<std::mutex> l1(lock1);
-        qfJobLength.emplace(len);
+        qfJobLength.emplace(data_length);
         qfJobs.emplace(std::move(fJob));
     }
     // 通知图片预处理线程,图片已就位.
@@ -144,12 +156,12 @@ std::shared_future<batchBoxesType> InferImpl::commit(const InputData *data) {
     return future;
 }
 
-void InferImpl::trtPre(BaseParam &curParam, Infer *curFunc) {
+void InferImpl::trtPre(Infer *curFunc, BaseParam &curParam) {
     // 记录预处理总耗时
 //    double totalTime;
     std::chrono::system_clock::time_point preTime;
 //    auto t = timer.curTimePoint();
-//    计算1个batchSize的数据所需的空间大小
+//    计算1个batchSize的数据所需的内存空间大小
     unsigned long mallocSize = this->memory[0] * sizeof(float);
     // count统计推理图片数量,最后一次,可能小于batchSize.imgNums统计预处理图片数量,index是gpuIn的索引,两个显存轮换使用
     int countPre = 0, index = 0, inputSize = this->memory[0] / curParam.batchSize;
@@ -157,7 +169,7 @@ void InferImpl::trtPre(BaseParam &curParam, Infer *curFunc) {
 
     while (workRunning) {
         {
-            std::unique_lock<std::mutex> l1(lock1);
+            std::unique_lock<std::mutex> l1(lockPre);
             // 队列不为空, 退出等待,. 当标志位workRunning为False时,说明要停止线程运行,也退出等待
             cv_.wait(l1, [&]() { return !qfJobs.empty() || !workRunning; });
 //            判断退出等待原因是否是要停止线程
@@ -167,10 +179,12 @@ void InferImpl::trtPre(BaseParam &curParam, Infer *curFunc) {
         }
         // 默认推理的数量为batchSize, 只有最后一次才可能小于batchSize
         job.inferNum = curParam.batchSize;
-//        记录待推理的最后一个元素地址
-        auto lastElement = &fJob.mats.back();
 
+//        记录待推理的最后一个元素地址
+//        auto lastElement = &fJob.pyMats.back();
+        auto lastElement = &fJob.mats.back();
         // todo 暂时,先在内存中进行图片预处理. gpuMat以后写cuda核函数处理
+//        for (auto &curMat: fJob.pyMats) {
         for (auto &curMat: fJob.mats) {
             // 记录前处理耗时
             preTime = timer.curTimePoint();
@@ -195,7 +209,7 @@ void InferImpl::trtPre(BaseParam &curParam, Infer *curFunc) {
             index = index >= 1 ? 0 : index + 1;
 
             {
-                std::unique_lock<std::mutex> l1(lock1);
+                std::unique_lock<std::mutex> l1(lockPre);
                 // false,继续等待. true,不等待,跳出wait. 一旦进入wait,解锁. 退出wait,又加锁 最多2个batch
                 cv_.wait(l1, [&]() { return qPreJobs.size() < 2; });
                 // 将一个batch待推理数据的显存空间指针保存
@@ -232,7 +246,7 @@ void InferImpl::trtInfer(BaseParam &curParam) {
 
     while (true) {
         {
-            std::unique_lock<std::mutex> l1(lock1);
+            std::unique_lock<std::mutex> l1(lockTrt);
             // 队列不为空, 就说明推理空间图片已准备好,退出等待,继续推理. 当图片都处理完,并且队列为空,要退出等待,因为此时推理工作已完成
             cv_.wait(l1, [&]() { return !qPreJobs.empty() || (preFinish && qPreJobs.empty()); });
 //            若图片都处理完且队列空,说明推理结束,直接退出线程
@@ -260,7 +274,7 @@ void InferImpl::trtInfer(BaseParam &curParam) {
 
         // 流同步后,获取该batchSize推理结果
         {
-            std::unique_lock<std::mutex> l2(lock2);
+            std::unique_lock<std::mutex> l2(lockTrt);
             // false, 表示继续等待. true, 表示不等待,gpuOut内只有两块空间,因此队列长度只能限定为2
             cv_.wait(l2, [&]() { return qPostJobs.size() < 2; });
             qPostJobs.emplace(outTrt);
@@ -275,7 +289,7 @@ void InferImpl::trtInfer(BaseParam &curParam) {
 //    logInfo("infer use time: %.3f s", totalTime);
 }
 
-void InferImpl::trtPost(BaseParam &curParam, Infer *curFunc) {
+void InferImpl::trtPost(Infer *curFunc, BaseParam &curParam) {
     // 记录后处理耗时
 //    double totalTime;
 //    auto t = timer.curTimePoint();
@@ -291,7 +305,7 @@ void InferImpl::trtPost(BaseParam &curParam, Infer *curFunc) {
 
     while (true) {
         {
-            std::unique_lock<std::mutex> l2(lock2);
+            std::unique_lock<std::mutex> l2(lockPost);
             // 队列不为空, 就说明图片已推理好,退出等待,进行后处理. 推理结束,并且队列为空,退出等待,因为此时推理工作已完成
             cv_.wait(l2, [&]() { return !qPostJobs.empty() || (inferFinish && qPostJobs.empty()); });
             // 退出推理线程
@@ -336,20 +350,31 @@ void InferImpl::trtPost(BaseParam &curParam, Infer *curFunc) {
 }
 
 std::vector<int> InferImpl::setBatchAndInferMemory(BaseParam &curParam) {
+    int inputSize = 1, outputSize = 1;
     //计算输入tensor所占存储空间大小,设置指定的动态batch的大小,之后再重新指定输入tensor形状
     auto inputShape = curParam.engine->getTensorShape(curParam.inputName.c_str());
-    inputShape.d[0] = curParam.batchSize;
-    curParam.context->setInputShape(curParam.inputName.c_str(), inputShape);
-    //batchSize * c * h * w
-    int inputSize = curParam.batchSize * inputShape.d[1] * inputShape.d[2] * inputShape.d[3];
-
     // 获得输出tensor形状,计算输出所占存储空间
     auto outputShape = curParam.engine->getTensorShape(curParam.outputName.c_str());
-    // 记录这两个输出维度数量,在后处理时会用到
-    curParam.predictNums = outputShape.d[1];
-    curParam.predictLength = outputShape.d[2];
-    // 计算推理结果所占内存空间大小
-    int outputSize = curParam.batchSize * outputShape.d[1] * outputShape.d[2];
+
+//    重置batchsize,以外部输入batch为准
+    inputShape.d[0] = curParam.batchSize;
+    outputShape.d[0] = curParam.batchSize;
+
+//    设定trt engine输入输出shape
+    curParam.trtInputShape = inputShape;
+    curParam.trtOutputShape = outputShape;
+
+    curParam.context->setInputShape(curParam.inputName.c_str(), inputShape);
+
+//    计算batchsize个输入输出占用空间大小, inputSize=batchSize * c * h * w
+    for (int i = 0; i < inputShape.nbDims; ++i) {
+        std::cout << inputShape.d[i] << std::endl;
+        inputSize *= inputShape.d[i];
+    }
+//    outputSize=batchSize*...
+    for (int i = 0; i < outputShape.nbDims; ++i) {
+        outputSize *= outputShape.d[i];
+    }
 
     // 将batchSize个输入输出所占空间大小返回
     std::vector<int> memory = {inputSize, outputSize};
@@ -358,9 +383,9 @@ std::vector<int> InferImpl::setBatchAndInferMemory(BaseParam &curParam) {
 
 bool InferImpl::startThread(BaseParam &curParam, Infer &curFunc) {
     try {
-        preThread = std::make_shared<std::thread>(&InferImpl::trtPre, this, std::ref(curParam), &curFunc);
+        preThread = std::make_shared<std::thread>(&InferImpl::trtPre, this, &curFunc, std::ref(curParam));
         inferThread = std::make_shared<std::thread>(&InferImpl::trtInfer, this, std::ref(curParam));
-        postThread = std::make_shared<std::thread>(&InferImpl::trtPost, this, std::ref(curParam), &curFunc);
+        postThread = std::make_shared<std::thread>(&InferImpl::trtPost, this, &curFunc, std::ref(curParam));
     } catch (std::string &error) {
         logError("thread start failure: %s !", error.c_str());
         return false;
@@ -422,10 +447,12 @@ InferImpl::~InferImpl() {
     checkRuntime(cudaStreamDestroy(preStream));
     checkRuntime(cudaStreamDestroy(inferStream));
     checkRuntime(cudaStreamDestroy(postStream));
-//    printf("析构函数\n");
+
+    logInfo("destructor executed finished");
+
 }
 
-std::shared_ptr<Infer> createInfer(BaseParam &curParam, Infer &curFunc) {
+std::shared_ptr<Infer> createInfer(Infer &curFunc, BaseParam &curParam) {
 //    如果创建引擎不成功就reset
     if (!InferImpl::getEngineContext(curParam)) {
 //        logError("getEngineContext Fail");

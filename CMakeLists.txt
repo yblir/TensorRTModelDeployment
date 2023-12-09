@@ -39,11 +39,11 @@ set(i3 /usr/local/TensorRT-8.6.1.6/targets/x86_64-linux-gnu/lib)
 # 对外封装时, 解除pybind11_add_module,target_link_libraries注释
 
 #pybind11_add_module(deployment
-##        interface/interface_thread.cpp
-##        base_infer/thread_infer.cpp
+#        interface/thread_interface.cpp
+#        base_infer/thread_infer.cpp
 #
-#        interface/interface_single.cpp
-#        base_infer/single_infer.cpp
+##        interface/single_interface.cpp
+##        base_infer/single_infer.cpp
 #
 #        product/YoloDetect.cpp
 #        utils/box_utils.cpp
@@ -66,13 +66,13 @@ set(i3 /usr/local/TensorRT-8.6.1.6/targets/x86_64-linux-gnu/lib)
 # 调试时, 解除以下所有模块注释, 运行main_thread或main_single. 会爆出pybind11错误, 注释所有pybind11报错,调试完再解注释回来
 
 add_executable(run
-        main_single.cpp
-        interface/interface_single.cpp
-        base_infer/single_infer.cpp
+#        main_single.cpp
+#        interface/interface_single.cpp
+#        base_infer/single_infer.cpp
 
-#        main_thread.cpp
-#        interface/interface_thread.cpp
-#        base_infer/thread_infer.cpp
+        main_thread.cpp
+        interface/thread_interface.cpp
+        base_infer/thread_infer.cpp
 
         utils/loguru.cpp
         utils/general.cpp
@@ -99,4 +99,4 @@ link_libraries(${DEP_LIBS} ${CUDA_LIBRARIES}
         )
 set(CMAKE_INSTALL_PREFIX ${PROJECT_BINARY_DIR}/dist)
 
-#INSTALL(TARGETS run RUNTIME DESTINATION .)
+INSTALL(TARGETS run RUNTIME DESTINATION .)

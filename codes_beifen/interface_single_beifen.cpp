@@ -2,7 +2,7 @@
 // Created by Administrator on 2023/1/9.
 //
 #include <cuda_runtime.h>
-#include "interface_single.h"
+#include "single_interface.h"
 
 
 int Engine::initEngine(ManualParam &inputParam) {

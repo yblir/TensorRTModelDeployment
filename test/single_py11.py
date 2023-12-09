@@ -9,6 +9,8 @@
 import sys
 import time
 import cv2
+from PIL import Image
+
 from pprint import pprint
 import numpy as np
 from ctypes import cdll
@@ -40,6 +42,20 @@ param.outputName = 'output'
 
 a = engine.initEngine(param)
 
+
+def letterbox_image(image, size):
+    iw, ih = image.size
+    w, h = size
+    scale = min(w / iw, h / ih)
+    nw = int(iw * scale)
+    nh = int(ih * scale)
+
+    image = image.resize((nw, nh), Image.BICUBIC)
+    new_image = Image.new('RGB', size, (128, 128, 128))
+    new_image.paste(image, ((w - nw) // 2, (h - nh) // 2))
+    return new_image
+
+
 print('\n==============================')
 img1 = cv2.imread('../imgs/2007_000925.jpg')
 img2 = cv2.imread('../imgs/2007_001311.jpg')
@@ -48,7 +64,17 @@ img2 = cv2.imread('../imgs/2007_001311.jpg')
 # img1 = cv2.resize(img1, (640, 640))
 # img1 = np.ascontiguousarray(img1.transpose(2, 0, 1))
 # print(img1.shape)
-res = engine.inferEngine(img2)
+# img2=cv2.resize(img2,(640,640))
+
+# img2 = np.ascontiguousarray(img2.transpose(2, 0, 1))
+# print(img2.shape)
+# img2=img2.astype('float32')
+# img1 = Image.open('../imgs/2007_000925.jpg')
+# img1 = letterbox_image(img1, (640, 640))
+# img1 = np.asarray(img1)
+# img1 = img1.astype("float32") / 255.
+# img1 = np.ascontiguousarray(img1.transpose(2, 0, 1))
+res = engine.inferEngine([img1,img2])
 pprint(res)
 # print('\n==============================')
 # res2 = engine.inferEngine(img2)

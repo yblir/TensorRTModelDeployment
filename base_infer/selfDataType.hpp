@@ -59,19 +59,23 @@ struct BaseParam {
     int inputWidth;
 
     // 2 代码运行过程中生成 ========================================================
+//    predictNums,predictLength就是trtOutputShape,可通过更通用的trtOutputShape实现
     // 推理输出结果结构:[batchSize,predictNums,predictLength]
-
-    // 把所有输出拍平到一条直线时的数量,在onnx构建模型时就决定了
-    int predictNums;
-    // 每个预测的特征长度,例如对于目标检测来说,里面前5个预测特征通常是预测坐标和类别
-    int predictLength;
+//    // 把所有输出拍平到一条直线时的数量,在onnx构建模型时就决定了
+//    int predictNums;
+//    // 每个预测的特征长度,例如对于目标检测来说,里面前5个预测特征通常是预测坐标和类别
+//    int predictLength;
 
     // 存储一个batchSize的仿射变换参数, 用于还原letterbox前的图片
     std::vector<std::vector<float>> d2is;
     //当前正传处理图片的仿射变换参数
     float d2i[6];
-    // 在代码运行时给出引擎文件路径,因为刚开始可能没有引擎文件
+    // 在代码运行时给出引擎文件路径,因为刚开始没有引擎文件
     std::string enginePath;
+
+//    tensorrt推理时, engine指定的输入输出shape
+    nvinfer1::Dims32 trtInputShape;
+    nvinfer1::Dims32 trtOutputShape;
 
     // TensorRT 构建的引擎
     std::shared_ptr<nvinfer1::ICudaEngine> engine = nullptr;
@@ -81,6 +85,7 @@ struct BaseParam {
 
 // commit输入数据类型必是以下中的一个
 struct InputData {
+//    std::vector<pybind11::array> pyMats;
     std::vector<cv::Mat> mats;
 //    传入推理数据为单个或多个gpu图片矩阵,如果传入类型是以上两种类型,最后都要转化成GPU上
     std::vector<cv::cuda::GpuMat> gpuMats;
@@ -99,6 +104,7 @@ struct futureJob {
     //取得是后处理后的结果
     std::shared_ptr<std::promise<batchBoxesType>> batchResult;
 
+//    std::vector<pybind11::array> pyMats;
     std::vector<cv::Mat> mats;
     std::vector<cv::cuda::GpuMat> gpuMats;
 };

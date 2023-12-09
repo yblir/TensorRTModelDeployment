@@ -41,9 +41,16 @@ public:
 //    virtual batchBoxesType commit(BaseParam *param, std::vector<pybind11::array> &images) {};
 
     virtual int preProcess(BaseParam &param, const cv::Mat &image, float *pinMemoryCurrentIn) = 0;
-//    virtual int preProcess(BaseParam &param, const pybind11::array &image, float *pinMemoryCurrentIn) = 0;
-//    virtual int preProcess(BaseParam &param, const std::vector<pybind11::array> &images, float *pinMemoryCurrentIn) = 0;
+    virtual int preProcess(BaseParam *param, const cv::Mat &image, float *pinMemoryCurrentIn) = 0;
     virtual int postProcess(BaseParam &param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) = 0;
+    virtual int postProcess(BaseParam *param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) = 0;
+
+//    virtual int preProcess(BaseParam &param, const pybind11::array &image, float *pinMemoryCurrentIn) = 0;
+//    virtual int preProcess(BaseParam *param, const pybind11::array &image, float *pinMemoryCurrentIn) = 0;
+//    virtual int preProcess(BaseParam &param, const std::vector<pybind11::array> &images, float *pinMemoryCurrentIn) = 0;
+//    virtual int preProcess(BaseParam *param, const std::vector<pybind11::array> &images, float *pinMemoryCurrentIn) = 0;
+
+
 };
 
 

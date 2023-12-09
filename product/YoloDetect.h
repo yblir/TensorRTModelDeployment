@@ -17,13 +17,20 @@ public:
 
     // 预处理
     int preProcess(BaseParam &param, const cv::Mat &image, float *pinMemoryCurrentIn) override;
-//    int preProcess(BaseParam &param, const pybind11::array &image, float *pinMemoryCurrentIn) override;
-//    int preProcess(BaseParam &param, const std::vector<pybind11::array> &image, float *pinMemoryCurrentIn) override;
+    int preProcess(BaseParam *param, const cv::Mat &image, float *pinMemoryCurrentIn) override;
     // 后处理
     int postProcess(BaseParam &param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override;
+    int postProcess(BaseParam *param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override;
+
+//    int preProcess(BaseParam &param, const pybind11::array &image, float *pinMemoryCurrentIn) override;
+//    int preProcess(BaseParam *param, const pybind11::array &image, float *pinMemoryCurrentIn) override;
+//    int preProcess(BaseParam &param, const std::vector<pybind11::array> &image, float *pinMemoryCurrentIn) override;
+//    int preProcess(BaseParam *param, const std::vector<pybind11::array> &image, float *pinMemoryCurrentIn) override;
 
     static std::vector<std::vector<float>> decodeBox(int predictNums, int predictLength,
                                                      float *pinOutput, int classNum, float scoreThresh, std::vector<float> d2i);
+//    static std::vector<std::vector<float>> decodeBox(int predictNums, int predictLength,
+//                                                     float *pinOutput, int classNum, float scoreThresh);
 
 private:
     // 各具体算法定义自己的输出数据结构,并在getCurResult方法中返回.

@@ -23,12 +23,15 @@ public:
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
 //    preProcess,postProcess空实现,具体实现由实际继承Infer.h的应用完成
     int preProcess(BaseParam &param, const cv::Mat &image, float *pinMemoryCurrentIn) override {};
-
-//    int preProcess(BaseParam &param, const pybind11::array &image, float *pinMemoryCurrentIn) override {};
-
-//    int preProcess(BaseParam &param, const std::vector<pybind11::array> &images, float *pinMemoryCurrentIn) override {};
-
+    int preProcess(BaseParam *param, const cv::Mat &image, float *pinMemoryCurrentIn) override {};
     int postProcess(BaseParam &param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override {};
+    int postProcess(BaseParam *param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override {};
+
+    int preProcess(BaseParam &param, const pybind11::array &image, float *pinMemoryCurrentIn) override {};
+    int preProcess(BaseParam *param, const pybind11::array &image, float *pinMemoryCurrentIn) override {};
+    int preProcess(BaseParam &param, const std::vector<pybind11::array> &images, float *pinMemoryCurrentIn) override {};
+    int preProcess(BaseParam *param, const std::vector<pybind11::array> &images, float *pinMemoryCurrentIn) override {};
+
 
     std::vector<int> getMemory() override;
 //    具体应用调用commit方法,推理数据传入队列, 直接返回future对象. 数据依次经过trtPre,trtInfer,trtPost三个线程,结果通过future.get()获得
@@ -174,28 +177,21 @@ std::vector<int> InferImpl::setBatchAndInferMemory(BaseParam &curParam) {
     inputShape.d[0] = curParam.batchSize;
     outputShape.d[0] = curParam.batchSize;
 
+//    设定trt engine输入输出shape
+    curParam.trtInputShape = inputShape;
+    curParam.trtOutputShape = outputShape;
+
     curParam.context->setInputShape(curParam.inputName.c_str(), inputShape);
 
-    //batchSize * c * h * w
-//    int inputSize1 = curParam.batchSize * inputShape.d[1] * inputShape.d[2] * inputShape.d[3];
-
-//    计算batchsize个输入输出占用空间大小
+//    计算batchsize个输入输出占用空间大小, inputSize=batchSize * c * h * w
     for (int i = 0; i < inputShape.nbDims; ++i) {
         std::cout << inputShape.d[i] << std::endl;
         inputSize *= inputShape.d[i];
     }
-
+//    outputSize=batchSize*...
     for (int i = 0; i < outputShape.nbDims; ++i) {
         outputSize *= outputShape.d[i];
     }
-
-    // 获得输出tensor形状,计算输出所占存储空间
-//    auto outputShape = curParam.engine->getTensorShape(curParam.outputName.c_str());
-    // 记录这两个输出维度数量,在后处理时会用到
-//    curParam.predictNums = outputShape.d[1];
-//    curParam.predictLength = outputShape.d[2];
-    // 计算推理结果所占内存空间大小
-//    int outputSize = curParam.batchSize * outputShape.d[1] * outputShape.d[2];
 
     // 将batchSize个输入输出所占空间大小返回
     std::vector<int> memory = {inputSize, outputSize};

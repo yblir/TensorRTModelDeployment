@@ -10,7 +10,7 @@
 //#include <dirent.h>
 
 //#include "interface/interface_thread.h"
-#include "interface/interface_single.h"
+#include "interface/single_interface.h"
 #include "utils/general.h"
 #include "utils/box_utils.h"
 
@@ -53,8 +53,8 @@ int main(int argc, char *argv[]) {
 //  公司
 //    std::string path1 = "/mnt/d/Datasets/VOCdevkit/voc_test_300/";
 //    家
-//    std::string path1 = "/mnt/e/localDatasets/voc/voc_test_100/";
-    std::string path1 = "/mnt/e/GitHub/TensorRTModelDeployment/imgs/";
+    std::string path1 = "/mnt/e/localDatasets/voc/voc_test_100/";
+//    std::string path1 = "/mnt/e/GitHub/TensorRTModelDeployment/imgs/";
     std::filesystem::path imgInputDir(path1);
     std::filesystem::path imgOutputDir(path1 + "output/");
 
@@ -82,29 +82,6 @@ int main(int argc, char *argv[]) {
 
 //    std::map<std::basic_string<char>, std::vector<std::vector<std::vector<float>>>> curResult;
     for (auto &item: imagePaths) {
-
-        auto img=cv::imread(item);
-        auto yoloRes=engine.inferEngine(img);
-        int j = 0;
-        for (auto &out: yoloRes) {
-            std::cout<<'res='<<std::endl;
-            if (out.empty()) {
-                j += 1;
-                continue;
-            }
-            std::cout<<'res='<<std::endl;
-            cv::Mat img = cv::imread(batch[j]);
-            // 遍历一张图片中每个预测框,并画到图片上
-            for (auto &box: out) {
-                drawImage(img, box);
-            }
-            // 把画好框的图片写入本地
-            cv::imwrite(imgOutputDir / batch[j].substr(batch[j].find_last_of('/') + 1), img);
-            j++;
-        }
-
-
-//        std::cout<<'res='<<std::endl;
         batch.emplace_back(item);
         batchImgs.emplace_back(cv::imread(item));
         count += 1;
@@ -113,7 +90,7 @@ int main(int argc, char *argv[]) {
 //            data.mats = batchImgs;
             auto tt1 = timer->curTimePoint();
 
-            auto yoloRes = engine.inferEngine(batchImgs);
+            auto yoloRes = engine.inferEngine(batchImgs[0]);
             inferTime += timer->timeCountS(tt1);
             int j = 0;
 
