@@ -22,10 +22,10 @@ public:
     int postProcess(BaseParam &param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override;
     int postProcess(BaseParam *param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override;
 
-//    int preProcess(BaseParam &param, const pybind11::array &image, float *pinMemoryCurrentIn) override;
-//    int preProcess(BaseParam *param, const pybind11::array &image, float *pinMemoryCurrentIn) override;
-//    int preProcess(BaseParam &param, const std::vector<pybind11::array> &image, float *pinMemoryCurrentIn) override;
-//    int preProcess(BaseParam *param, const std::vector<pybind11::array> &image, float *pinMemoryCurrentIn) override;
+    int preProcess(BaseParam &param, const pybind11::array &image, float *pinMemoryCurrentIn) override;
+    int preProcess(BaseParam *param, const pybind11::array &image, float *pinMemoryCurrentIn) override;
+    int preProcess(BaseParam &param, const std::vector<pybind11::array> &image, float *pinMemoryCurrentIn) override;
+    int preProcess(BaseParam *param, const std::vector<pybind11::array> &image, float *pinMemoryCurrentIn) override;
 
     static std::vector<std::vector<float>> decodeBox(int predictNums, int predictLength,
                                                      float *pinOutput, int classNum, float scoreThresh, std::vector<float> d2i);

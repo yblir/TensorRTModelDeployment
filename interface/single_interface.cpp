@@ -12,7 +12,7 @@ int Engine::initEngine(ManualParam &inputParam) {
     curAlgParam = new YoloDetectParam;
 
     if (inputParam.batchSize > curAlgParam->maxBatch) {
-        logError("input batchSize more than maxBatch of built engine");
+        logError("input batchSize more than maxBatch of built engine, the maxBatch is 16");
         return -1;
     }
 
@@ -73,7 +73,7 @@ int Engine::initEngine(ManualParam &inputParam) {
 
 // 对于单张单线程推理, 直接拷贝到GPU上推理, 不需要中间过程
 batchBoxesType Engine::inferEngine(const pybind11::array &image) {
-    pybind11::gil_scoped_release release;
+//    pybind11::gil_scoped_release release;
 //    batchBox是类成员变量, 不会自动释放, 手动情况上一次推理的结果
     batchBox.clear();
 //    1.预处理
@@ -97,7 +97,7 @@ batchBoxesType Engine::inferEngine(const pybind11::array &image) {
 }
 
 batchBoxesType Engine::inferEngine(const std::vector<pybind11::array> &images) {
-    pybind11::gil_scoped_release release;
+//    pybind11::gil_scoped_release release;
     batchBoxes.clear();
     int inferNum = curAlgParam->batchSize;
     int countPre = 0;
@@ -263,9 +263,13 @@ PYBIND11_MODULE(deployment, m) {
 
 //            .def("inferEngine", pybind11::overload_cast<const std::string &>(&Engine::inferEngine))
 //            .def("inferEngine", pybind11::overload_cast<const std::vector<std::string> &>(&Engine::inferEngine))
-            .def("inferEngine", pybind11::overload_cast<const pybind11::array &>(&Engine::inferEngine), pybind11::arg("image"))
+
+//          todo 在多线程操作时, 必须加上pybind11::call_guard<pybind11::gil_scoped_release>()才能运行,单线程不加也可以,目前没发现加与不加的区别,难道
+//          todo 会影响运行速度?, 没测过!
+            .def("inferEngine", pybind11::overload_cast<const pybind11::array &>(&Engine::inferEngine),
+                 pybind11::arg("image"), pybind11::call_guard<pybind11::gil_scoped_release>())
             .def("inferEngine", pybind11::overload_cast<const std::vector<pybind11::array> &>(&Engine::inferEngine),
-                 pybind11::arg("images"))
+                 pybind11::arg("images"), pybind11::call_guard<pybind11::gil_scoped_release>())
 
             .def("releaseEngine", &Engine::releaseEngine);
 }

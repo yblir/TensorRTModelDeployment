@@ -19,6 +19,7 @@ public:
     // 创建推理engine
     static bool getEngineContext(BaseParam &curParam);
     static std::vector<int> setBatchAndInferMemory(BaseParam &curParam);
+    static unsigned long getDataLength(const InputData *data);
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     std::vector<int> getMemory() override {};
@@ -32,13 +33,13 @@ public:
 
     int postProcess(BaseParam *param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override {};
 
-//    int preProcess(BaseParam &param, const pybind11::array &image, float *pinMemoryCurrentIn) override {};
-//
-//    int preProcess(BaseParam *param, const pybind11::array &image, float *pinMemoryCurrentIn) override {};
-//
-//    int preProcess(BaseParam &param, const std::vector<pybind11::array> &images, float *pinMemoryCurrentIn) override {};
-//
-//    int preProcess(BaseParam *param, const std::vector<pybind11::array> &images, float *pinMemoryCurrentIn) override {};
+    int preProcess(BaseParam &param, const pybind11::array &image, float *pinMemoryCurrentIn) override {};
+
+    int preProcess(BaseParam *param, const pybind11::array &image, float *pinMemoryCurrentIn) override {};
+
+    int preProcess(BaseParam &param, const std::vector<pybind11::array> &images, float *pinMemoryCurrentIn) override {};
+
+    int preProcess(BaseParam *param, const std::vector<pybind11::array> &images, float *pinMemoryCurrentIn) override {};
 
 
 //    具体应用调用commit方法,推理数据传入队列, 直接返回future对象. 数据依次经过trtPre,trtInfer,trtPost三个线程,结果在python代码中通过future.get()获得
@@ -54,11 +55,11 @@ public:
     bool startThread(BaseParam &curParam, Infer &curFunc);
 
 private:
-//   lock1用于预处理写入+推理时取出
-    std::mutex lock1, lockPre, lockTrt, lockPost;
-//   lock2用于推理后结果写入+后处理取出
-//    std::mutex lock2;
+//   qPreLock用于预处理写入+推理时取出,qPostLock用于推理后结果写入+后处理取出, 锁与队列一一对应
+    std::mutex qfJobsLock, qPreLock, qPostLock;
     std::condition_variable cv_;
+//    当后处理图片数量达到totalNum时,把结果返回出来. 这个变量只使用一次. trtPre中赋值,在trtPost中使用
+    unsigned long totalNum;
     float *gpuMemoryIn0 = nullptr, *gpuMemoryIn1 = nullptr, *pinMemoryIn = nullptr;
     float *gpuMemoryOut0 = nullptr, *gpuMemoryOut1 = nullptr, *pinMemoryOut = nullptr;
     float *gpuIn[2]{}, *gpuOut[2]{};
@@ -130,24 +131,41 @@ bool InferImpl::getEngineContext(BaseParam &curParam) {
     return true;
 }
 
+unsigned long InferImpl::getDataLength(const InputData *data) {
+    unsigned long data_length;
+    if (!data->pyMats.empty())
+        data_length = data->pyMats.size();
+    else if (!data->mats.empty())
+        data_length = data->mats.size();
+    else
+        data_length = data->gpuMats.size();
+
+    return data_length;
+//    return 0;
+}
+
 std::shared_future<batchBoxesType> InferImpl::commit(const InputData *data) {
-//std::shared_future <batchBoxesType> InferImpl::commit(const std::vector <cv::Mat> &images) {
     // 将传入的多张或一张图片,一次性传入队列总
-    unsigned long data_length = !data->mats.empty() ? data->mats.size() : data->gpuMats.size();
+//    unsigned long data_length = !data->mats.empty() ? data->mats.size() : data->gpuMats.size();
+//    unsigned long data_length = getDataLength(data);
 
-    fJob.mats = data->mats;
-    fJob.gpuMats = data->gpuMats;
-//    fJob.pyMats = data->pyMats;
-
+//    todo C++ 调用启动mats或gpuMats, python调用,启用pyMats
+//    fJob.mats = data->mats;
+//    fJob.gpuMats = data->gpuMats;
+    fJob.pyMats = data->pyMats;
 //    两种方法都可以实现初始化,make_shared更好?
     fJob.batchResult = std::make_shared<std::promise<batchBoxesType>>();
 //    fJob.batchResult.reset(new std::promise<batchBoxesType>());
-//    todo qfJobLength多余,想办法改掉!
+
+//  todo 一个get_future()对应一个get()取回结果的操作.若前一个get()未执行,后一组数据已经执行了get_future()操作, 会导致
+//  todo 前一个get()操作出错. 即commit必须get()到当前数据的结果才能处理下一组数据.那么可以创建一个全局变量,统计当前传入的
+//  todo 待推理图片数量,在各个线程间共用.因为在所有结果返回前不会收到下一组数据来改变这个全局变量, 所有这个变量是安全的.在trtPre
+//  todo 中赋值, 在trtPost中使用.
+
     // 创建share_future变量,一次性取回传入的所有图片结果, 不能直接返回xx.get_future(),会报错
     std::shared_future<batchBoxesType> future = fJob.batchResult->get_future();
     {
-        std::lock_guard<std::mutex> l1(lock1);
-        qfJobLength.emplace(data_length);
+        std::lock_guard<std::mutex> fj(qfJobsLock);
         qfJobs.emplace(std::move(fJob));
     }
     // 通知图片预处理线程,图片已就位.
@@ -169,28 +187,33 @@ void InferImpl::trtPre(Infer *curFunc, BaseParam &curParam) {
 
     while (workRunning) {
         {
-            std::unique_lock<std::mutex> l1(lockPre);
+            std::unique_lock<std::mutex> fj(qfJobsLock);
             // 队列不为空, 退出等待,. 当标志位workRunning为False时,说明要停止线程运行,也退出等待
-            cv_.wait(l1, [&]() { return !qfJobs.empty() || !workRunning; });
+            cv_.wait(fj, [&]() { return !qfJobs.empty() || !workRunning; });
 //            判断退出等待原因是否是要停止线程
             if (!workRunning) break;
             fJob = qfJobs.front();
             qfJobs.pop();
         }
+
         // 默认推理的数量为batchSize, 只有最后一次才可能小于batchSize
         job.inferNum = curParam.batchSize;
-
+// ---------------------------------------------------------------------------------------
+//        todo 根据调用方式,启动对应数据类型
 //        记录待推理的最后一个元素地址
-//        auto lastElement = &fJob.pyMats.back();
-        auto lastElement = &fJob.mats.back();
+        auto lastElement = &fJob.pyMats.back();
+        totalNum = fJob.pyMats.size();
+//        auto lastElement = &fJob.mats.back();
+//        totalNum = fJob.mats.size();
         // todo 暂时,先在内存中进行图片预处理. gpuMat以后写cuda核函数处理
-//        for (auto &curMat: fJob.pyMats) {
-        for (auto &curMat: fJob.mats) {
+        for (auto &curMat: fJob.pyMats) {
+//        for (auto &curMat: fJob.mats) {
+// ---------------------------------------------------------------------------------------
             // 记录前处理耗时
-            preTime = timer.curTimePoint();
+//            preTime = timer.curTimePoint();
 //            调用具体算法自身实现的预处理逻辑
             curFunc->preProcess(curParam, curMat, pinMemoryIn + countPre * inputSize);
-            // 将当前正在处理图片的变换参数加入该batch的变换vector中
+            // 将当前正在处理图片的变换参数加入该batch的变换vector中, 没有图像变换, 这行也不会报错, 所有模型预处理都可保留
             job.d2is.push_back({curParam.d2i[0], curParam.d2i[1], curParam.d2i[2], curParam.d2i[3], curParam.d2i[4], curParam.d2i[5]});
 
             countPre += 1;
@@ -209,9 +232,9 @@ void InferImpl::trtPre(Infer *curFunc, BaseParam &curParam) {
             index = index >= 1 ? 0 : index + 1;
 
             {
-                std::unique_lock<std::mutex> l1(lockPre);
+                std::unique_lock<std::mutex> pre(qPreLock);
                 // false,继续等待. true,不等待,跳出wait. 一旦进入wait,解锁. 退出wait,又加锁 最多2个batch
-                cv_.wait(l1, [&]() { return qPreJobs.size() < 2; });
+                cv_.wait(pre, [&]() { return qPreJobs.size() < 2; });
                 // 将一个batch待推理数据的显存空间指针保存
                 qPreJobs.push(job);
             }
@@ -246,9 +269,9 @@ void InferImpl::trtInfer(BaseParam &curParam) {
 
     while (true) {
         {
-            std::unique_lock<std::mutex> l1(lockTrt);
+            std::unique_lock<std::mutex> pre(qPreLock);
             // 队列不为空, 就说明推理空间图片已准备好,退出等待,继续推理. 当图片都处理完,并且队列为空,要退出等待,因为此时推理工作已完成
-            cv_.wait(l1, [&]() { return !qPreJobs.empty() || (preFinish && qPreJobs.empty()); });
+            cv_.wait(pre, [&]() { return !qPreJobs.empty() || (preFinish && qPreJobs.empty()); });
 //            若图片都处理完且队列空,说明推理结束,直接退出线程
             if (preFinish && qPreJobs.empty()) break;
             job = qPreJobs.front();
@@ -274,9 +297,9 @@ void InferImpl::trtInfer(BaseParam &curParam) {
 
         // 流同步后,获取该batchSize推理结果
         {
-            std::unique_lock<std::mutex> l2(lockTrt);
+            std::unique_lock<std::mutex> post(qPostLock);
             // false, 表示继续等待. true, 表示不等待,gpuOut内只有两块空间,因此队列长度只能限定为2
-            cv_.wait(l2, [&]() { return qPostJobs.size() < 2; });
+            cv_.wait(post, [&]() { return qPostJobs.size() < 2; });
             qPostJobs.emplace(outTrt);
         }
         cv_.notify_all();
@@ -294,31 +317,33 @@ void InferImpl::trtPost(Infer *curFunc, BaseParam &curParam) {
 //    double totalTime;
 //    auto t = timer.curTimePoint();
 //    将推理后数据从从显存拷贝到内存中,计算所需内存大小,ps:其实与占用显存大小一致
-    unsigned long mallocSize = this->memory[1] * sizeof(float), singleOutputSize = this->memory[1] / curParam.batchSize;
+    unsigned long mallocSize = this->memory[1] * sizeof(float);
+    int singleOutputSize = this->memory[1] / curParam.batchSize;
 //    batchBox收集每个batchSize后处理结果,然后汇总到batchBoxes中
     batchBoxesType batchBoxes, batchBox;
 
 //    传入图片总数, 已处理图片数量
-    int totalNum = 0, countPost = 0;
-    bool flag = true;
+//    int totalNum2 = 0;
+    int countPost = 0;
+//    bool flag = true;
     Out outPost;
 
     while (true) {
         {
-            std::unique_lock<std::mutex> l2(lockPost);
+            std::unique_lock<std::mutex> post(qPostLock);
             // 队列不为空, 就说明图片已推理好,退出等待,进行后处理. 推理结束,并且队列为空,退出等待,因为此时推理工作已完成
-            cv_.wait(l2, [&]() { return !qPostJobs.empty() || (inferFinish && qPostJobs.empty()); });
+            cv_.wait(post, [&]() { return !qPostJobs.empty() || (inferFinish && qPostJobs.empty()); });
             // 退出推理线程
             if (inferFinish && qPostJobs.empty()) break;
             outPost = qPostJobs.front();
             qPostJobs.pop();
             cv_.notify_all();
-//           每次当python传入数据时,totalNum值才会取出一次,获得当前传入图片数量
-            if (flag) {
-                totalNum = qfJobLength.front();
-                qfJobLength.pop();
-                flag = false;
-            }
+////           每次当python传入数据时,totalNum值才会取出一次,获得当前传入图片数量
+//            if (flag) {
+//                totalNum = qfJobLength.front();
+//                qfJobLength.pop();
+//                flag = false;
+//            }
         }
         // todo 将engine推理好的结果从gpu转移到内存中处理, 更高效的方式是在在gpu中用cuda核函数处理,but,以后再扩展吧
         cudaMemcpy(pinMemoryOut, outPost.inferOut, mallocSize, cudaMemcpyDeviceToHost);
@@ -339,7 +364,7 @@ void InferImpl::trtPost(Infer *curFunc, BaseParam &curParam) {
             // 输出解码后的结果,在commit中接收
             fJob.batchResult->set_value(batchBoxes);
             countPost = 0;
-            flag = true;
+//            flag = true;
             batchBoxes.clear();
         }
 //        totalTime += timer.timeCountS(qT1);
@@ -368,7 +393,6 @@ std::vector<int> InferImpl::setBatchAndInferMemory(BaseParam &curParam) {
 
 //    计算batchsize个输入输出占用空间大小, inputSize=batchSize * c * h * w
     for (int i = 0; i < inputShape.nbDims; ++i) {
-        std::cout << inputShape.d[i] << std::endl;
         inputSize *= inputShape.d[i];
     }
 //    outputSize=batchSize*...

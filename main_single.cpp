@@ -86,11 +86,11 @@ int main(int argc, char *argv[]) {
         batchImgs.emplace_back(cv::imread(item));
         count += 1;
 
-        if (count >= 1) {
+        if (count >= 5) {
 //            data.mats = batchImgs;
             auto tt1 = timer->curTimePoint();
 
-            auto yoloRes = engine.inferEngine(batchImgs[0]);
+            auto yoloRes = engine.inferEngine(batchImgs);
             inferTime += timer->timeCountS(tt1);
             int j = 0;
 
@@ -130,3 +130,10 @@ int main(int argc, char *argv[]) {
 //2023-10-21 17:15:51   thread_infer.cpp:211  INFO| pre   use time: 0.893 s
 //2023-10-21 17:15:51   thread_infer.cpp:328  INFO| post  use time: 0.117 s
 //2023-10-21 17:15:51interface_thread.cp:122  SUCC| Release engine success
+
+// 单线程推理, 比多线程差了一些, 100张图片上, 差距不大
+//right over! 0.600 s, 2.054 s,  0.978 s
+//right over! 0.602 s, 2.025 s,  0.944 s
+//right over! 0.609 s, 2.052 s,  0.960 s
+//right over! 0.601 s, 2.014 s,  0.949 s
+//right over! 0.600 s, 2.060 s,  0.973 s

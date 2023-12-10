@@ -12,8 +12,9 @@ int Engine::initEngine(ManualParam &inputParam) {
     data = new InputData;
     curAlg = new YoloDetect();
     curAlgParam = new YoloDetectParam;
+
     if (inputParam.batchSize > curAlgParam->maxBatch) {
-        logError("input batchSize more than maxBatch of built engine");
+        logError("input batchSize more than maxBatch of built engine,the maxBatch is 16");
         return -1;
     }
 
@@ -83,31 +84,31 @@ int Engine::initEngine(ManualParam &inputParam) {
 //
 //    return inferEngine(mats);
 //}
-/*
+
 futureBoxes Engine::inferEngine(const pybind11::array &img) {
-    std::vector<cv::Mat> mats;
-
+//    pybind11::gil_scoped_release release;
+//    std::vector<cv::Mat> mats;
 //    array转成cv::Mat格式
-    cv::Mat mat(img.shape(0), img.shape(1), CV_8UC3, (unsigned char *) img.data(0));
-    mats.emplace_back(mat);
+//    cv::Mat mat(img.shape(0), img.shape(1), CV_8UC3, (unsigned char *) img.data(0));
+//    mats.emplace_back(mat);
 
-//    result = inferEngine(mats);
-
-    return inferEngine(mats);
+    data->pyMats.push_back(img);
+    return curAlgParam->trt->commit(data);
 }
 
 futureBoxes Engine::inferEngine(const std::vector<pybind11::array> &imgs) {
+//    pybind11::gil_scoped_release release;
 //    有可能多个返回结果, 或多个返回依次调用, 在此使用字典类型格式
 //    futureBoxes result;
 //    将读入的所有图片路径转为cv::Mat格式
-    std::vector<cv::Mat> mats;
-    for (auto &img: imgs)
-        mats.emplace_back(img.shape(0), img.shape(1), CV_8UC3, (unsigned char *) img.data(0));
-
+//    std::vector<cv::Mat> mats;
+//    for (auto &img: imgs)
+//        mats.emplace_back(img.shape(0), img.shape(1), CV_8UC3, (unsigned char *) img.data(0));
+    data->pyMats = imgs;
 //    result = inferEngine(mats);
-    return inferEngine(mats);
+    return curAlgParam->trt->commit(data);
 }
-*/
+
 futureBoxes Engine::inferEngine(const std::vector<cv::Mat> &mats) {
 //    有可能多个返回结果, 或多个返回依次调用, 在此使用字典类型格式
 //    futureBoxes result;
@@ -124,41 +125,45 @@ int Engine::releaseEngine() {
     logSuccess("Release engine success");
 }
 
-//PYBIND11_MODULE(deployment, m) {
-////    配置手动输入参数
-//    pybind11::class_<ManualParam>(m, "ManualParam")
-//            .def(pybind11::init<>())
-//            .def_readwrite("fp16", &ManualParam::fp16)
-//            .def_readwrite("gpuId", &ManualParam::gpuId)
-//            .def_readwrite("batchSize", &ManualParam::batchSize)
-//
-//            .def_readwrite("scoreThresh", &ManualParam::scoreThresh)
-//            .def_readwrite("iouThresh", &ManualParam::iouThresh)
-//            .def_readwrite("classNums", &ManualParam::classNums)
-//
-//            .def_readwrite("inputHeight", &ManualParam::inputHeight)
-//            .def_readwrite("inputWidth", &ManualParam::inputWidth)
-//
-//            .def_readwrite("onnxPath", &ManualParam::onnxPath)
-//            .def_readwrite("enginePath", &ManualParam::enginePath)
-//
-//            .def_readwrite("inputName", &ManualParam::inputName)
-//            .def_readwrite("outputName", &ManualParam::outputName);
-//
-////    注册返回到python中的future数据类型,并定义get方法. 不然inferEngine返回的结果类型会出错
-//    pybind11::class_<futureBoxes>(m, "SharedFutureObject")
-//            .def("get", &futureBoxes::get);
-//
-////    暴露的推理接口
-//    pybind11::class_<Engine>(m, "Engine")
-//            .def(pybind11::init<>())
-//            .def("initEngine", &Engine::initEngine)
-//
-////            .def("inferEngine", pybind11::overload_cast<const std::string &>(&Engine::inferEngine))
-////            .def("inferEngine", pybind11::overload_cast<const std::vector<std::string> &>(&Engine::inferEngine))
-//            .def("inferEngine", pybind11::overload_cast<const pybind11::array &>(&Engine::inferEngine), pybind11::arg("image"))
-//            .def("inferEngine", pybind11::overload_cast<const std::vector<pybind11::array> &>(&Engine::inferEngine),
-//                 pybind11::arg("images"))
-//
-//            .def("releaseEngine", &Engine::releaseEngine);
-//}
+PYBIND11_MODULE(deployment, m) {
+//    配置手动输入参数
+    pybind11::class_<ManualParam>(m, "ManualParam")
+            .def(pybind11::init<>())
+            .def_readwrite("fp16", &ManualParam::fp16)
+            .def_readwrite("gpuId", &ManualParam::gpuId)
+            .def_readwrite("batchSize", &ManualParam::batchSize)
+
+            .def_readwrite("scoreThresh", &ManualParam::scoreThresh)
+            .def_readwrite("iouThresh", &ManualParam::iouThresh)
+            .def_readwrite("classNums", &ManualParam::classNums)
+
+            .def_readwrite("inputHeight", &ManualParam::inputHeight)
+            .def_readwrite("inputWidth", &ManualParam::inputWidth)
+
+            .def_readwrite("onnxPath", &ManualParam::onnxPath)
+            .def_readwrite("enginePath", &ManualParam::enginePath)
+
+            .def_readwrite("inputName", &ManualParam::inputName)
+            .def_readwrite("outputName", &ManualParam::outputName);
+
+//    注册返回到python中的future数据类型,并定义get方法. 不然inferEngine返回的结果类型会出错
+    pybind11::class_<futureBoxes>(m, "SharedFutureObject")
+            .def("get", &futureBoxes::get);
+
+//    暴露的推理接口
+    pybind11::class_<Engine>(m, "Engine")
+            .def(pybind11::init<>())
+            .def("initEngine", &Engine::initEngine)
+
+//            .def("inferEngine", pybind11::overload_cast<const std::string &>(&Engine::inferEngine))
+//            .def("inferEngine", pybind11::overload_cast<const std::vector<std::string> &>(&Engine::inferEngine))
+
+            .def("inferEngine", pybind11::overload_cast<const pybind11::array &>(&Engine::inferEngine),
+                 pybind11::arg("image"), pybind11::call_guard<pybind11::gil_scoped_release>()
+            )
+            .def("inferEngine", pybind11::overload_cast<const std::vector<pybind11::array> &>(&Engine::inferEngine),
+                 pybind11::arg("images"), pybind11::call_guard<pybind11::gil_scoped_release>()
+            )
+
+            .def("releaseEngine", &Engine::releaseEngine);
+}

@@ -85,7 +85,7 @@ struct BaseParam {
 
 // commit输入数据类型必是以下中的一个
 struct InputData {
-//    std::vector<pybind11::array> pyMats;
+    std::vector<pybind11::array> pyMats;
     std::vector<cv::Mat> mats;
 //    传入推理数据为单个或多个gpu图片矩阵,如果传入类型是以上两种类型,最后都要转化成GPU上
     std::vector<cv::cuda::GpuMat> gpuMats;
@@ -104,7 +104,7 @@ struct futureJob {
     //取得是后处理后的结果
     std::shared_ptr<std::promise<batchBoxesType>> batchResult;
 
-//    std::vector<pybind11::array> pyMats;
+    std::vector<pybind11::array> pyMats;
     std::vector<cv::Mat> mats;
     std::vector<cv::cuda::GpuMat> gpuMats;
 };

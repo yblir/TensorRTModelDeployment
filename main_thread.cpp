@@ -139,3 +139,9 @@ int main(int argc, char *argv[]) {
 //2023-10-22 19:52:58   thread_infer.cpp:211  INFO| pre   use time: 0.232 s
 //2023-10-22 19:52:58   thread_infer.cpp:269  INFO| infer use time: 0.115 s
 //2023-10-22 19:52:58   thread_infer.cpp:328  INFO| post  use time: 0.018 s
+
+//right over! 0.546 s, 1.936 s,  0.927 s
+//right over! 0.545 s, 1.992 s,  0.968 s
+//right over! 0.541 s, 1.973 s,  0.954 s
+//right over! 0.553 s, 1.956 s,  0.938 s
+//right over! 0.548 s, 1.996 s,  0.968 s

@@ -11,7 +11,7 @@
 
 YoloDetect::YoloDetect() = default;
 YoloDetect::~YoloDetect() = default;
-/*
+
 int YoloDetect::preProcess(BaseParam &param, const pybind11::array &image, float *pinMemoryCurrentIn) {
     cv::Mat mat(image.shape(0), image.shape(1), CV_8UC3, (unsigned char *) image.data(0));
     return preProcess(param, mat, pinMemoryCurrentIn);
@@ -38,7 +38,7 @@ int YoloDetect::preProcess(BaseParam *param, const pybind11::array &image, float
 int YoloDetect::preProcess(BaseParam *param, const std::vector<pybind11::array> &image, float *pinMemoryCurrentIn) {
     return 0;
 }
-*/
+
 int YoloDetect::preProcess(BaseParam &param, const cv::Mat &image, float *pinMemoryCurrentIn) {
 
     cv::Mat scaleImage = letterBox(image, param.inputWidth, param.inputHeight, param.d2i);

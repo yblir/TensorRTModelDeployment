@@ -28,7 +28,7 @@ engine = dp.Engine()
 
 param.fp16 = False
 param.gpuId = 0
-param.batchSize = 1
+param.batchSize = 17
 param.scoreThresh = 0.5
 param.iouThresh = 0.5
 param.classNums = 80
@@ -41,6 +41,9 @@ param.inputName = 'images'
 param.outputName = 'output'
 
 a = engine.initEngine(param)
+
+if a == -1:
+    sys.exit()
 
 
 def letterbox_image(image, size):
@@ -74,7 +77,8 @@ img2 = cv2.imread('../imgs/2007_001311.jpg')
 # img1 = np.asarray(img1)
 # img1 = img1.astype("float32") / 255.
 # img1 = np.ascontiguousarray(img1.transpose(2, 0, 1))
-res = engine.inferEngine([img1,img2])
+
+res = engine.inferEngine([img1, img2])
 pprint(res)
 # print('\n==============================')
 # res2 = engine.inferEngine(img2)

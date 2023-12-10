@@ -10,7 +10,7 @@
 #include <future>
 
 #include <opencv2/opencv.hpp>
-//#include <pybind11/numpy.h>
+#include <pybind11/numpy.h>
 
 #include "selfDataType.hpp"
 
@@ -45,10 +45,10 @@ public:
     virtual int postProcess(BaseParam &param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) = 0;
     virtual int postProcess(BaseParam *param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) = 0;
 
-//    virtual int preProcess(BaseParam &param, const pybind11::array &image, float *pinMemoryCurrentIn) = 0;
-//    virtual int preProcess(BaseParam *param, const pybind11::array &image, float *pinMemoryCurrentIn) = 0;
-//    virtual int preProcess(BaseParam &param, const std::vector<pybind11::array> &images, float *pinMemoryCurrentIn) = 0;
-//    virtual int preProcess(BaseParam *param, const std::vector<pybind11::array> &images, float *pinMemoryCurrentIn) = 0;
+    virtual int preProcess(BaseParam &param, const pybind11::array &image, float *pinMemoryCurrentIn) = 0;
+    virtual int preProcess(BaseParam *param, const pybind11::array &image, float *pinMemoryCurrentIn) = 0;
+    virtual int preProcess(BaseParam &param, const std::vector<pybind11::array> &images, float *pinMemoryCurrentIn) = 0;
+    virtual int preProcess(BaseParam *param, const std::vector<pybind11::array> &images, float *pinMemoryCurrentIn) = 0;
 
 
 };

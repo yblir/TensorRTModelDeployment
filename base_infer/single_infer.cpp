@@ -185,7 +185,6 @@ std::vector<int> InferImpl::setBatchAndInferMemory(BaseParam &curParam) {
 
 //    计算batchsize个输入输出占用空间大小, inputSize=batchSize * c * h * w
     for (int i = 0; i < inputShape.nbDims; ++i) {
-        std::cout << inputShape.d[i] << std::endl;
         inputSize *= inputShape.d[i];
     }
 //    outputSize=batchSize*...
