@@ -16,6 +16,11 @@
 #include "../base_infer/infer.h"
 #include "../product/product.h"
 #include "../product/YoloDetect.h"
+//#include "../taskflow/taskflow.hpp"
+// thread_pool经过国内某个大佬改写, 这里又改些了addTread函数
+#include "../utils/thread_pool.hpp"
+//thread_pool2是原版, 但速度比较慢? 没测出多大差别,不过代码可读性较差
+//#include "../utils/thread_pool2.hpp"
 
 class Engine {
 public:
@@ -46,6 +51,21 @@ private:
     //创建cuda任务流,对应上述三个处理线程
     cudaStream_t commitStream{};
 //    std::vector<cv::Mat> mats;
+
+    // Create a taskflow object
+//    tf::Taskflow taskflow;
+
+    // Create a taskflow executor
+//    tf::Executor executor;
+
+    // Create a vector of tasks for image copying
+//    std::vector<tf::Task> tasks;
+//    std::vector<std::thread> threads;
+
+    std::ThreadPool executor;
+//    判断当前线程是否完成
+    std::vector<std::future<void> > thread_flags;
+
 };
 
 #endif //FACEFEATUREDETECTOR_REBUILD_FACE_INTERFACE_H

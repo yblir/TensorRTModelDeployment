@@ -68,8 +68,8 @@ struct BaseParam {
 
     // 存储一个batchSize的仿射变换参数, 用于还原letterbox前的图片
     std::vector<std::vector<float>> d2is;
-    //当前正传处理图片的仿射变换参数
-    float d2i[6];
+    //当前正传处理图片的仿射变换参数, 每个线程独自创立这个参数, 不然多个预处理线程间会出现次序问题
+//    float d2i[6];
     // 在代码运行时给出引擎文件路径,因为刚开始没有引擎文件
     std::string enginePath;
 

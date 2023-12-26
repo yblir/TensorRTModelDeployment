@@ -34,7 +34,7 @@ int main(int argc, char *argv[]) {
     inputParam.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
     inputParam.enginePath = "/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s_NVIDIAGeForceGTX1080_FP32.engine";
     inputParam.gpuId = 0;
-    inputParam.batchSize = 5;
+    inputParam.batchSize = 16;
     inputParam.inputHeight = 640;
     inputParam.inputWidth = 640;
 
@@ -80,14 +80,15 @@ int main(int argc, char *argv[]) {
     double inferTime, total1, hua;
     auto t8 = timer->curTimePoint();
 //    int em=0;
-
+    auto lastElement = &imagePaths.back();
 //    std::map<std::basic_string<char>, std::vector<std::vector<std::vector<float>>>> curResult;
     for (auto &item: imagePaths) {
         batch.emplace_back(item);
         batchImgs.emplace_back(cv::imread(item));
         count += 1;
 
-        if (count >= 5) {
+
+        if (count >= 32 or &item == lastElement) {
             data.mats = batchImgs;
             auto tt1 = timer->curTimePoint();
 

@@ -24,13 +24,11 @@ public:
 
 //    futureBoxes inferEngine(const InputData &data);
 
-//    futureBoxes inferEngine(const std::string &imgPath);
-//    futureBoxes inferEngine(const std::vector<std::string> &imgPaths);
 
     futureBoxes inferEngine(const pybind11::array &img);
     futureBoxes inferEngine(const std::vector<pybind11::array> &imgs);
 
-//    futureBoxes inferEngine(const cv::Mat &mat);
+    futureBoxes inferEngine(const cv::Mat &mat);
     futureBoxes inferEngine(const std::vector<cv::Mat> &mats);
 
     int releaseEngine();

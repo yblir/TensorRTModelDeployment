@@ -34,7 +34,7 @@ int main(int argc, char *argv[]) {
     inputParam.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
     inputParam.enginePath = "/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s_NVIDIAGeForceGTX1080_FP32.engine";
     inputParam.gpuId = 0;
-    inputParam.batchSize = 1;
+    inputParam.batchSize = 16;
     inputParam.inputHeight = 640;
     inputParam.inputWidth = 640;
 
@@ -80,13 +80,14 @@ int main(int argc, char *argv[]) {
     auto t8 = timer->curTimePoint();
 //    int em=0;
 
+    auto lastElement = &imagePaths.back();
 //    std::map<std::basic_string<char>, std::vector<std::vector<std::vector<float>>>> curResult;
     for (auto &item: imagePaths) {
         batch.emplace_back(item);
         batchImgs.emplace_back(cv::imread(item));
         count += 1;
 
-        if (count >= 5) {
+        if (count >= 32 or &item == lastElement) {
 //            data.mats = batchImgs;
             auto tt1 = timer->curTimePoint();
 
@@ -131,9 +132,21 @@ int main(int argc, char *argv[]) {
 //2023-10-21 17:15:51   thread_infer.cpp:328  INFO| post  use time: 0.117 s
 //2023-10-21 17:15:51interface_thread.cp:122  SUCC| Release engine success
 
-// 单线程推理, 比多线程差了一些, 100张图片上, 差距不大
-//right over! 0.600 s, 2.054 s,  0.978 s
-//right over! 0.602 s, 2.025 s,  0.944 s
-//right over! 0.609 s, 2.052 s,  0.960 s
-//right over! 0.601 s, 2.014 s,  0.949 s
-//right over! 0.600 s, 2.060 s,  0.973 s
+//单线程多线程预处理
+//right over! 0.570 s, 4.735 s,  2.627 s
+//right over! 0.565 s, 4.992 s,  2.777 s
+//right over! 0.568 s, 5.074 s,  2.828 s
+
+// 单线程单线线程预处理
+//right over! 1.587 s, 6.083 s,  2.857 s
+//right over! 1.593 s, 6.153 s,  2.902 s
+//right over! 1.592 s, 6.034 s,  2.843 s
+
+//多线程单线程预处理
+//right over! 1.418 s, 5.925 s,  2.831 s
+//right over! 1.413 s, 5.931 s,  2.860 s
+
+// 多线程多线程预处理和单线程多线程预处理推理总耗时差不多, 快0.1s.
+//right over! 0.467 s, 4.864 s,  2.786 s
+//right over! 0.476 s, 4.903 s,  2.866 s
+//right over! 0.464 s, 4.965 s,  2.827 s

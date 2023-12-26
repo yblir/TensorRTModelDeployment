@@ -23,17 +23,21 @@ public:
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
 //    preProcess,postProcess空实现,具体实现由实际继承Infer.h的应用完成
     int preProcess(BaseParam &param, const cv::Mat &image, float *pinMemoryCurrentIn) override {};
+    int preProcess(BaseParam &param, const cv::Mat &image, float *pinMemoryCurrentIn, const int &index) override {};
     int preProcess(BaseParam *param, const cv::Mat &image, float *pinMemoryCurrentIn) override {};
+    int preProcess(BaseParam *param, const cv::Mat &image, float *pinMemoryCurrentIn, const int &index) override {};
+
     int postProcess(BaseParam &param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override {};
     int postProcess(BaseParam *param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override {};
 
     int preProcess(BaseParam &param, const pybind11::array &image, float *pinMemoryCurrentIn) override {};
+    int preProcess(BaseParam &param, const pybind11::array &image, float *pinMemoryCurrentIn, const int &index) override {};
     int preProcess(BaseParam *param, const pybind11::array &image, float *pinMemoryCurrentIn) override {};
-    int preProcess(BaseParam &param, const std::vector<pybind11::array> &images, float *pinMemoryCurrentIn) override {};
-    int preProcess(BaseParam *param, const std::vector<pybind11::array> &images, float *pinMemoryCurrentIn) override {};
+    int preProcess(BaseParam *param, const pybind11::array &image, float *pinMemoryCurrentIn, const int &index) override {};
 
 
-    std::vector<int> getMemory() override;
+
+//    std::vector<int> getMemory() override;
 //    具体应用调用commit方法,推理数据传入队列, 直接返回future对象. 数据依次经过trtPre,trtInfer,trtPost三个线程,结果通过future.get()获得
 //    batchBoxesType commit(BaseParam *param, const InputData *data) override;
 //    batchBoxesType commit(BaseParam *param, const pybind11::array &img) override;

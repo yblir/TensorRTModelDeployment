@@ -19,9 +19,18 @@ int YoloDetect::preProcess(BaseParam &param, const pybind11::array &image, float
 //    return 0;
 }
 
-int YoloDetect::preProcess(BaseParam &param, const std::vector<pybind11::array> &image, float *pinMemoryCurrentIn) {
-    return 0;
+int YoloDetect::preProcess(BaseParam &param, const pybind11::array &image, float *pinMemoryCurrentIn, const int &index) {
+    cv::Mat mat(image.shape(0), image.shape(1), CV_8UC3, (unsigned char *) image.data(0));
+
+    return preProcess(param, mat, pinMemoryCurrentIn, index);
+
+//    std::cout << "pinMemoryCurrentIn=" << *pinMemoryCurrentIn << std::endl;
+//    pinMemoryCurrentIn = (float *) image.data(0);
+//    std::cout << "pinMemoryCurrentIn=" << *pinMemoryCurrentIn << std::endl;
+//    auto a = image.data(0);
+//    return 0;
 }
+
 
 int YoloDetect::preProcess(BaseParam *param, const pybind11::array &image, float *pinMemoryCurrentIn) {
     cv::Mat mat(image.shape(0), image.shape(1), CV_8UC3, (unsigned char *) image.data(0));
@@ -35,33 +44,61 @@ int YoloDetect::preProcess(BaseParam *param, const pybind11::array &image, float
 //    return 0;
 }
 
-int YoloDetect::preProcess(BaseParam *param, const std::vector<pybind11::array> &image, float *pinMemoryCurrentIn) {
-    return 0;
+int YoloDetect::preProcess(BaseParam *param, const pybind11::array &image, float *pinMemoryCurrentIn, const int &index) {
+    cv::Mat mat(image.shape(0), image.shape(1), CV_8UC3, (unsigned char *) image.data(0));
+
+    return preProcess(param, mat, pinMemoryCurrentIn, index);
+
+//    std::cout << "pinMemoryCurrentIn=" << *pinMemoryCurrentIn << std::endl;
+//    pinMemoryCurrentIn = (float *) image.data(0);
+//    std::cout << "pinMemoryCurrentIn=" << *pinMemoryCurrentIn << std::endl;
+//    auto a = image.data(0);
+//    return 0;
 }
 
-int YoloDetect::preProcess(BaseParam &param, const cv::Mat &image, float *pinMemoryCurrentIn) {
 
-    cv::Mat scaleImage = letterBox(image, param.inputWidth, param.inputHeight, param.d2i);
+int YoloDetect::preProcess(BaseParam &param, const cv::Mat &image, float *pinMemoryCurrentIn) {
+    float d2i[6];
+    cv::Mat scaleImage = letterBox(image, param.inputWidth, param.inputHeight, d2i);
 
     BGR2RGB(scaleImage, pinMemoryCurrentIn);
     // 依次存储一个batchSize中图片放射变换参数
-    param.d2is.push_back(
-            {param.d2i[0], param.d2i[1], param.d2i[2],
-             param.d2i[3], param.d2i[4], param.d2i[5]}
-    );
+    param.d2is.push_back({d2i[0], d2i[1], d2i[2], d2i[3], d2i[4], d2i[5]});
     return 0;
 }
 
 int YoloDetect::preProcess(BaseParam *param, const cv::Mat &image, float *pinMemoryCurrentIn) {
-
-    cv::Mat scaleImage = letterBox(image, param->inputWidth, param->inputHeight, param->d2i);
+    float d2i[6];
+    cv::Mat scaleImage = letterBox(image, param->inputWidth, param->inputHeight, d2i);
 
     BGR2RGB(scaleImage, pinMemoryCurrentIn);
     // 依次存储一个batchSize中图片放射变换参数
-    param->d2is.push_back(
-            {param->d2i[0], param->d2i[1], param->d2i[2],
-             param->d2i[3], param->d2i[4], param->d2i[5]}
-    );
+    param->d2is.push_back({d2i[0], d2i[1], d2i[2], d2i[3], d2i[4], d2i[5]});
+
+    return 0;
+}
+
+int YoloDetect::preProcess(BaseParam &param, const cv::Mat &image, float *pinMemoryCurrentIn, const int &index) {
+    float d2i[6];
+    cv::Mat scaleImage = letterBox(image, param.inputWidth, param.inputHeight, d2i);
+//    std::this_thread::sleep_for(std::chrono::seconds(1));
+    BGR2RGB(scaleImage, pinMemoryCurrentIn);
+    // param->d2is已经有占位符,按照预处理图片index次序依次填入仿射变换vector中
+
+    param.d2is[index] = {d2i[0], d2i[1], d2i[2], d2i[3], d2i[4], d2i[5]};
+
+    return 0;
+}
+
+int YoloDetect::preProcess(BaseParam *param, const cv::Mat &image, float *pinMemoryCurrentIn, const int &index) {
+    float d2i[6];
+    cv::Mat scaleImage = letterBox(image, param->inputWidth, param->inputHeight, d2i);
+//    std::this_thread::sleep_for(std::chrono::seconds(1));
+    BGR2RGB(scaleImage, pinMemoryCurrentIn);
+    // param->d2is已经有占位符,按照预处理图片index次序依次填入仿射变换vector中
+
+    param->d2is[index] = {d2i[0], d2i[1], d2i[2], d2i[3], d2i[4], d2i[5]};
+
     return 0;
 }
 
@@ -80,7 +117,8 @@ int YoloDetect::postProcess(BaseParam &param, float *pinMemoryCurrentOut, int si
 
         result.push_back(predict);
     }
-    param.d2is.clear();
+//    clear()会报错, 一定不能清理.
+//    param.d2is.clear();
     return 0;
 }
 
@@ -93,14 +131,14 @@ int YoloDetect::postProcess(BaseParam *param, float *pinMemoryCurrentOut, int si
         // 处理图片时要跳过前面已经处理的图片
         boxes = decodeBox(curParam->trtOutputShape.d[1], curParam->trtOutputShape.d[2],
                           pinMemoryCurrentOut + i * singleOutputSize, curParam->classNums, curParam->scoreThresh, param->d2is[i]);
-//        boxes = decodeBox(curParam->trtOutputShape.d[1], curParam->trtOutputShape.d[2],
-//                          pinMemoryCurrentOut + i * singleOutputSize, curParam->classNums, curParam->scoreThresh);
+
         predict = nms(boxes, curParam->iouThresh);
         result.push_back(predict);
     }
 //    在当前推理后处理时清空仿射变换参数,使得所有其他模型可以统一调用接口
 //  不论单张还是多张推理, 只要在preprocess中设置了仿射变换,必须在postprocess中clear(), 否则后续图片检测框会错位.
-    param->d2is.clear();
+//    todo 如果用多线程插入的方式, 不能清空d2is,不然preProcess中的根据index插入操作报错
+//    param->d2is.clear();
     return 0;
 }
 

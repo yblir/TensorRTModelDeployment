@@ -37,6 +37,8 @@ int Engine::initEngine(ManualParam &inputParam) {
         return -1;
     }
 
+//	  初始化时,创建batchSize个预处理函数线程, 一步完成预处理操作
+    executor.addThread(static_cast<unsigned short>(curAlgParam->batchSize));
 //    // 更新trt context内容, 并计算trt推理需要的输入输出内存大小
 //  memory 0:输入,1:输出, 记录的是batch个输入输出元素个数, 要换算成占用空间,需要乘上sizeof(float)
     auto memory = curAlgParam->trt->getMemory();
@@ -46,6 +48,11 @@ int Engine::initEngine(ManualParam &inputParam) {
 //    内存中单个输入输出元素数量, 用于计算向下一个内存单元递增时的索引位置
     singleInputSize = memory[0] / curAlgParam->batchSize;
     singleOutputSize = memory[1] / curAlgParam->batchSize;
+
+    //  todo 对仿射参数的初始化,用于占位, 后续使用多线程预处理, 图片参数根据传入次序在指定位置插入
+    for (int i = 0; i < curAlgParam->batchSize; ++i) {
+        curAlgParam->d2is.push_back({0., 0., 0., 0., 0., 0.});
+    }
 
     checkRuntime(cudaMallocAsync(&gpuIn, trtInMemorySize, commitStream));
     checkRuntime(cudaMallocAsync(&gpuOut, trtOutMemorySize, commitStream));
@@ -59,21 +66,21 @@ int Engine::initEngine(ManualParam &inputParam) {
 
     return 0;
 }
+/* todo 弃用
+// 把pybind11::array转为cv::Mat再推理, 似乎效率有点低, 因为多了一步类型转换
+batchBoxesType Engine::inferEngine(const pybind11::array &image) {
+//    全部以多图情况处理
+    pybind11::gil_scoped_release release;
+    std::vector<cv::Mat> mats;
+    cv::Mat mat(image.shape(0), image.shape(1), CV_8UC3, (unsigned char *) image.data(0));
+    mats.emplace_back(mat);
 
-//// 把pybind11::array转为cv::Mat再推理, 似乎效率有点低, 因为多了一步类型转换
-//batchBoxesType Engine::inferEngine(const pybind11::array &image) {
-////    全部以多图情况处理
-//    pybind11::gil_scoped_release release;
-//    std::vector<cv::Mat> mats;
-//    cv::Mat mat(image.shape(0), image.shape(1), CV_8UC3, (unsigned char *) image.data(0));
-//    mats.emplace_back(mat);
-//
-//    return inferEngine(mats);
-//}
-
+    return inferEngine(mats);
+}
+*/
 // 对于单张单线程推理, 直接拷贝到GPU上推理, 不需要中间过程
 batchBoxesType Engine::inferEngine(const pybind11::array &image) {
-//    pybind11::gil_scoped_release release;
+    pybind11::gil_scoped_release release;
 //    batchBox是类成员变量, 不会自动释放, 手动情况上一次推理的结果
     batchBox.clear();
 //    1.预处理
@@ -105,14 +112,28 @@ batchBoxesType Engine::inferEngine(const std::vector<pybind11::array> &images) {
 
     for (auto &image: images) {
 //      1. 预处理
-        curAlg->preProcess(curAlgParam, image, pinMemoryIn + countPre * singleInputSize);
-
+//        curAlg->preProcess(curAlgParam, image, pinMemoryIn + countPre * singleInputSize);
+        auto curPinMemoryInIndex = pinMemoryIn + countPre * singleInputSize;
+//		线程池操作
+        thread_flags.emplace_back(
+                executor.commit(
+                        [this, image, curPinMemoryInIndex, countPre] {
+                            curAlg->preProcess(curAlgParam, image, curPinMemoryInIndex, countPre);
+                        })
+        );
         countPre += 1;
 //      2. 判断推理数量
         // 不是最后一个元素且数量小于batchSize,继续循环,向pinMemoryIn写入预处理后数据
         if (&image != lastElement && countPre < curAlgParam->batchSize) continue;
         // 若是最后一个元素,记录当前需要推理图片数量(可能小于一个batchSize)
         if (&image == lastElement) inferNum = countPre;
+
+//		线程池处理方式, 所有预处理线程都完成后再继续
+        for (auto &flag: thread_flags) {
+            flag.get();
+        }
+//      thread_flags是存储线程池状态的vector, 每次处理完后都清理, 不然会越堆越多,内存泄露
+        thread_flags.clear();
 
 //      3. 执行推理
 //        对于pybind11::array类型图片,若在python中已做好预处理,不需要C++中处理什么, 可通过以下操作直接复制到gpu上,不需要pinMemoryIn中间步骤
@@ -137,6 +158,7 @@ batchBoxesType Engine::inferEngine(const std::vector<pybind11::array> &images) {
     return batchBoxes;
 }
 
+/* todo 弃用
 //batchBoxesType Engine::inferEngine(const std::vector<pybind11::array> &images) {
 //    pybind11::gil_scoped_release release;
 //    std::vector<cv::Mat> mats;
@@ -153,6 +175,7 @@ batchBoxesType Engine::inferEngine(const std::vector<pybind11::array> &images) {
 //
 //    return inferEngine(mats);
 //}
+*/
 
 batchBoxesType Engine::inferEngine(const cv::Mat &mat) {
     batchBox.clear();
@@ -182,14 +205,45 @@ batchBoxesType Engine::inferEngine(const std::vector<cv::Mat> &images) {
 
     for (auto &image: images) {
 //      1. 预处理
-        curAlg->preProcess(curAlgParam, image, pinMemoryIn + countPre * singleInputSize);
+//        curAlg->preProcess(curAlgParam, image, pinMemoryIn + countPre * singleInputSize);
+        auto curPinMemoryInIndex = pinMemoryIn + countPre * singleInputSize;
 
+//		taskflow的多线程方式, 会有内存越界问题, 不好用		
+//        tasks.emplace_back(taskflow.emplace([this, image, aa]() {
+//            curAlg->preProcess(curAlgParam, image, curPinMemoryInIndex);
+//        }));
+
+//		  原生多线程处理方式, 每次预处理都要创建线程,然后销毁, 效率应该不高, 但实测与线程池没太大差别
+//        threads.emplace_back([this, image, aa, countPre]() {
+//            curAlg->preProcess(curAlgParam, image, curPinMemoryInIndex, countPre);
+//        });
+
+//		线程池操作
+        thread_flags.emplace_back(
+                executor.commit(
+                        [this, image, curPinMemoryInIndex, countPre] {
+                            curAlg->preProcess(curAlgParam, image, curPinMemoryInIndex, countPre);
+                        })
+        );
         countPre += 1;
 //      2. 判断推理数量
         // 不是最后一个元素且数量小于batchSize,继续循环,向pinMemoryIn写入预处理后数据
         if (&image != lastElement && countPre < curAlgParam->batchSize) continue;
         // 若是最后一个元素,记录当前需要推理图片数量(可能小于一个batchSize)
         if (&image == lastElement) inferNum = countPre;
+/*
+        // 等待所有线程完成,原生线程处理方式
+        for (auto &thread: threads) {
+            if (thread.joinable()) thread.join();
+        }
+        threads.clear();
+*/
+//		线程池处理方式, 所有预处理线程都完成后再继续
+        for (auto &flag: thread_flags) {
+            flag.get();
+        }
+//      thread_flags是存储线程池状态的vector, 每次处理完后都清理, 不然会越堆越多,内存泄露
+        thread_flags.clear();
 
 //      3. 执行推理
 //        对于pybind11::array类型图片,若在python中已做好预处理,不需要C++中处理什么, 可通过以下操作直接复制到gpu上,不需要pinMemoryIn中间步骤
@@ -260,9 +314,6 @@ PYBIND11_MODULE(deployment, m) {
     pybind11::class_<Engine>(m, "Engine")
             .def(pybind11::init<>())
             .def("initEngine", &Engine::initEngine)
-
-//            .def("inferEngine", pybind11::overload_cast<const std::string &>(&Engine::inferEngine))
-//            .def("inferEngine", pybind11::overload_cast<const std::vector<std::string> &>(&Engine::inferEngine))
 
 //          todo 在多线程操作时, 必须加上pybind11::call_guard<pybind11::gil_scoped_release>()才能运行,单线程不加也可以,目前没发现加与不加的区别,难道
 //          todo 会影响运行速度?, 没测过!

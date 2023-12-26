@@ -7,6 +7,8 @@
 # import tryPybind as ty
 
 import sys
+import os
+from pathlib2 import Path
 import time
 import cv2
 from PIL import Image
@@ -28,7 +30,7 @@ engine = dp.Engine()
 
 param.fp16 = False
 param.gpuId = 0
-param.batchSize = 17
+param.batchSize = 16
 param.scoreThresh = 0.5
 param.iouThresh = 0.5
 param.classNums = 80
@@ -60,8 +62,8 @@ def letterbox_image(image, size):
 
 
 print('\n==============================')
-img1 = cv2.imread('../imgs/2007_000925.jpg')
-img2 = cv2.imread('../imgs/2007_001311.jpg')
+# img1 = cv2.imread('../imgs/2007_000925.jpg')
+# img2 = cv2.imread('../imgs/2007_001311.jpg')
 
 # img1 = img1.astype("float32")
 # img1 = cv2.resize(img1, (640, 640))
@@ -78,11 +80,26 @@ img2 = cv2.imread('../imgs/2007_001311.jpg')
 # img1 = img1.astype("float32") / 255.
 # img1 = np.ascontiguousarray(img1.transpose(2, 0, 1))
 
-res = engine.inferEngine([img1, img2])
-pprint(res)
+root_path = Path(r'/mnt/e/localDatasets/voc/voc_test_100')
+batch_imgs = []
+total_time = time.time()
+
+for img_path in root_path.iterdir():
+    if img_path.suffix != '.jpg':
+        continue
+    img = cv2.imread(str(img_path))
+    batch_imgs.append(img)
+    if len(batch_imgs) < 32:
+        continue
+    t1 = time.time()
+    res = engine.inferEngine(batch_imgs)
+    t2 = time.time() - t1
+    total_time += t2
+    batch_imgs.clear()
+
 # print('\n==============================')
 # res2 = engine.inferEngine(img2)
-# print(res2.get())
+print(t2)
 
 # time.sleep(1)
 engine.releaseEngine()

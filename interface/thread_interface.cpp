@@ -8,7 +8,6 @@
 
 
 int Engine::initEngine(ManualParam &inputParam) {
-//    param = new productParam;
     data = new InputData;
     curAlg = new YoloDetect();
     curAlgParam = new YoloDetectParam;
@@ -57,33 +56,14 @@ int Engine::initEngine(ManualParam &inputParam) {
     if (nullptr == curAlgParam->trt) {
         return -1;
     }
+
+    //  todo 对仿射参数的初始化,用于占位, 后续使用多线程预处理, 图片参数根据传入次序在指定位置插入
+    for (int i = 0; i < curAlgParam->batchSize; ++i) {
+        curAlgParam->d2is.push_back({0., 0., 0., 0., 0., 0.});
+    }
     return 0;
 }
 
-//futureBoxes Engine::inferEngine(const std::string &imgPath) {
-////    有可能多个返回结果, 或多个返回依次调用, 在此使用字典类型格式
-////    futureBoxes result;
-//    std::vector<cv::Mat> mats;
-//    mats.emplace_back(cv::imread(imgPath));
-//
-////    result = inferEngine(mats);
-//    return inferEngine(mats);
-//}
-//
-//futureBoxes Engine::inferEngine(const std::vector<std::string> &imgPaths) {
-////    有可能多个返回结果, 或多个返回依次调用, 在此使用字典类型格式
-////    futureBoxes result;
-////    将读入的所有图片路径转为cv::Mat格式
-//    std::vector<cv::Mat> mats;
-//
-//    for (auto &imgPath: imgPaths) {
-//        mats.emplace_back(cv::imread(imgPath));
-//    }
-//
-////    result = inferEngine(mats);
-//
-//    return inferEngine(mats);
-//}
 
 futureBoxes Engine::inferEngine(const pybind11::array &img) {
 //    pybind11::gil_scoped_release release;
@@ -154,9 +134,6 @@ PYBIND11_MODULE(deployment, m) {
     pybind11::class_<Engine>(m, "Engine")
             .def(pybind11::init<>())
             .def("initEngine", &Engine::initEngine)
-
-//            .def("inferEngine", pybind11::overload_cast<const std::string &>(&Engine::inferEngine))
-//            .def("inferEngine", pybind11::overload_cast<const std::vector<std::string> &>(&Engine::inferEngine))
 
             .def("inferEngine", pybind11::overload_cast<const pybind11::array &>(&Engine::inferEngine),
                  pybind11::arg("image"), pybind11::call_guard<pybind11::gil_scoped_release>()
