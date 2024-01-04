@@ -17,8 +17,12 @@
 #include "../utils/loguru.hpp"
 
 // 根据不同输出形式, 选择对应输出结果类型
+
 //batch->image->box, [[[1,1,1,1],[2,2,2,2]],[[1,1,1,1]],...]
 using batchBoxesType = std::vector<std::vector<std::vector<float>>>;
+
+//每张图片上的框, 仅在thread_infer.cpp的后处理trtPost中有使用,std::map<int,imgBoxesType>
+using imgBoxesType = std::vector<std::vector<float>>;
 
 //输出[0.1, 0.3, 0.22, -0.5, ...]
 //using batchBoxesType = std::vector<float>;
@@ -47,7 +51,6 @@ struct BaseParam {
     int batchSize = 1;
 
     // 使用fp32或fp16,当前仅支持两种选项,默认fp32
-//    Mode mode = Mode::FP16;
     Mode mode = Mode::FP32;
 
     // 推理时需要指定的输入输出节点名, 生成onnx文件时指定的输入输出名
@@ -66,8 +69,10 @@ struct BaseParam {
 //    // 每个预测的特征长度,例如对于目标检测来说,里面前5个预测特征通常是预测坐标和类别
 //    int predictLength;
 
-    // 存储一个batchSize的仿射变换参数, 用于还原letterbox前的图片
-    std::vector<std::vector<float>> d2is;
+    // 存储一个batchSize的仿射变换参数, 用于还原letterbox前的图片, 在预处理时传给job结构体, 通过队列最终传递给用于后处理还原原图坐标
+    std::vector<std::vector<float>> preD2is;
+//    用于后处理还原当前batch原图坐标, 不能一直用preD2is, 因为后一个batch的仿射参数会覆盖前一个的
+    std::vector<std::vector<float>> postD2is;
     //当前正传处理图片的仿射变换参数, 每个线程独自创立这个参数, 不然多个预处理线程间会出现次序问题
 //    float d2i[6];
     // 在代码运行时给出引擎文件路径,因为刚开始没有引擎文件
@@ -85,7 +90,7 @@ struct BaseParam {
 
 // commit输入数据类型必是以下中的一个
 struct InputData {
-    std::vector<pybind11::array> pyMats;
+//    std::vector<pybind11::array> pyMats;
     std::vector<cv::Mat> mats;
 //    传入推理数据为单个或多个gpu图片矩阵,如果传入类型是以上两种类型,最后都要转化成GPU上
     std::vector<cv::cuda::GpuMat> gpuMats;
@@ -94,7 +99,7 @@ struct InputData {
 
 // 推理输入
 struct Job {
-    float *inputTensor;
+//    float *inputTensor;
     std::vector<std::vector<float>> d2is;
     int inferNum{};
 };
@@ -104,14 +109,15 @@ struct futureJob {
     //取得是后处理后的结果
     std::shared_ptr<std::promise<batchBoxesType>> batchResult;
 
-    std::vector<pybind11::array> pyMats;
+//    std::vector<pybind11::array> pyMats;
     std::vector<cv::Mat> mats;
     std::vector<cv::cuda::GpuMat> gpuMats;
 };
 
 // 推理输出
 struct Out {
-    float *inferOut;
+//    float *inferOut;
+//    int index;
     std::vector<std::vector<float>> d2is;
     int inferNum{};
 };

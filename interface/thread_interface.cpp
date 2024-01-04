@@ -1,9 +1,7 @@
 //
 // Created by Administrator on 2023/1/9.
 //
-//#include <mutex>
-//#include <condition_variable>
-//#include "../product/product.h"
+
 #include "thread_interface.h"
 
 
@@ -28,8 +26,8 @@ int Engine::initEngine(ManualParam &inputParam) {
     curAlgParam->inputHeight = inputParam.inputHeight;
     curAlgParam->inputWidth = inputParam.inputWidth;
 
-    curAlgParam->mode = inputParam.fp16 ? Mode::FP16 : Mode::FP32;
-
+    curAlgParam->mode = inputParam.fp32 ? Mode::FP32 : Mode::FP16;
+//    curAlgParam->mode = inputParam.fp16 ? Mode::FP16 : Mode::FP32;
     curAlgParam->onnxPath = inputParam.onnxPath;
     curAlgParam->enginePath = inputParam.enginePath;
 
@@ -59,7 +57,7 @@ int Engine::initEngine(ManualParam &inputParam) {
 
     //  todo 对仿射参数的初始化,用于占位, 后续使用多线程预处理, 图片参数根据传入次序在指定位置插入
     for (int i = 0; i < curAlgParam->batchSize; ++i) {
-        curAlgParam->d2is.push_back({0., 0., 0., 0., 0., 0.});
+        curAlgParam->preD2is.push_back({0., 0., 0., 0., 0., 0.});
     }
     return 0;
 }
@@ -67,25 +65,42 @@ int Engine::initEngine(ManualParam &inputParam) {
 
 futureBoxes Engine::inferEngine(const pybind11::array &img) {
 //    pybind11::gil_scoped_release release;
-//    std::vector<cv::Mat> mats;
+//  todo 为避免引用计数引起的段错误, 单张推理也直接转为cv::Mat格式
+//  std::vector<cv::Mat> mats;
+//  每次调用前,清理上一次遗留的数据.
+    data->mats.clear();
 //    array转成cv::Mat格式
-//    cv::Mat mat(img.shape(0), img.shape(1), CV_8UC3, (unsigned char *) img.data(0));
-//    mats.emplace_back(mat);
-
-    data->pyMats.push_back(img);
+    cv::Mat mat(img.shape(0), img.shape(1), CV_8UC3, (unsigned char *) img.data(0));
+//    data->pyMats.push_back(img);
+//  emplace_back效率比data->mats= std::vector<cv::Mat> {mat}更高一些.
+    data->mats.emplace_back(mat);
+//    data->mats= std::vector<cv::Mat> {mat};
+//    std::cout<<"data->mats.size()="<<data->mats.size()<<std::endl;
     return curAlgParam->trt->commit(data);
 }
 
 futureBoxes Engine::inferEngine(const std::vector<pybind11::array> &imgs) {
-//    pybind11::gil_scoped_release release;
+//    todo 不能直接以pybind11::array传入commit中,必须在此处转为cv::Mat格式. 因为imgs是从python中传入的
+//    todo list,元素是python, 在trtPre,preprocess多个线程来回传递会造成python引用计数异常, 产生segment error段错误.
+//    将读入的所有图片路径转为cv::Mat格式
+    std::vector<cv::Mat> mats;
+    for (auto &img: imgs)
+        mats.emplace_back(img.shape(0), img.shape(1), CV_8UC3, (unsigned char *) img.data(0));
+//    data->pyMats = imgs;
+    data->mats = mats;
+
+    return curAlgParam->trt->commit(data);
+
+}
+
+futureBoxes Engine::inferEngine(const cv::Mat &mat) {
 //    有可能多个返回结果, 或多个返回依次调用, 在此使用字典类型格式
 //    futureBoxes result;
-//    将读入的所有图片路径转为cv::Mat格式
-//    std::vector<cv::Mat> mats;
-//    for (auto &img: imgs)
-//        mats.emplace_back(img.shape(0), img.shape(1), CV_8UC3, (unsigned char *) img.data(0));
-    data->pyMats = imgs;
-//    result = inferEngine(mats);
+//  每次调用前,清理上一次遗留的数据.
+    data->mats.clear();
+    data->mats.emplace_back(mat);
+//    返回目标检测结果
+//    auto futureResult = curAlgParam->func->commit(data);
     return curAlgParam->trt->commit(data);
 }
 
@@ -109,7 +124,8 @@ PYBIND11_MODULE(deployment, m) {
 //    配置手动输入参数
     pybind11::class_<ManualParam>(m, "ManualParam")
             .def(pybind11::init<>())
-            .def_readwrite("fp16", &ManualParam::fp16)
+//            .def_readwrite("fp16", &ManualParam::fp16)
+            .def_readwrite("fp32", &ManualParam::fp32)
             .def_readwrite("gpuId", &ManualParam::gpuId)
             .def_readwrite("batchSize", &ManualParam::batchSize)
 
@@ -136,10 +152,12 @@ PYBIND11_MODULE(deployment, m) {
             .def("initEngine", &Engine::initEngine)
 
             .def("inferEngine", pybind11::overload_cast<const pybind11::array &>(&Engine::inferEngine),
-                 pybind11::arg("image"), pybind11::call_guard<pybind11::gil_scoped_release>()
+                 pybind11::arg("image"),
+                 pybind11::call_guard<pybind11::gil_scoped_release>()
             )
             .def("inferEngine", pybind11::overload_cast<const std::vector<pybind11::array> &>(&Engine::inferEngine),
-                 pybind11::arg("images"), pybind11::call_guard<pybind11::gil_scoped_release>()
+                 pybind11::arg("images"),
+                 pybind11::call_guard<pybind11::gil_scoped_release>()
             )
 
             .def("releaseEngine", &Engine::releaseEngine);

@@ -22,9 +22,6 @@ class Engine {
 public:
     int initEngine(ManualParam &inputParam);
 
-//    futureBoxes inferEngine(const InputData &data);
-
-
     futureBoxes inferEngine(const pybind11::array &img);
     futureBoxes inferEngine(const std::vector<pybind11::array> &imgs);
 

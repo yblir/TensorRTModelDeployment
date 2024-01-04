@@ -32,17 +32,17 @@ struct YoloDetectParam : public BaseParam {
 // 以下三个结构体,从参数,函数到结果,必须一一对应                    |
 // ----------------------------------------------------------
 
-// todo 越来越发现, productParam的存在很多余, 并没有减少多少代码量,反而增加了代码的可理解性
+// todo 弃用, 越来越发现, productParam的存在很多余, 并没有减少多少代码量,反而增加了代码的可理解性
 // 接受从外部传入的配置参数,并传递给算法
-struct productParam {
-    YoloFaceParam yoloFaceParam;
-    YoloDetectParam yoloDetectParam;
-
-//    ~productParam() {
-//        printf("productParam 执行析构\n");
-//    };
-
-};
+//struct productParam {
+//    YoloFaceParam yoloFaceParam;
+//    YoloDetectParam yoloDetectParam;
+//
+////    ~productParam() {
+////        printf("productParam 执行析构\n");
+////    };
+//
+//};
 
 // todo 现在还不能把so解析处理的方法放到上面parm中. 如果放在子对象YoloDetectParm中,父类方法无法调用,需要强转类型,这样就不能
 // todo 使用多态. 如果放在父类ParmBase中, 但ParmBase又在AlgorithmBase中调用,会出错.,解决办法,还是单独建一个结构体专门存储算法指针
@@ -72,9 +72,12 @@ struct productParam {
 //
 //};
 
-// 从python代码中传入的参数
+// todo 从python代码中传入的参数, 根据实际需求传递定制化参数, 例如下面的classNums,iouThresh就是目标检测所需.
 struct ManualParam {
-    bool fp16 = false;
+//  todo fp16有时即使编译成功,也会推理时发生segment default错误.
+//  todo 原因未知! 推测与可能与onnx文件有关, 难道要改变转onnx时参数的精度?
+    bool fp32 = true;
+//    bool fp16 = false;
     int classNums = 80;        //!> 检测类别数量
     float scoreThresh = 0.5;   //!> 得分阈值
     float iouThresh = 0.3;     //!> iou框阈值

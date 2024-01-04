@@ -23,7 +23,7 @@ int Engine::initEngine(ManualParam &inputParam) {
     curAlgParam->inputHeight = inputParam.inputHeight;
     curAlgParam->inputWidth = inputParam.inputWidth;
 
-    curAlgParam->mode = inputParam.fp16 ? Mode::FP16 : Mode::FP32;
+    curAlgParam->mode = inputParam.fp32 ? Mode::FP32 : Mode::FP16;
 
     curAlgParam->onnxPath = inputParam.onnxPath;
     curAlgParam->enginePath = inputParam.enginePath;
@@ -37,8 +37,10 @@ int Engine::initEngine(ManualParam &inputParam) {
         return -1;
     }
 
-//	  初始化时,创建batchSize个预处理函数线程, 一步完成预处理操作
-    executor.addThread(static_cast<unsigned short>(curAlgParam->batchSize));
+//	  初始化时,创建batchSize个预处理,后处理函数线程, 一步完成预处理操作
+    preExecutor.addThread(static_cast<unsigned short>(curAlgParam->batchSize));
+    postExecutor.addThread(static_cast<unsigned short>(curAlgParam->batchSize));
+
 //    // 更新trt context内容, 并计算trt推理需要的输入输出内存大小
 //  memory 0:输入,1:输出, 记录的是batch个输入输出元素个数, 要换算成占用空间,需要乘上sizeof(float)
     auto memory = curAlgParam->trt->getMemory();
@@ -51,7 +53,7 @@ int Engine::initEngine(ManualParam &inputParam) {
 
     //  todo 对仿射参数的初始化,用于占位, 后续使用多线程预处理, 图片参数根据传入次序在指定位置插入
     for (int i = 0; i < curAlgParam->batchSize; ++i) {
-        curAlgParam->d2is.push_back({0., 0., 0., 0., 0., 0.});
+        curAlgParam->preD2is.push_back({0., 0., 0., 0., 0., 0.});
     }
 
     checkRuntime(cudaMallocAsync(&gpuIn, trtInMemorySize, commitStream));
@@ -77,88 +79,7 @@ batchBoxesType Engine::inferEngine(const pybind11::array &image) {
 
     return inferEngine(mats);
 }
-*/
-// 对于单张单线程推理, 直接拷贝到GPU上推理, 不需要中间过程
-batchBoxesType Engine::inferEngine(const pybind11::array &image) {
-    pybind11::gil_scoped_release release;
-//    batchBox是类成员变量, 不会自动释放, 手动情况上一次推理的结果
-    batchBox.clear();
-//    1.预处理
-    curAlg->preProcess(curAlgParam, image, pinMemoryIn);
 
-//    2.待推理数据异步拷贝到gpu上
-//    如果不在c++中做预处理, 可以直接拷贝的到gpu上
-//    checkRuntime(cudaMemcpyAsync(gpuIn, image.data(0), trtInMemorySize, cudaMemcpyHostToDevice, commitStream));
-//   如果在c++中做了预处理, 预处理后的数据在锁叶内存pinMemoryIn中, 需要从pinMemoryIn拷贝到gpu上
-    checkRuntime(cudaMemcpyAsync(gpuIn, pinMemoryIn, trtInMemorySize, cudaMemcpyHostToDevice, commitStream));
-
-//    3.异步推理
-    curAlgParam->context->enqueueV3(commitStream);
-//    4.推理结果gpu异步拷贝内存中
-    checkRuntime(cudaMemcpyAsync(pinMemoryOut, gpuOut, trtOutMemorySize, cudaMemcpyDeviceToHost, commitStream));
-//    5.流同步
-    checkRuntime(cudaStreamSynchronize(commitStream));
-//    6.后处理, 如果有需要的的话
-    curAlg->postProcess(curAlgParam, pinMemoryOut, singleOutputSize, 1, batchBox);
-    return batchBox;
-}
-
-batchBoxesType Engine::inferEngine(const std::vector<pybind11::array> &images) {
-//    pybind11::gil_scoped_release release;
-    batchBoxes.clear();
-    int inferNum = curAlgParam->batchSize;
-    int countPre = 0;
-    auto lastElement = &images.back();
-
-    for (auto &image: images) {
-//      1. 预处理
-//        curAlg->preProcess(curAlgParam, image, pinMemoryIn + countPre * singleInputSize);
-        auto curPinMemoryInIndex = pinMemoryIn + countPre * singleInputSize;
-//		线程池操作
-        thread_flags.emplace_back(
-                executor.commit(
-                        [this, image, curPinMemoryInIndex, countPre] {
-                            curAlg->preProcess(curAlgParam, image, curPinMemoryInIndex, countPre);
-                        })
-        );
-        countPre += 1;
-//      2. 判断推理数量
-        // 不是最后一个元素且数量小于batchSize,继续循环,向pinMemoryIn写入预处理后数据
-        if (&image != lastElement && countPre < curAlgParam->batchSize) continue;
-        // 若是最后一个元素,记录当前需要推理图片数量(可能小于一个batchSize)
-        if (&image == lastElement) inferNum = countPre;
-
-//		线程池处理方式, 所有预处理线程都完成后再继续
-        for (auto &flag: thread_flags) {
-            flag.get();
-        }
-//      thread_flags是存储线程池状态的vector, 每次处理完后都清理, 不然会越堆越多,内存泄露
-        thread_flags.clear();
-
-//      3. 执行推理
-//        对于pybind11::array类型图片,若在python中已做好预处理,不需要C++中处理什么, 可通过以下操作直接复制到gpu上,不需要pinMemoryIn中间步骤
-//        checkRuntime(cudaMemcpyAsync(gpuIn, image.data(0), trtInMemorySize, cudaMemcpyHostToDevice, commitStream));
-//       内存->gpu, 推理, 结果gpu->内存
-        checkRuntime(cudaMemcpyAsync(gpuIn, pinMemoryIn, trtInMemorySize, cudaMemcpyHostToDevice, commitStream));
-
-        curAlgParam->context->enqueueV3(commitStream);
-        cudaMemcpyAsync(pinMemoryOut, gpuOut, trtOutMemorySize, cudaMemcpyDeviceToHost, commitStream);
-
-        countPre = 0;
-        checkRuntime(cudaStreamSynchronize(commitStream));
-
-//      4. 后处理
-        curAlg->postProcess(curAlgParam, pinMemoryOut, singleOutputSize, inferNum, batchBox);
-//       将每次后处理结果合并到输出vector中
-        batchBoxes.insert(batchBoxes.end(), batchBox.begin(), batchBox.end());
-
-        batchBox.clear();
-    }
-
-    return batchBoxes;
-}
-
-/* todo 弃用
 //batchBoxesType Engine::inferEngine(const std::vector<pybind11::array> &images) {
 //    pybind11::gil_scoped_release release;
 //    std::vector<cv::Mat> mats;
@@ -176,6 +97,115 @@ batchBoxesType Engine::inferEngine(const std::vector<pybind11::array> &images) {
 //    return inferEngine(mats);
 //}
 */
+
+// 对于单张单线程推理, 直接拷贝到GPU上推理, 不需要中间过程
+batchBoxesType Engine::inferEngine(const pybind11::array &image) {
+//    pybind11::gil_scoped_release release;
+//    batchBox是类成员变量, 不会自动释放, 手动情况上一次推理的结果
+    batchBox.clear();
+//    1.预处理
+    curAlg->preProcess(curAlgParam, image, pinMemoryIn);
+
+//    2.待推理数据异步拷贝到gpu上
+//    如果不在c++中做预处理, 可以直接拷贝的到gpu上
+//    checkRuntime(cudaMemcpyAsync(gpuIn, image.data(0), trtInMemorySize, cudaMemcpyHostToDevice, commitStream));
+//   如果在c++中做了预处理, 预处理后的数据在锁叶内存pinMemoryIn中, 需要从pinMemoryIn拷贝到gpu上
+    checkRuntime(cudaMemcpyAsync(gpuIn, pinMemoryIn, trtInMemorySize, cudaMemcpyHostToDevice, commitStream));
+
+//    3.异步推理
+    curAlgParam->context->enqueueV3(commitStream);
+//    4.推理结果gpu异步拷贝内存中
+    checkRuntime(cudaMemcpyAsync(pinMemoryOut, gpuOut, trtOutMemorySize, cudaMemcpyDeviceToHost, commitStream));
+//   在流同步过程中赋值,此处引入postD2is,是为了保持和多线程处理一致, 因为具体处理函数,如YoloDetect.cpp中用的就是postD2is
+    curAlgParam->postD2is = curAlgParam->preD2is;
+//    5.流同步
+    checkRuntime(cudaStreamSynchronize(commitStream));
+//    6.后处理, 如果有需要的的话
+    curAlg->postProcess(curAlgParam, pinMemoryOut, singleOutputSize, 1, batchBox);
+    return batchBox;
+}
+
+batchBoxesType Engine::inferEngine(const std::vector<pybind11::array> &images) {
+//    pybind11::gil_scoped_release release;
+    batchBoxes.clear();
+//    inferNum 这里仅设置一个初始值, 如果实际推理数量!=batchSize,代码中会自动调整
+    int inferNum = curAlgParam->batchSize;
+    int preIndex = 0;
+    auto lastElement = &images.back();
+
+    for (auto &image: images) {
+//      1. 预处理
+//        curAlg->preProcess(curAlgParam, image, pinMemoryIn + preIndex * singleInputSize);
+        auto curPinMemoryInIndex = pinMemoryIn + preIndex * singleInputSize;
+//		线程池操作
+        preThreadFlags.emplace_back(
+                preExecutor.commit(
+                        [this, image, curPinMemoryInIndex, preIndex] {
+                            curAlg->preProcess(curAlgParam, image, curPinMemoryInIndex, preIndex);
+                        })
+        );
+        preIndex += 1;
+//      2. 判断推理数量
+        // 不是最后一个元素且数量小于batchSize,继续循环,向pinMemoryIn写入预处理后数据
+        if (&image != lastElement && preIndex < curAlgParam->batchSize) continue;
+        // 若是最后一个元素,记录当前需要推理图片数量(可能小于一个batchSize)
+        if (&image == lastElement) inferNum = preIndex;
+
+//		线程池处理方式, 所有预处理线程都完成后再继续
+        for (auto &flag: preThreadFlags) {
+            flag.get();
+        }
+
+//      3. 执行推理
+//        对于pybind11::array类型图片,若在python中已做好预处理,不需要C++中处理什么, 可通过以下操作直接复制到gpu上,不需要pinMemoryIn中间步骤
+//        checkRuntime(cudaMemcpyAsync(gpuIn, image.data(0), trtInMemorySize, cudaMemcpyHostToDevice, commitStream));
+//       内存->gpu, 推理, 结果gpu->内存
+        checkRuntime(cudaMemcpyAsync(gpuIn, pinMemoryIn, trtInMemorySize, cudaMemcpyHostToDevice, commitStream));
+
+        curAlgParam->context->enqueueV3(commitStream);
+        cudaMemcpyAsync(pinMemoryOut, gpuOut, trtOutMemorySize, cudaMemcpyDeviceToHost, commitStream);
+
+//      thread_flags是存储线程池状态的vector, 每次处理完后都清理, 不然会越堆越多,内存泄露
+        preThreadFlags.clear();
+//        在流同步过程中赋值,此处引入postD2is,是为了保持和多线程处理一致, 因为具体处理函数,如YoloDetect.cpp中用的就是postD2is
+        curAlgParam->postD2is = curAlgParam->preD2is;
+        preIndex = 0;
+
+        checkRuntime(cudaStreamSynchronize(commitStream));
+
+//      4. 后处理
+//        curAlg->postProcess(curAlgParam, pinMemoryOut, singleOutputSize, inferNum, batchBox);
+//        多线程后处理似乎并不快, 因为先把处理结果存储在字典boxDict中,再把结果push到vector batchBox中, 转换过程同样耗时. 如果没有
+//        后处理,推理结果仅仅是二分类之类的概率值, 多线程处理反而更慢, 此时直接用上面的循环postProcess取出结果更快.
+// ---------------------------------------------------------------------------------------------------------------------
+        for (int i = 0; i < inferNum; ++i) {
+            postThreadFlags.emplace_back(
+                    postExecutor.commit([this, i] {
+//                        为batch中每个元素进行单个处理后处理,一步获得所有处理结果
+                        curAlg->postProcess(curAlgParam, pinMemoryOut, singleOutputSize, boxDict, i);
+                    })
+            );
+        }
+
+        //	线程池处理方式, 所有预处理线程都完成后再继续
+        for (auto &flag: postThreadFlags) {
+            flag.get();
+        }
+        postThreadFlags.clear();
+
+        for (int i = 0; i < inferNum; ++i) {
+            batchBox.push_back(boxDict[i]);
+        }
+// ---------------------------------------------------------------------------------------------------------------------
+//       将每次后处理结果合并到输出vector中
+        batchBoxes.insert(batchBoxes.end(), batchBox.begin(), batchBox.end());
+
+        batchBox.clear();
+    }
+
+    return batchBoxes;
+}
+
 
 batchBoxesType Engine::inferEngine(const cv::Mat &mat) {
     batchBox.clear();
@@ -200,13 +230,13 @@ batchBoxesType Engine::inferEngine(const std::vector<cv::Mat> &images) {
 //    pybind11::gil_scoped_release release;
     batchBoxes.clear();
     int inferNum = curAlgParam->batchSize;
-    int countPre = 0;
+    int preIndex = 0;
     auto lastElement = &images.back();
 
     for (auto &image: images) {
 //      1. 预处理
-//        curAlg->preProcess(curAlgParam, image, pinMemoryIn + countPre * singleInputSize);
-        auto curPinMemoryInIndex = pinMemoryIn + countPre * singleInputSize;
+//        curAlg->preProcess(curAlgParam, image, pinMemoryIn + preIndex * singleInputSize);
+        auto curPinMemoryInIndex = pinMemoryIn + preIndex * singleInputSize;
 
 //		taskflow的多线程方式, 会有内存越界问题, 不好用		
 //        tasks.emplace_back(taskflow.emplace([this, image, aa]() {
@@ -214,23 +244,22 @@ batchBoxesType Engine::inferEngine(const std::vector<cv::Mat> &images) {
 //        }));
 
 //		  原生多线程处理方式, 每次预处理都要创建线程,然后销毁, 效率应该不高, 但实测与线程池没太大差别
-//        threads.emplace_back([this, image, aa, countPre]() {
-//            curAlg->preProcess(curAlgParam, image, curPinMemoryInIndex, countPre);
+//        threads.emplace_back([this, image, aa, preIndex]() {
+//            curAlg->preProcess(curAlgParam, image, curPinMemoryInIndex, preIndex);
 //        });
 
 //		线程池操作
-        thread_flags.emplace_back(
-                executor.commit(
-                        [this, image, curPinMemoryInIndex, countPre] {
-                            curAlg->preProcess(curAlgParam, image, curPinMemoryInIndex, countPre);
-                        })
+        preThreadFlags.emplace_back(
+                preExecutor.commit([this, image, curPinMemoryInIndex, preIndex] {
+                    curAlg->preProcess(curAlgParam, image, curPinMemoryInIndex, preIndex);
+                })
         );
-        countPre += 1;
+        preIndex += 1;
 //      2. 判断推理数量
         // 不是最后一个元素且数量小于batchSize,继续循环,向pinMemoryIn写入预处理后数据
-        if (&image != lastElement && countPre < curAlgParam->batchSize) continue;
+        if (&image != lastElement && preIndex < curAlgParam->batchSize) continue;
         // 若是最后一个元素,记录当前需要推理图片数量(可能小于一个batchSize)
-        if (&image == lastElement) inferNum = countPre;
+        if (&image == lastElement) inferNum = preIndex;
 /*
         // 等待所有线程完成,原生线程处理方式
         for (auto &thread: threads) {
@@ -239,11 +268,9 @@ batchBoxesType Engine::inferEngine(const std::vector<cv::Mat> &images) {
         threads.clear();
 */
 //		线程池处理方式, 所有预处理线程都完成后再继续
-        for (auto &flag: thread_flags) {
+        for (auto &flag: preThreadFlags) {
             flag.get();
         }
-//      thread_flags是存储线程池状态的vector, 每次处理完后都清理, 不然会越堆越多,内存泄露
-        thread_flags.clear();
 
 //      3. 执行推理
 //        对于pybind11::array类型图片,若在python中已做好预处理,不需要C++中处理什么, 可通过以下操作直接复制到gpu上,不需要pinMemoryIn中间步骤
@@ -253,12 +280,37 @@ batchBoxesType Engine::inferEngine(const std::vector<cv::Mat> &images) {
 
         curAlgParam->context->enqueueV3(commitStream);
         cudaMemcpyAsync(pinMemoryOut, gpuOut, trtOutMemorySize, cudaMemcpyDeviceToHost, commitStream);
-
-        countPre = 0;
+//      thread_flags是存储线程池状态的vector, 每次处理完后都清理, 不然会越堆越多,内存泄露
+        preThreadFlags.clear();
+//        在流同步过程中赋值,此处引入postD2is,是为了保持和多线程处理一致, 因为具体处理函数,如YoloDetect.cpp中用的就是postD2is
+        curAlgParam->postD2is = curAlgParam->preD2is;
+        preIndex = 0;
         checkRuntime(cudaStreamSynchronize(commitStream));
 
 //      4. 后处理
         curAlg->postProcess(curAlgParam, pinMemoryOut, singleOutputSize, inferNum, batchBox);
+//      todo 多线程后处理似乎并不快, 因为先把处理结果存储在字典boxDict中,再把结果push到vector batchBox中, 转换过程同样耗时. 如果没有
+//      todo 后处理,推理结果仅仅是二分类之类的概率值, 多线程处理反而更慢, 此时直接用上面的循环postProcess取出结果即可.
+// ---------------------------------------------------------------------------------------------------------------------
+//        for (int i = 0; i < inferNum; ++i) {
+//            postThreadFlags.emplace_back(
+//                    postExecutor.commit([this, i] {
+////                        为batch中每个元素进行单个处理后处理,一步获得所有处理结果
+//                        curAlg->postProcess(curAlgParam, pinMemoryOut, singleOutputSize, boxDict, i);
+//                    })
+//            );
+//        }
+//
+//        //	线程池处理方式, 所有预处理线程都完成后再继续
+//        for (auto &flag: postThreadFlags) {
+//            flag.get();
+//        }
+//        postThreadFlags.clear();
+//
+//        for (int i = 0; i < inferNum; ++i) {
+//            batchBox.push_back(boxDict[i]);
+//        }
+// ---------------------------------------------------------------------------------------------------------------------
 //       将每次后处理结果合并到输出vector中
         batchBoxes.insert(batchBoxes.end(), batchBox.begin(), batchBox.end());
 
@@ -271,7 +323,7 @@ batchBoxesType Engine::inferEngine(const std::vector<cv::Mat> &images) {
 int Engine::releaseEngine() {
     delete curAlg;
     delete curAlgParam;
-//    delete data;
+
     logSuccess("Release engine success");
 }
 
@@ -281,15 +333,13 @@ Engine::~Engine() {
 
     checkRuntime(cudaFreeHost(pinMemoryIn));
     checkRuntime(cudaFreeHost(pinMemoryOut));
-
-//    checkRuntime(cudaStreamDestroy(commitStream));
 }
 
 PYBIND11_MODULE(deployment, m) {
 //    配置手动输入参数
     pybind11::class_<ManualParam>(m, "ManualParam")
             .def(pybind11::init<>())
-            .def_readwrite("fp16", &ManualParam::fp16)
+            .def_readwrite("fp32", &ManualParam::fp32)
             .def_readwrite("gpuId", &ManualParam::gpuId)
             .def_readwrite("batchSize", &ManualParam::batchSize)
 

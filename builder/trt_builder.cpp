@@ -30,6 +30,7 @@ bool TRT::compile(
             logInfo("Platform not have fast fp16 support");
         }
         config->setFlag(nvinfer1::BuilderFlag::kFP16);
+        logInfo("compile engine using fp16 format");
     }
 
     //2 通过onnxparser解析器的结果,填充到network中,类似addconv的方式添加进去
@@ -111,18 +112,19 @@ std::vector<unsigned char> TRT::getEngine(BaseParam &param) {
         logInfo("engine file is exist, load engine from disk");
         engine = loadEngine(param.enginePath);
     } else {
-        logInfo("engine file is not exist, build engine from onnx file ...");
-        //检查待转换的onnx文件是否存在
-        if (!std::filesystem::exists(param.onnxPath)) {
-            logError("onnx file path is not exist");
-            return {};
-        }
         // 拼接engine文件名,并把保存路径设置在onnx文件同级目录下
         param.enginePath = getEnginePath(param);
         // 再次查看拼接后engine路径是否存在, 因为第一次运行时生成的engine文件会保存在onnx同级目录下, 这个engine有实体指向
         if (std::filesystem::exists(param.enginePath)) {
             engine = loadEngine(param.enginePath);
             return engine;
+        }
+
+        logInfo("engine file is not exist, build engine from onnx file ...");
+        //检查待转换的onnx文件是否存在
+        if (!std::filesystem::exists(param.onnxPath)) {
+            logError("onnx file path is not exist");
+            return {};
         }
 
         //engine不存在,先build,序列化engine到硬盘, 再执行反序列化操作

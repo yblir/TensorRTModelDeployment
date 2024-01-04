@@ -14,18 +14,23 @@ class YoloDetect : public Infer {
 public:
     YoloDetect();
     ~YoloDetect() override;
-
-    // 预处理
+//弃用 引用形式
+/*
     int preProcess(BaseParam &param, const cv::Mat &image, float *pinMemoryCurrentIn) override;
     int preProcess(BaseParam &param, const cv::Mat &image, float *pinMemoryCurrentIn, const int &index) override;
+    int postProcess(BaseParam &param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override;
+    int postProcess(BaseParam &param, float *pinMemoryCurrentOut, int singleOutputSize, const int &index, batchBoxesType &result) override;
+    int preProcess(BaseParam &param, const pybind11::array &image, float *pinMemoryCurrentIn) override;
+    int preProcess(BaseParam &param, const pybind11::array &image, float *pinMemoryCurrentIn, const int &index) override;
+*/
+    // 预处理
+
     int preProcess(BaseParam *param, const cv::Mat &image, float *pinMemoryCurrentIn) override;
     int preProcess(BaseParam *param, const cv::Mat &image, float *pinMemoryCurrentIn, const int &index) override;
     // 后处理
-    int postProcess(BaseParam &param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override;
     int postProcess(BaseParam *param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override;
+    int postProcess(BaseParam *param, float *pinMemoryCurrentOut, int singleOutputSize, std::map<int, imgBoxesType> &result, const int &index) override;
 
-    int preProcess(BaseParam &param, const pybind11::array &image, float *pinMemoryCurrentIn) override;
-    int preProcess(BaseParam &param, const pybind11::array &image, float *pinMemoryCurrentIn, const int &index) override;
     int preProcess(BaseParam *param, const pybind11::array &image, float *pinMemoryCurrentIn) override;
     int preProcess(BaseParam *param, const pybind11::array &image, float *pinMemoryCurrentIn, const int &index) override;
 

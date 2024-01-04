@@ -75,14 +75,7 @@ void BGR2RGB(const cv::Mat &image, float *pinInput) {
 }
 
 std::string getEnginePath(const BaseParam &param) {
-    int num;
-    // 检查指定编号的显卡是否正常
-    cudaError_t cudaStatus = cudaGetDeviceCount(&num);
-    if ((cudaSuccess != cudaStatus) || (num == 0) || (param.gpuId > (num - 1))) {
-        logError("infer device id:%d, error or no this gpu", param.gpuId);
-        return "";
-    }
-
+    cudaError_t cudaStatus;
     cudaDeviceProp prop{};
     std::string gpuName, enginePath;
     // 获取显卡信息
@@ -97,36 +90,38 @@ std::string getEnginePath(const BaseParam &param) {
         return "";
     }
 
-    std::string mode = param.mode == Mode::FP16 ? "FP16" : "FP32";
+    std::string fpMode = param.mode == Mode::FP32 ? "FP32" : "FP16";
 
     // 拼接待构建或加载的引擎路径
-    enginePath = param.onnxPath.substr(0, param.onnxPath.find_last_of('.')) + "_" + gpuName + "_" + mode + ".engine";
+    enginePath = param.onnxPath.substr(0, param.onnxPath.find_last_of('.')) + "_" + gpuName + "_" + fpMode + ".engine";
 
     return enginePath;
 }
 
-Infer *loadDynamicLibrary(const std::string &soPath) {
-    // todo 这里,要判断soPath是不是合法. 并且是文件名时搜索路径
-    printf("load dynamic lib: %s\n", soPath.c_str());
-    auto soHandle = dlopen(soPath.c_str(), RTLD_NOW);
-    if (!soHandle) {
-        printf("open dll error: %s \n", dlerror());
-        return nullptr;
-    }
-    //找到符号Make_Collector的地址
-    void *void_ptr = dlsym(soHandle, "MakeAlgorithm");
-    char *error = dlerror();
-    if (nullptr != error) {
-        printf("dlsym error:%s\n", error);
-        return nullptr;
-    }
-    auto tmp = reinterpret_cast<ptrdiff_t> (void_ptr);
-    auto clct = reinterpret_cast< CreateAlgorithm >(tmp);
-
-    if (nullptr == clct) return nullptr;
-
-    return clct();
-}
+//todo 加载这个函数需要启用base_infer/infer.h中的MakeAlgorithm. 使用pybind11用不到
+//todo 它, 先保留, 看以后是否会用到
+//Infer *loadDynamicLibrary(const std::string &soPath) {
+//    // todo 这里,要判断soPath是不是合法. 并且是文件名时搜索路径
+//    printf("load dynamic lib: %s\n", soPath.c_str());
+//    auto soHandle = dlopen(soPath.c_str(), RTLD_NOW);
+//    if (!soHandle) {
+//        printf("open dll error: %s \n", dlerror());
+//        return nullptr;
+//    }
+//    //找到符号Make_Collector的地址
+//    void *void_ptr = dlsym(soHandle, "MakeAlgorithm");
+//    char *error = dlerror();
+//    if (nullptr != error) {
+//        printf("dlsym error:%s\n", error);
+//        return nullptr;
+//    }
+//    auto tmp = reinterpret_cast<ptrdiff_t> (void_ptr);
+//    auto clct = reinterpret_cast< CreateAlgorithm >(tmp);
+//
+//    if (nullptr == clct) return nullptr;
+//
+//    return clct();
+//}
 
 const char *severity_string(nvinfer1::ILogger::Severity t) {
     switch (t) {

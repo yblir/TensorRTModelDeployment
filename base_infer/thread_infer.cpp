@@ -12,6 +12,7 @@
 // thread_pool经过国内某个大佬改写, 这里又改些了addTread函数
 #include "../utils/thread_pool.hpp"
 #include "infer.h"
+#include <chrono>
 
 class InferImpl : public Infer {
 public:
@@ -23,19 +24,20 @@ public:
     static unsigned long getDataLength(const InputData *data);
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-//    std::vector<int> getMemory() override {};
+    std::vector<int> getMemory() override {};
 
-//    preProcess,postProcess空实现,具体实现由实际继承Infer.h的应用完成
+/* 弃用
+    preProcess,postProcess空实现,具体实现由实际继承Infer.h的应用完成
     int preProcess(BaseParam &param, const cv::Mat &image, float *pinMemoryCurrentIn) override {};
     int preProcess(BaseParam &param, const cv::Mat &image, float *pinMemoryCurrentIn, const int &index) override {};
+    int postProcess(BaseParam &param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override {};
+*/
     int preProcess(BaseParam *param, const cv::Mat &image, float *pinMemoryCurrentIn) override {};
     int preProcess(BaseParam *param, const cv::Mat &image, float *pinMemoryCurrentIn, const int &index) override {};
 
-    int postProcess(BaseParam &param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override {};
     int postProcess(BaseParam *param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override {};
+    int postProcess(BaseParam *param, float *pinMemoryCurrentOut, int singleOutputSize, std::map<int, imgBoxesType> &result, const int &index) override {};
 
-    int preProcess(BaseParam &param, const pybind11::array &image, float *pinMemoryCurrentIn) override {};
-    int preProcess(BaseParam &param, const pybind11::array &image, float *pinMemoryCurrentIn, const int &index) override {};
     int preProcess(BaseParam *param, const pybind11::array &image, float *pinMemoryCurrentIn) override {};
     int preProcess(BaseParam *param, const pybind11::array &image, float *pinMemoryCurrentIn, const int &index) override {};
 
@@ -62,13 +64,16 @@ private:
     float *gpuMemoryOut0 = nullptr, *gpuMemoryOut1 = nullptr, *pinMemoryOut = nullptr;
     float *gpuIn[2]{}, *gpuOut[2]{};
 
-    std::ThreadPool executor;
+//    分别开启batch个前处理,后处理线程
+    std::ThreadPool preExecutor;
+    std::ThreadPool postExecutor;
 //    判断当前线程是否完成
-    std::vector<std::future<void> > thread_flags;
+    std::vector<std::future<void>> preThreadFlags;
+    std::vector<std::future<void>> postThreadFlags;
 
     std::vector<int> memory;
     // 读取从路径读入的图片矩阵
-    cv::Mat mat;
+//    cv::Mat mat;
     std::queue<Job> qPreJobs;
 // 存储每个batch的推理结果,统一后处理
     std::queue<Out> qPostJobs;
@@ -84,7 +89,7 @@ private:
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Timer timer = Timer();
+//Timer timer = Timer();
 
 //使用所有加速算法的初始化部分: 初始化参数,构建engine, 反序列化制作engine
 bool InferImpl::getEngineContext(BaseParam &curParam) {
@@ -151,20 +156,21 @@ std::shared_future<batchBoxesType> InferImpl::commit(const InputData *data) {
     // 将传入的多张或一张图片,一次性传入队列总
 //    unsigned long data_length = !data->mats.empty() ? data->mats.size() : data->gpuMats.size();
 //    unsigned long data_length = getDataLength(data);
+//    todo C++ 调用启动mats或gpuMats, 禁用pyMats, python 引用计数在C++多线程中传递会出错
+//    fJob.pyMats = data->pyMats;
+//    totalNum = fJob.pyMats.size();
+    fJob.mats = data->mats;
+//  todo 一个get_future()对应一个get()取回结果的操作.若前一个get()未执行,后一组数据已经执行了get_future()操作, 会导致
+//  todo 前一个get()操作出错. 即commit必须get()到当前数据的结果才能处理下一组数据.那么可以创建一个全局变量,统计当前传入的
+//  todo 待推理图片数量,在各个线程间共用.因为在所有结果返回前不会收到下一组数据来改变这个全局变量, 所以这个变量是安全的.在commit
+//  todo 中赋值, 在trtPost中使用.
+    totalNum = fJob.mats.size();
 
-//    todo C++ 调用启动mats或gpuMats, python调用,启用pyMats
-    fJob.pyMats = data->pyMats;
-//    fJob.mats = data->mats;
 //    fJob.gpuMats = data->gpuMats;
 
 //    两种方法都可以实现初始化,make_shared更好?
     fJob.batchResult = std::make_shared<std::promise<batchBoxesType>>();
 //    fJob.batchResult.reset(new std::promise<batchBoxesType>());
-
-//  todo 一个get_future()对应一个get()取回结果的操作.若前一个get()未执行,后一组数据已经执行了get_future()操作, 会导致
-//  todo 前一个get()操作出错. 即commit必须get()到当前数据的结果才能处理下一组数据.那么可以创建一个全局变量,统计当前传入的
-//  todo 待推理图片数量,在各个线程间共用.因为在所有结果返回前不会收到下一组数据来改变这个全局变量, 所有这个变量是安全的.在trtPre
-//  todo 中赋值, 在trtPost中使用.
 
     // 创建share_future变量,一次性取回传入的所有图片结果, 不能直接返回xx.get_future(),会报错
     std::shared_future<batchBoxesType> future = fJob.batchResult->get_future();
@@ -186,7 +192,7 @@ void InferImpl::trtPre(Infer *curAlg, BaseParam &curParam) {
 //    计算1个batchSize的数据所需的内存空间大小
     unsigned long mallocSize = this->memory[0] * sizeof(float);
     // count统计推理图片数量,最后一次,可能小于batchSize.imgNums统计预处理图片数量,index是gpuIn的索引,两个显存轮换使用
-    int countPre = 0, index = 0, inputSize = this->memory[0] / curParam.batchSize;
+    int preIndex = 0, index = 0, inputSize = this->memory[0] / curParam.batchSize;
     Job job;
 
     while (workRunning) {
@@ -203,62 +209,58 @@ void InferImpl::trtPre(Infer *curAlg, BaseParam &curParam) {
         // 默认推理的数量为batchSize, 只有最后一次才可能小于batchSize
         job.inferNum = curParam.batchSize;
 // ---------------------------------------------------------------------------------------
-//        todo 根据调用方式,启动对应数据类型
 //        记录待推理的最后一个元素地址
-        auto lastElement = &fJob.pyMats.back();
-        totalNum = fJob.pyMats.size();
-//        auto lastElement = &fJob.mats.back();
-//        totalNum = fJob.mats.size();
+        auto lastElement = &fJob.mats.back();
         // todo 暂时,先在内存中进行图片预处理. gpuMat以后写cuda核函数处理
-        for (auto &curMat: fJob.pyMats) {
-//        for (auto &curMat: fJob.mats) {
+        for (auto &curMat: fJob.mats) {
 // ---------------------------------------------------------------------------------------
             // 记录前处理耗时
 //            preTime = timer.curTimePoint();
 //            调用具体算法自身实现的预处理逻辑
-//            curAlg->preProcess(curParam, curMat, pinMemoryIn + countPre * inputSize);
-
-            auto curPinMemoryInIndex = pinMemoryIn + countPre * inputSize;
-            thread_flags.emplace_back(
-                    executor.commit(
-                            [&curAlg, &curParam, curMat, curPinMemoryInIndex, countPre] {
-                                curAlg->preProcess(curParam, curMat, curPinMemoryInIndex, countPre);
+//            curAlg->preProcess(&curParam, curMat, pinMemoryIn + preIndex * inputSize);
+            preThreadFlags.emplace_back(
+                    preExecutor.commit(
+                            [this, &curAlg, &curParam, &inputSize, curMat, preIndex] {
+//                                传入curParam的地址
+                                curAlg->preProcess(&curParam, curMat, pinMemoryIn + preIndex * inputSize, preIndex);
                             })
             );
-            countPre += 1;
+            preIndex += 1;
             // 不是最后一个元素且数量小于batchSize,继续循环,向pinMemoryIn写入预处理后数据
-            if (&curMat != lastElement && countPre < curParam.batchSize) continue;
+            if (&curMat != lastElement && preIndex < curParam.batchSize) continue;
             // 若是最后一个元素,记录当前需要推理图片数量(可能小于一个batchSize)
-            if (&curMat == lastElement) job.inferNum = countPre;
+            if (&curMat == lastElement) job.inferNum = preIndex;
 
 //		    线程池处理方式, 所有预处理线程都完成后再继续
-            for (auto &flag: thread_flags) {
+            for (auto &flag: preThreadFlags) {
                 flag.get();
             }
 ////           thread_flags是存储线程池状态的vector, 每次处理完后都清理, 不然会越堆越多,内存泄露
-            thread_flags.clear();
+            preThreadFlags.clear();
+//            todo 必须在所有预处理线程完成后才能进行赋值, 不然会造成图片仿射变换参数与次序不一致
             // 将当前正在处理图片的变换参数加入该batch的变换vector中, 没有图像变换, 这行也不会报错, 所有模型预处理都可保留
 //            在所有预处理完成后再收集仿射变换参数,确保每个索引都有值. 数量为batchSize或最后不足1个batchSize个参数
-            job.d2is = curParam.d2is;
+            job.d2is = curParam.preD2is;
+
 //            totalTime += timer.timeCountS(preTime);
-            //若全部在gpu上操作,不需要这句复制
-            checkRuntime(cudaMemcpyAsync(gpuIn[index], pinMemoryIn, mallocSize, cudaMemcpyHostToDevice, preStream));
-            job.inputTensor = gpuIn[index];
-
-            countPre = 0;
-//            将内存地址索引指向另一块内存
-            index = index >= 1 ? 0 : index + 1;
-
             {
                 std::unique_lock<std::mutex> pre(qPreLock);
                 // false,继续等待. true,不等待,跳出wait. 一旦进入wait,解锁. 退出wait,又加锁 最多2个batch
                 cv_.wait(pre, [&]() { return qPreJobs.size() < 2; });
+                //若全部在gpu上操作,不需要这句复制
+                checkRuntime(cudaMemcpyAsync(gpuIn[index], pinMemoryIn, mallocSize, cudaMemcpyHostToDevice, preStream));
+
                 // 将一个batch待推理数据的显存空间指针保存
                 qPreJobs.push(job);
+//               在流同步前赋值变量,会快一点点吧!
+                preIndex = 0;
+//               将内存地址索引指向另一块内存
+                index = index >= 1 ? 0 : index + 1;
+//                todo 流同步必须在锁内完成, 因为出锁后trtInfer函数会立即从qPreJobs取值,若qPreJobs仅有一个元素, 则会把这个元素取出,
+//                todo 如果这时数据还没复制, 会使用上一次遗留数据推理, 若正在复制, 同时读写会造成异常.
+                // 流同步,在通知队列可使用前,确保待推理数据已复制到gpu上,保证在推理时取出就能用
+                checkRuntime(cudaStreamSynchronize(preStream));
             }
-
-            // 流同步,在通知队列可使用前,确保待推理数据已复制到gpu上,保证在推理时取出就能用
-            checkRuntime(cudaStreamSynchronize(preStream));
             cv_.notify_all();
             // 清空保存仿射变换参数,只保留当前推理batch的参数
 //            todo 如果这是前面的赋值操作,似乎不必手动清理job.d2is
@@ -279,13 +281,18 @@ void InferImpl::trtInfer(BaseParam &curParam) {
 //    double totalTime;
 //    auto t = timer.curTimePoint();
     int index2 = 0;
+    //    将推理后数据从从显存拷贝到内存中,计算所需内存大小,ps:其实与占用显存大小一致
+    unsigned long mallocSize = this->memory[1] * sizeof(float);
+
 //    engine输入输出节点名字, 是把model编译为onnx文件时,在onnx中手动写的输入输出节点名
     const char *inferInputName = curParam.inputName.c_str();
     const char *inferOutputName = curParam.outputName.c_str();
 
     Job job;
-    Out outTrt;
-
+    Out trtOut;
+//    第一次执行都指向0号显存空间
+    curParam.context->setTensorAddress(inferInputName, gpuIn[0]);
+    curParam.context->setTensorAddress(inferOutputName, gpuOut[0]);
     while (true) {
         {
             std::unique_lock<std::mutex> pre(qPreLock);
@@ -294,32 +301,38 @@ void InferImpl::trtInfer(BaseParam &curParam) {
 //            若图片都处理完且队列空,说明推理结束,直接退出线程
             if (preFinish && qPreJobs.empty()) break;
             job = qPreJobs.front();
+//            必须在显存锁内推理, 保证推理输入数据内存不被覆盖, 如果预处理快,模型推理速度慢, 这种情况一定会出现.推理写在
+//            锁外时, qPreJobs被弹出一个元素, 长度为1, 会在trtPre线程中向qPreJobs写入元素,而被写入空间就是当前准备
+//            推理的数据,会造成明细的推理异常. 因此当该数据推理完成前,不准写入新数据, 即推理必须在当前互斥锁内完成.
+//            printf("infer1\n");
+            curParam.context->enqueueV3(inferStream);
+//            printf("infer2\n");
+//            推理与流同步之间弹出, 应该会节省点时间吧.
             qPreJobs.pop();
+//            outTrt.inferOut = gpuOut[index2];
+            trtOut.d2is = job.d2is;
+            trtOut.inferNum = job.inferNum;
+            cudaStreamSynchronize(inferStream);
         }
         // 消费掉一个元素,通知队列跳出等待,向qJob继续写入一个batch的待推理数据
         cv_.notify_all();
-
-        auto qT1 = timer.curTimePoint();
-        // 指定tensor的输入输出地址,然后进行推理
-        curParam.context->setTensorAddress(inferInputName, job.inputTensor);
-        curParam.context->setTensorAddress(inferOutputName, gpuOut[index2]);
-        curParam.context->enqueueV3(inferStream);
-
-        outTrt.inferOut = gpuOut[index2];
-        outTrt.d2is = job.d2is;
-        outTrt.inferNum = job.inferNum;
-
-        index2 = index2 >= 1 ? 0 : index2 + 1;
-
-        cudaStreamSynchronize(inferStream);
-//        totalTime += timer.timeCountS(qT1);
-
-        // 流同步后,获取该batchSize推理结果
+//        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        // 流同步后,获取该batchSize推理结果, 然后从gpu拷贝到索引内存中
         {
             std::unique_lock<std::mutex> post(qPostLock);
             // false, 表示继续等待. true, 表示不等待,gpuOut内只有两块空间,因此队列长度只能限定为2
             cv_.wait(post, [&]() { return qPostJobs.size() < 2; });
-            qPostJobs.emplace(outTrt);
+            // todo 将engine推理好的结果从gpu转移到内存中处理, 更高效的方式是在在gpu中用cuda核函数处理,but,以后再扩展吧
+//            不能让推理的输出空间被覆盖, 只有当前一个输出空间的后处理完成,并把结果存储到batchBox才能写入, 不然会出现输出结果异常
+            cudaMemcpyAsync(pinMemoryOut, gpuOut[index2], mallocSize, cudaMemcpyDeviceToHost, postStream);
+
+            qPostJobs.emplace(trtOut);
+//           tensor的输入输出地址指向下一组显存空间, 在流内赋值,会快些不?
+            index2 = index2 >= 1 ? 0 : index2 + 1;
+            curParam.context->setTensorAddress(inferInputName, gpuIn[index2]);
+            curParam.context->setTensorAddress(inferOutputName, gpuOut[index2]);
+
+            cudaStreamSynchronize(postStream);
         }
         cv_.notify_all();
     }
@@ -335,16 +348,13 @@ void InferImpl::trtPost(Infer *curAlg, BaseParam &curParam) {
     // 记录后处理耗时
 //    double totalTime;
 //    auto t = timer.curTimePoint();
-//    将推理后数据从从显存拷贝到内存中,计算所需内存大小,ps:其实与占用显存大小一致
-    unsigned long mallocSize = this->memory[1] * sizeof(float);
     int singleOutputSize = this->memory[1] / curParam.batchSize;
 //    batchBox收集每个batchSize后处理结果,然后汇总到batchBoxes中
     batchBoxesType batchBoxes, batchBox;
-
+//    多线程后处理, 由于每张图片输出框数量不定, 不能统一初始化vector, 所以使用字典作为中转存储空间
+    std::map<int, imgBoxesType> boxDict;
 //    传入图片总数, 已处理图片数量
-//    int totalNum2 = 0;
     int countPost = 0;
-//    bool flag = true;
     Out outPost;
 
     while (true) {
@@ -355,25 +365,38 @@ void InferImpl::trtPost(Infer *curAlg, BaseParam &curParam) {
             // 退出推理线程
             if (inferFinish && qPostJobs.empty()) break;
             outPost = qPostJobs.front();
-            qPostJobs.pop();
-            cv_.notify_all();
-////           每次当python传入数据时,totalNum值才会取出一次,获得当前传入图片数量
-//            if (flag) {
-//                totalNum = qfJobLength.front();
-//                qfJobLength.pop();
-//                flag = false;
-//            }
-        }
-        // todo 将engine推理好的结果从gpu转移到内存中处理, 更高效的方式是在在gpu中用cuda核函数处理,but,以后再扩展吧
-        cudaMemcpy(pinMemoryOut, outPost.inferOut, mallocSize, cudaMemcpyDeviceToHost);
-        // 取回数据的仿射变换量,用于还原预测量在原图尺寸上的位置
-        curParam.d2is = outPost.d2is;
+            // 取回数据的仿射变换量,用于还原预测量在原图尺寸上的位置
+            curParam.postD2is = outPost.d2is;
+//          记录当前后处理图片数量, 若是单张图片,这个记录没啥用. 若是传入多个batchSize的图片,countPost会起到标识作用
+            countPost += outPost.inferNum;
 
-        auto qT1 = timer.curTimePoint();
-//        记录当前后处理图片数量, 若是单张图片,这个记录没啥用. 若是传入多个batchSize的图片,countPost会起到标识作用
-        countPost += outPost.inferNum;
-//        调用具体算法自身实现的后处理逻辑
-        curAlg->postProcess(curParam, pinMemoryOut, singleOutputSize, outPost.inferNum, batchBox);
+            curAlg->postProcess(&curParam, pinMemoryOut, singleOutputSize, outPost.inferNum, batchBox);
+//          多线程后处理似乎并不快, 因为先把处理结果存储在字典boxDict中,再把结果push到vector batchBox中, 转换过程同样耗时. 如果没有
+//          后处理,推理结果仅仅是二分类之类的概率值, 多线程处理反而更慢, 此时直接用上面的循环postProcess取出结果更快.
+// ---------------------------------------------------------------------------------------------------------------------
+//            for (int i = 0; i < outPost.inferNum; ++i) {
+//                postThreadFlags.emplace_back(
+//                        postExecutor.commit(
+//                                [this, &curAlg, &curParam, &singleOutputSize, i, &boxDict] {
+////                                为batch中每个元素进行单个处理后处理,一步获得所有处理结果
+//                                    curAlg->postProcess(&curParam, pinMemoryOut, singleOutputSize, boxDict, i);
+//                                })
+//                );
+//            }
+//            //	线程池处理方式, 所有预处理线程都完成后再继续
+//            for (auto &flag: postThreadFlags) {
+//                flag.get();
+//            }
+//            postThreadFlags.clear();
+////            把推理结果从字典输出到vector
+//            for (int i = 0; i < outPost.inferNum; ++i) {
+//                batchBox.push_back(boxDict[i]);
+//            }
+// ---------------------------------------------------------------------------------------------------------------------
+            qPostJobs.pop();
+        }
+        cv_.notify_all();
+
         //将每次后处理结果合并到输出vector中
         batchBoxes.insert(batchBoxes.end(), batchBox.begin(), batchBox.end());
         batchBox.clear();
@@ -388,7 +411,6 @@ void InferImpl::trtPost(Infer *curAlg, BaseParam &curParam) {
         }
 //        totalTime += timer.timeCountS(qT1);
     }
-
 //    logInfo("post  use time: %.3f s", totalTime);
 
 }
@@ -425,8 +447,9 @@ std::vector<int> InferImpl::setBatchAndInferMemory(BaseParam &curParam) {
 }
 
 bool InferImpl::startThread(Infer &curAlg, BaseParam &curParam) {
-//	  初始化时,创建batchSize个预处理函数线程, 一步完成预处理操作
-    executor.addThread(static_cast<unsigned short>(curParam.batchSize));
+//	  初始化时,创建batchSize个预处理,后处理函数线程, 一步完成预处理操作
+    preExecutor.addThread(static_cast<unsigned short>(curParam.batchSize));
+    postExecutor.addThread(static_cast<unsigned short>(curParam.batchSize));
     try {
         preThread = std::make_shared<std::thread>(&InferImpl::trtPre, this, &curAlg, std::ref(curParam));
         inferThread = std::make_shared<std::thread>(&InferImpl::trtInfer, this, std::ref(curParam));
@@ -471,25 +494,25 @@ InferImpl::InferImpl(std::vector<int> &memory) {
 }
 
 InferImpl::~InferImpl() {
-    logInfo("start executing destructor ...");
+    logInfo("executing destructor ...");
 
     if (workRunning) {
         workRunning = false;
         cv_.notify_all();
     }
-    logInfo("111");
+
     if (preThread->joinable()) preThread->join();
     if (inferThread->joinable()) inferThread->join();
     if (postThread->joinable()) postThread->join();
-    logInfo("222");
+
     checkRuntime(cudaFree(gpuMemoryIn0));
     checkRuntime(cudaFree(gpuMemoryIn1));
     checkRuntime(cudaFree(gpuMemoryOut0));
     checkRuntime(cudaFree(gpuMemoryOut1));
-    logInfo("333");
+
     checkRuntime(cudaFreeHost(pinMemoryIn));
     checkRuntime(cudaFreeHost(pinMemoryOut));
-    logInfo("444");
+
     checkRuntime(cudaStreamDestroy(preStream));
     checkRuntime(cudaStreamDestroy(inferStream));
     checkRuntime(cudaStreamDestroy(postStream));
@@ -499,6 +522,19 @@ InferImpl::~InferImpl() {
 }
 
 std::shared_ptr<Infer> createInfer(Infer &curAlg, BaseParam &curParam) {
+//    根据外部传入gpu编号设置工作gpu
+    int nGpuNum = 0;
+    checkRuntime(cudaGetDeviceCount(&nGpuNum));
+    if (0 == nGpuNum) {
+        logError("Current device does not detect GPU");
+        return nullptr;
+    }
+    if (curParam.gpuId >= nGpuNum) {
+        logError("GPU device setting failure, max GPU index = %d, but set GPU Id = %d", nGpuNum - 1, curParam.gpuId);
+        return nullptr;
+    }
+    checkRuntime(cudaSetDevice(curParam.gpuId));
+
 //    如果创建引擎不成功就reset
     if (!InferImpl::getEngineContext(curParam)) {
 //        logError("getEngineContext Fail");

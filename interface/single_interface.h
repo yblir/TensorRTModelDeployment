@@ -45,6 +45,8 @@ private:
     float *gpuOut = nullptr, *pinMemoryOut = nullptr;
     unsigned long trtInMemorySize = 0, trtOutMemorySize = 0;
     batchBoxesType batchBox, batchBoxes;
+//    多线程后处理, 由于每张图片输出框数量不定, 不能统一初始化vector, 所以使用字典作为中转存储空间
+    std::map<int, imgBoxesType> boxDict;
 
     int singleInputSize, singleOutputSize;
 //    unsigned long singleOutputSize;
@@ -62,9 +64,11 @@ private:
 //    std::vector<tf::Task> tasks;
 //    std::vector<std::thread> threads;
 
-    std::ThreadPool executor;
+    std::ThreadPool preExecutor;
+    std::ThreadPool postExecutor;
 //    判断当前线程是否完成
-    std::vector<std::future<void> > thread_flags;
+    std::vector<std::future<void> > preThreadFlags;
+    std::vector<std::future<void>> postThreadFlags;
 
 };
 
