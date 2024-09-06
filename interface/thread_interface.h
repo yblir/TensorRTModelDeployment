@@ -5,37 +5,40 @@
 #define FACEFEATUREDETECTOR_REBUILD_FACE_INTERFACE_H
 
 // todo 必须有这行宏定义,才能跳过python gil锁的检测, 目前没发现问题.
-// todo 有了这行宏定义, pybind11::call_guard<pybind11::gil_scoped_release>()在m.def()中有没有都可以, 不懂背后运行原理.
+// todo 有了这行宏定义, pybind11::call_guard<pybind11::gil_scoped_release>()在m.def()中有没有都可以
 #define PYBIND11_NO_ASSERT_GIL_HELD_INCREF_DECREF
 
-#include <NvInferRuntime.h>
-#include <opencv2/opencv.hpp>
+// #include <opencv2/opencv.hpp>
 
-#include "pybind11/pybind11.h"
-#include "pybind11/stl.h"
-#include "pybind11/numpy.h"
+#ifdef PYBIND11
+    #include "pybind11/pybind11.h"
+    #include "pybind11/stl.h"
+    #include "pybind11/numpy.h"
+#endif
 
 #include "../product/product.h"
 #include "../product/YoloDetect.h"
 
 class Engine {
 public:
-    int initEngine(ManualParam &inputParam);
+    int initEngine(const ManualParam &inputParam);
 
+#ifdef PYBIND11
     futureBoxes inferEngine(const pybind11::array &img);
     futureBoxes inferEngine(const std::vector<pybind11::array> &imgs);
+#endif
 
-    futureBoxes inferEngine(const cv::Mat &mat);
-    futureBoxes inferEngine(const std::vector<cv::Mat> &mats);
+    // nodiscard: 函数在调用时，返回值必须有变量接受，不如会抛出warning
+    [[nodiscard]] futureBoxes inferEngine(const cv::Mat &mat) const;
+    [[nodiscard]] futureBoxes inferEngine(const std::vector<cv::Mat> &mats) const;
 
-    int releaseEngine();
+    void releaseEngine() const;
 
 private:
-//    productParam *param;
-    Infer *curAlg;
-    YoloDetectParam *curAlgParam;
-    InputData *data;
-//    std::vector<cv::Mat> mats;
+    Infer * curAlg = nullptr;
+    YoloDetectParam * curAlgParam = nullptr;
+    InputData * data = nullptr;
+
 };
 
 #endif //FACEFEATUREDETECTOR_REBUILD_FACE_INTERFACE_H

@@ -10,9 +10,12 @@
 #include <future>
 
 #include <opencv2/opencv.hpp>
-#include <pybind11/numpy.h>
-
 #include "selfDataType.hpp"
+
+#ifdef PYBIND11
+    #include <pybind11/numpy.h>
+#endif
+
 
 
 class Infer {
@@ -31,9 +34,10 @@ public:
     virtual int postProcess(BaseParam *param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) = 0;
     virtual int postProcess(BaseParam *param, float *pinMemoryCurrentOut, int singleOutputSize, std::map<int, imgBoxesType> &result, const int &index) = 0;
 
+#ifdef PYBIND11
     virtual int preProcess(BaseParam *param, const pybind11::array &image, float *pinMemoryCurrentIn) = 0;
     virtual int preProcess(BaseParam *param, const pybind11::array &image, float *pinMemoryCurrentIn, const int &index) = 0;
-
+#endif
 
 /*  弃用
     virtual batchBoxesType commit(BaseParam *param, const InputData *data) {};

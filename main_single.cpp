@@ -31,8 +31,8 @@ int main(int argc, char *argv[]) {
     // =====================================================================
     struct ManualParam inputParam;
 
-    inputParam.onnxPath = "/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
-    inputParam.enginePath = "/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s_NVIDIAGeForceGTX1080_FP32.engine";
+    inputParam.onnxPath = "/media/xk/D6B8A862B8A8433B/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
+    inputParam.enginePath = "/media/xk/D6B8A862B8A8433B/GitHub/TensorRTModelDeployment/yolov5s_NVIDIAGeForceGTX1080_FP32.engine";
     inputParam.gpuId = 0;
     inputParam.batchSize = 16;
     inputParam.inputHeight = 640;
@@ -49,19 +49,22 @@ int main(int argc, char *argv[]) {
     if (ret != 0)
         return ret;
     std::cout << "init ok !" << std::endl;
+
     // ============================================================================================
 //  公司
-//    std::string path1 = "/mnt/d/Datasets/VOCdevkit/voc_test_300/";
+    std::string path1 = "/media/xk/D6B8A862B8A8433B/GitHub/TensorRTModelDeployment/imgs";
 //    家
-    std::string path1 = "/mnt/e/localDatasets/voc/voc_test_100/";
-//    std::string path1 = "/mnt/e/GitHub/TensorRTModelDeployment/imgs/";
+    // std::string path1 = "/mnt/e/localDatasets/voc/voc_test_100/";
+
     std::filesystem::path imgInputDir(path1);
     std::filesystem::path imgOutputDir(path1 + "output/");
 
     //检查文件夹路径是否合法, 检查输出文件夹路径是否存在,不存在则创建
     // 输入不是文件夹,或文件不存在抛出异常
-    if (!std::filesystem::exists(imgInputDir) || !std::filesystem::is_directory(imgInputDir))
+    if (!std::filesystem::exists(imgInputDir) || !std::filesystem::is_directory(imgInputDir)) {
+        logError("imgInputDir does not exist");
         return -1;
+    }
     //创建输出文件夹
     if (!std::filesystem::exists(imgOutputDir))
         std::filesystem::create_directories(imgOutputDir);

@@ -9,9 +9,11 @@
 #include <NvInferRuntime.h>
 #include <opencv2/opencv.hpp>
 
-#include "pybind11/pybind11.h"
-#include "pybind11/stl.h"
-#include "pybind11/numpy.h"
+#ifdef PYBIND11
+    #include "pybind11/pybind11.h"
+    #include "pybind11/stl.h"
+    #include "pybind11/numpy.h"
+#endif
 
 #include "../base_infer/infer.h"
 #include "../product/product.h"
@@ -26,8 +28,11 @@ class Engine {
 public:
     int initEngine(ManualParam &inputParam);
     ~Engine();
+
+#ifdef PYBIND11
     batchBoxesType inferEngine(const pybind11::array &image);
     batchBoxesType inferEngine(const std::vector<pybind11::array> &images);
+#endif
 
     batchBoxesType inferEngine(const cv::Mat &mat);
     batchBoxesType inferEngine(const std::vector<cv::Mat> &mats);

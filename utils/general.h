@@ -65,7 +65,7 @@ bool check_cuda_runtime(cudaError_t code, const char *op, const char *file, int 
 //通过智能指针管理nv, 内存自动释放,避免泄露.
 template<typename T>
 std::shared_ptr<T> ptrFree(T *ptr) {
-    return std::shared_ptr<T>(ptr, [](T *p) { delete p; });
+    return std::shared_ptr<T>(ptr, [](const T *p) { delete p; });
 }
 
 //检验fp16或32 枚举类型是否合规.

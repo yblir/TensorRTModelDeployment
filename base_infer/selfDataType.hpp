@@ -16,8 +16,15 @@
 #include <future>
 #include "../utils/loguru.hpp"
 
-// 根据不同输出形式, 选择对应输出结果类型
+// ---------------------------------------------------------------------------------------------------------------------
+// 宏定义PYBIND11表明是Python打包成调用模式，取消宏定义表示本地调试
+// #define PYBIND11
 
+// 仅thread_infer.cpp在中生效, 推理结果后处理时使用多线程处理
+// #define POST_THREAD_POOL
+// ---------------------------------------------------------------------------------------------------------------------
+
+// 根据不同输出形式, 选择对应输出结果类型
 //batch->image->box, [[[1,1,1,1],[2,2,2,2]],[[1,1,1,1]],...]
 using batchBoxesType = std::vector<std::vector<std::vector<float>>>;
 
@@ -100,6 +107,7 @@ struct InputData {
 // 推理输入
 struct Job {
 //    float *inputTensor;
+//    存储预处理节阶段的仿射变换参数,传递到后处理函数中,相当于一个中转站
     std::vector<std::vector<float>> d2is;
     int inferNum{};
 };

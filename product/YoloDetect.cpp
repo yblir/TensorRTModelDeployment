@@ -12,6 +12,7 @@
 YoloDetect::YoloDetect() = default;
 YoloDetect::~YoloDetect() = default;
 
+#ifdef PYBIND11
 int YoloDetect::preProcess(BaseParam *param, const pybind11::array &image, float *pinMemoryCurrentIn) {
     cv::Mat mat(image.shape(0), image.shape(1), CV_8UC3, (unsigned char *) image.data(0));
 
@@ -23,7 +24,7 @@ int YoloDetect::preProcess(BaseParam *param, const pybind11::array &image, float
 
     return preProcess(param, mat, pinMemoryCurrentIn, index);
 }
-
+#endif
 
 int YoloDetect::preProcess(BaseParam *param, const cv::Mat &image, float *pinMemoryCurrentIn) {
     float d2i[6];

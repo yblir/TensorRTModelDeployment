@@ -98,6 +98,7 @@ batchBoxesType Engine::inferEngine(const pybind11::array &image) {
 //}
 */
 
+#ifdef PYBIND11
 // 对于单张单线程推理, 直接拷贝到GPU上推理, 不需要中间过程
 batchBoxesType Engine::inferEngine(const pybind11::array &image) {
 //    pybind11::gil_scoped_release release;
@@ -205,7 +206,7 @@ batchBoxesType Engine::inferEngine(const std::vector<pybind11::array> &images) {
 
     return batchBoxes;
 }
-
+#endif
 
 batchBoxesType Engine::inferEngine(const cv::Mat &mat) {
     batchBox.clear();
@@ -335,6 +336,7 @@ Engine::~Engine() {
     checkRuntime(cudaFreeHost(pinMemoryOut));
 }
 
+#ifdef PYBIND11
 PYBIND11_MODULE(deployment, m) {
 //    配置手动输入参数
     pybind11::class_<ManualParam>(m, "ManualParam")
@@ -374,3 +376,4 @@ PYBIND11_MODULE(deployment, m) {
 
             .def("releaseEngine", &Engine::releaseEngine);
 }
+#endif

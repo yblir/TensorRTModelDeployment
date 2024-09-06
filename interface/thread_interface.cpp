@@ -5,7 +5,7 @@
 #include "thread_interface.h"
 
 
-int Engine::initEngine(ManualParam &inputParam) {
+int Engine::initEngine(const ManualParam &inputParam) {
     data = new InputData;
     curAlg = new YoloDetect();
     curAlgParam = new YoloDetectParam;
@@ -27,55 +27,41 @@ int Engine::initEngine(ManualParam &inputParam) {
     curAlgParam->inputWidth = inputParam.inputWidth;
 
     curAlgParam->mode = inputParam.fp32 ? Mode::FP32 : Mode::FP16;
-//    curAlgParam->mode = inputParam.fp16 ? Mode::FP16 : Mode::FP32;
+
     curAlgParam->onnxPath = inputParam.onnxPath;
     curAlgParam->enginePath = inputParam.enginePath;
 
     curAlgParam->inputName = inputParam.inputName;
     curAlgParam->outputName = inputParam.outputName;
 
-    //人脸检测模型初始化
-//    if (nullptr == func.yoloFace) {
-//        AlgorithmBase *curAlg = AlgorithmBase::loadDynamicLibrary(
-//                "/mnt/e/GitHub/TensorRTModelDeployment/cmake-build-debug-wsl/dist/lib/libTrtFaceYolo.so");
-//        if (!curAlg) printf("error");
-//
-//        // 把函数指针从init函数中提出来,在infer推理阶段使用.
-//        func.yoloFace = curAlg;
-//
-//        int initFlag = initCommon(conf.yoloConfig, func.yoloFace);
-//        if (0 > initFlag) {
-//            printf("yolo face init failed\n");
-//            return -1;
-//        }
-//    }
-
+    // 初始化tensorrt engine
     curAlgParam->trt = createInfer(*curAlg, *curAlgParam);
     if (nullptr == curAlgParam->trt) {
+        logError("create tensorrt engine failed");
         return -1;
     }
 
-    //  todo 对仿射参数的初始化,用于占位, 后续使用多线程预处理, 图片参数根据传入次序在指定位置插入
+    // 对仿射参数的初始化,用于占位, 后续使用多线程预处理, 图片参数根据传入次序在指定位置插入
     for (int i = 0; i < curAlgParam->batchSize; ++i) {
         curAlgParam->preD2is.push_back({0., 0., 0., 0., 0., 0.});
     }
+
     return 0;
 }
 
-
+#ifdef PYBIND11
 futureBoxes Engine::inferEngine(const pybind11::array &img) {
 //    pybind11::gil_scoped_release release;
 //  todo 为避免引用计数引起的段错误, 单张推理也直接转为cv::Mat格式
-//  std::vector<cv::Mat> mats;
 //  每次调用前,清理上一次遗留的数据.
     data->mats.clear();
 //    array转成cv::Mat格式
     cv::Mat mat(img.shape(0), img.shape(1), CV_8UC3, (unsigned char *) img.data(0));
-//    data->pyMats.push_back(img);
+
 //  emplace_back效率比data->mats= std::vector<cv::Mat> {mat}更高一些.
     data->mats.emplace_back(mat);
 //    data->mats= std::vector<cv::Mat> {mat};
-//    std::cout<<"data->mats.size()="<<data->mats.size()<<std::endl;
+
     return curAlgParam->trt->commit(data);
 }
 
@@ -86,14 +72,15 @@ futureBoxes Engine::inferEngine(const std::vector<pybind11::array> &imgs) {
     std::vector<cv::Mat> mats;
     for (auto &img: imgs)
         mats.emplace_back(img.shape(0), img.shape(1), CV_8UC3, (unsigned char *) img.data(0));
-//    data->pyMats = imgs;
+
     data->mats = mats;
 
     return curAlgParam->trt->commit(data);
 
 }
+#endif
 
-futureBoxes Engine::inferEngine(const cv::Mat &mat) {
+futureBoxes Engine::inferEngine(const cv::Mat &mat) const {
 //    有可能多个返回结果, 或多个返回依次调用, 在此使用字典类型格式
 //    futureBoxes result;
 //  每次调用前,清理上一次遗留的数据.
@@ -104,7 +91,7 @@ futureBoxes Engine::inferEngine(const cv::Mat &mat) {
     return curAlgParam->trt->commit(data);
 }
 
-futureBoxes Engine::inferEngine(const std::vector<cv::Mat> &mats) {
+futureBoxes Engine::inferEngine(const std::vector<cv::Mat> &mats) const {
 //    有可能多个返回结果, 或多个返回依次调用, 在此使用字典类型格式
 //    futureBoxes result;
     data->mats = mats;
@@ -113,13 +100,14 @@ futureBoxes Engine::inferEngine(const std::vector<cv::Mat> &mats) {
     return curAlgParam->trt->commit(data);
 }
 
-int Engine::releaseEngine() {
+void Engine::releaseEngine() const {
     delete curAlg;
     delete curAlgParam;
     delete data;
     logSuccess("Release engine success");
 }
 
+#ifdef PYBIND11
 PYBIND11_MODULE(deployment, m) {
 //    配置手动输入参数
     pybind11::class_<ManualParam>(m, "ManualParam")
@@ -151,14 +139,17 @@ PYBIND11_MODULE(deployment, m) {
             .def(pybind11::init<>())
             .def("initEngine", &Engine::initEngine)
 
-            .def("inferEngine", pybind11::overload_cast<const pybind11::array &>(&Engine::inferEngine),
+            .def("inferEngine",
+                pybind11::overload_cast<const pybind11::array &>(&Engine::inferEngine),
                  pybind11::arg("image"),
                  pybind11::call_guard<pybind11::gil_scoped_release>()
             )
-            .def("inferEngine", pybind11::overload_cast<const std::vector<pybind11::array> &>(&Engine::inferEngine),
+            .def("inferEngine",
+                pybind11::overload_cast<const std::vector<pybind11::array> &>(&Engine::inferEngine),
                  pybind11::arg("images"),
                  pybind11::call_guard<pybind11::gil_scoped_release>()
             )
 
             .def("releaseEngine", &Engine::releaseEngine);
 }
+#endif
