@@ -29,16 +29,17 @@ public:
     int preProcess(BaseParam &param, const pybind11::array &image, float *pinMemoryCurrentIn, const int &index) override {};
     int postProcess(BaseParam &param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override {};
 */
-    int preProcess(BaseParam *param, const cv::Mat &image, float *pinMemoryCurrentIn) override {};
-    int preProcess(BaseParam *param, const cv::Mat &image, float *pinMemoryCurrentIn, const int &index) override {};
 
-    int postProcess(BaseParam *param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override {};
-    int postProcess(BaseParam *param, float *pinMemoryCurrentOut, int singleOutputSize, std::map<int, imgBoxesType> &result,
-                    const int &index) override {};
+//    int preProcess(BaseParam *param, const cv::Mat &image, float *pinMemoryCurrentIn) override { return 0; };
+//    int preProcess(BaseParam *param, const cv::Mat &image, float *pinMemoryCurrentIn, const int &index) override { return 0; };
+//
+//    int postProcess(BaseParam *param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override { return 0; };
+//    int postProcess(BaseParam *param, float *pinMemoryCurrentOut, int singleOutputSize, std::map<int, imgBoxesType> &result,
+//                    const int &index) override { return 0; };
 
 #ifdef PYBIND11
-    int preProcess(BaseParam *param, const pybind11::array &image, float *pinMemoryCurrentIn) override {};
-    int preProcess(BaseParam *param, const pybind11::array &image, float *pinMemoryCurrentIn, const int &index) override {};
+//    int preProcess(BaseParam *param, const pybind11::array &image, float *pinMemoryCurrentIn) override {};
+//    int preProcess(BaseParam *param, const pybind11::array &image, float *pinMemoryCurrentIn, const int &index) override {};
 #endif
 
     std::vector<int> getMemory() override;
@@ -146,6 +147,7 @@ std::vector<int> InferImpl::setBatchAndInferMemory(BaseParam &curParam) {
 
     curParam.context->setInputShape(curParam.inputName.c_str(), inputShape);
 
+    // inputSize指元素数量，*sizeof(float)才是占用空间大小
 //    计算batchsize个输入输出占用空间大小, inputSize=batchSize * c * h * w
     for (int i = 0; i < inputShape.nbDims; ++i) {
         inputSize *= inputShape.d[i];

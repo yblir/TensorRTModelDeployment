@@ -14,7 +14,7 @@
 #include "infer.h"
 #include <chrono>
 
-class InferImpl : public Infer {
+class InferImpl: public Infer {
 public:
     explicit InferImpl(const std::vector<int> &memory);
     ~InferImpl() override;
@@ -22,28 +22,27 @@ public:
     static bool getEngineContext(BaseParam &curParam);
     static std::vector<int> setBatchAndInferMemory(BaseParam &curParam);
 
-    std::vector<int> getMemory() override {};
-
 /* 弃用
     preProcess,postProcess空实现,具体实现由实际继承Infer.h的应用完成
     int preProcess(BaseParam &param, const cv::Mat &image, float *pinMemoryCurrentIn) override {};
     int preProcess(BaseParam &param, const cv::Mat &image, float *pinMemoryCurrentIn, const int &index) override {};
     int postProcess(BaseParam &param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override {};
 */
-    int preProcess(BaseParam *param, const cv::Mat &image, float *pinMemoryCurrentIn) override {};
-    int preProcess(BaseParam *param, const cv::Mat &image, float *pinMemoryCurrentIn, const int &index) override {};
-
-    int postProcess(BaseParam *param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override {};
-    int postProcess(BaseParam *param, float *pinMemoryCurrentOut, int singleOutputSize, std::map<int, imgBoxesType> &result, const int &index) override {};
-
-#ifdef PYBIND11
-    int preProcess(BaseParam *param, const pybind11::array &image, float *pinMemoryCurrentIn) override {};
-    int preProcess(BaseParam *param, const pybind11::array &image, float *pinMemoryCurrentIn, const int &index) override {};
-#endif
 
 //    具体应用调用commit方法,推理数据传入队列, 直接返回future对象.
 //    数据依次经过trtPre,trtInfer,trtPost三个线程,结果在python代码中通过future.get()获得
     std::shared_future<batchBoxesType> commit(const InputData *data) override;
+
+    // int preProcess(BaseParam *param, const cv::Mat &image, float *pinMemoryCurrentIn) override { return 0; };
+    // int preProcess(BaseParam *param, const cv::Mat &image, float *pinMemoryCurrentIn, const int &index) override { return 0; };
+    //
+    // int postProcess(BaseParam *param, float *pinMemoryCurrentOut, int singleOutputSize, int outputNums, batchBoxesType &result) override { return 0; };
+    // int postProcess(BaseParam *param, float *pinMemoryCurrentOut, int singleOutputSize, std::map<int, imgBoxesType> &result, const int &index) override { return 0; };
+
+#ifdef PYBIND11
+    // int preProcess(BaseParam *param, const pybind11::array &image, float *pinMemoryCurrentIn) override {};
+    // int preProcess(BaseParam *param, const pybind11::array &image, float *pinMemoryCurrentIn, const int &index) override {};
+#endif
 
 //    将待推理数据写入队列1, 会调用上述由具体应用实现的preProcess
     void trtPre(Infer *curAlg, BaseParam &curParam);
@@ -180,6 +179,7 @@ void InferImpl::trtPre(Infer *curAlg, BaseParam &curParam) {
     // count统计推理图片数量,最后一次,可能小于batchSize.imgNums统计预处理图片数量,index是gpuIn的索引,两个显存轮换使用
     int preIndex = 0;
     int index = 0;
+//   inputSize指元素数量，*sizeof(float)才是占用空间大小
     int inputSize = this->memory[0] / curParam.batchSize;
     Job job;
 
@@ -251,7 +251,7 @@ void InferImpl::trtPre(Infer *curAlg, BaseParam &curParam) {
             }
             cv_.notify_all();
             // 清空保存仿射变换参数,只保留当前推理batch的参数
-//            todo 如果这是前面的赋值操作,不必手动清理job.d2is
+//            todo 如果使用前面的赋值操作,不必手动清理job.d2is
 //            std::vector<std::vector<float >>().swap(job.d2is);
         }
     }
@@ -287,13 +287,13 @@ void InferImpl::trtInfer(const BaseParam &curParam) {
             cv_.wait(pre, [&]() { return !qPreJobs.empty() || (preFinish && qPreJobs.empty()); });
 //            若图片都处理完且队列空,说明推理结束,直接退出线程
             if (preFinish && qPreJobs.empty()) break;
-            auto [d2is, inferNum] = qPreJobs.front();
 
 //            必须在显存锁内推理, 保证推理输入数据内存不被覆盖, 如果预处理快,模型推理速度慢, 覆盖情况一定会出现.推理写在
 //            锁外时, qPreJobs被弹出一个元素, 长度为1, 会在trtPre线程中向qPreJobs写入元素,而被写入空间就是当前准备
 //            推理的数据,会造成明细的推理异常. 因此当该数据推理完成前,不准写入新数据, 即推理必须在当前互斥锁内完成.
             curParam.context->enqueueV3(inferStream);
 
+            auto [d2is, inferNum] = qPreJobs.front();
 //            推理与流同步之间弹出, 应该会节省点时间吧.
             qPreJobs.pop();
 //            outTrt.inferOut = gpuOut[index2];
@@ -351,6 +351,7 @@ void InferImpl::trtPost(Infer *curAlg, BaseParam &curParam) {
             // 退出推理线程
             if (inferFinish && qPostJobs.empty()) break;
             auto [d2is, inferNum] = qPostJobs.front();
+            qPostJobs.pop();
             // 取回数据的仿射变换量,用于还原预测量在原图尺寸上的位置
             curParam.postD2is = d2is;
 //          记录当前后处理图片数量, 若是单张图片,这个记录没啥用. 若是传入多个batchSize的图片,countPost会起到标识作用
@@ -384,7 +385,6 @@ void InferImpl::trtPost(Infer *curAlg, BaseParam &curParam) {
             curAlg->postProcess(&curParam, pinMemoryOut, singleOutputSize, inferNum, batchBox);
 #endif
 // ---------------------------------------------------------------------------------------------------------------------
-            qPostJobs.pop();
         }
         cv_.notify_all();
 
@@ -431,7 +431,7 @@ std::vector<int> InferImpl::setBatchAndInferMemory(BaseParam &curParam) {
         outputSize *= outputShape.d[i];
     }
 
-    // 将batchSize个输入输出所占空间大小返回
+    // 将batchSize个输入输出所占空间大小返回, 称为元素数量更合适，*sizeof(float)才是占用空间大小
     std::vector<int> memory = {inputSize, outputSize};
 
     return memory;
