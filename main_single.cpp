@@ -31,8 +31,9 @@ int main(int argc, char *argv[]) {
     // =====================================================================
     struct ManualParam inputParam;
 
-    inputParam.onnxPath = "/media/xk/D6B8A862B8A8433B/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
-    inputParam.enginePath = "/media/xk/D6B8A862B8A8433B/GitHub/TensorRTModelDeployment/yolov5s_NVIDIAGeForceGTX1080_FP32.engine";
+//    inputParam.onnxPath = "/media/xk/D6B8A862B8A8433B/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
+//    inputParam.enginePath = "/media/xk/D6B8A862B8A8433B/GitHub/TensorRTModelDeployment/yolov5s_NVIDIAGeForceGTX1080_FP32.engine";
+    inputParam.onnxPath="/mnt/e/GitHub/TensorRTModelDeployment/models/yolov5s.onnx";
     inputParam.gpuId = 0;
     inputParam.batchSize = 16;
     inputParam.inputHeight = 640;
@@ -51,10 +52,8 @@ int main(int argc, char *argv[]) {
     std::cout << "init ok !" << std::endl;
 
     // ============================================================================================
-//  公司
-    std::string path1 = "/media/xk/D6B8A862B8A8433B/GitHub/TensorRTModelDeployment/imgs";
-//    家
-    // std::string path1 = "/mnt/e/localDatasets/voc/voc_test_100/";
+//    std::string path1 = "/media/xk/D6B8A862B8A8433B/GitHub/TensorRTModelDeployment/imgs";
+     std::string path1 = "/mnt/e/localDatasets/voc/voc_test_100/";
 
     std::filesystem::path imgInputDir(path1);
     std::filesystem::path imgOutputDir(path1 + "output/");

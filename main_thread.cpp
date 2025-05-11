@@ -51,9 +51,7 @@ int main(int argc, char *argv[]) {
         return ret;
     std::cout << "init ok !" << std::endl;
     // ============================================================================================
-//  公司
      std::string path1 = "/media/xk/D6B8A862B8A8433B/GitHub/TensorRTModelDeployment/imgs";
-//    家
 //    std::string path1 = "/mnt/e/localDatasets/voc/voc_test_1000/";
 
     std::filesystem::path imgInputDir(path1);
